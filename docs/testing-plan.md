@@ -28,7 +28,7 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 - [x] **E1 · Unit puro**: `ImportFileParser` (24), `RecategorizationService.matches` (5), `RecurringBudget` (4) + `Fixtures`. 33 tests verdes.
 - [x] **E2a · Service**: `RecurringBudgetService` (upsert/reconciliación, parseAmounts, bitmask, get/delete). 15 tests verdes.
 - [x] **E2b · Service**: `ImportService` (resolveType/Category/Date, buildDescription, dedup, errores por fila, transfers). 25 tests verdes.
-- [ ] **E2c · Service**: `RecategorizationService.applyRule` + `BudgetService.annual`.
+- [x] **E2c · Service**: `RecategorizationService.applyRule` (5) + `BudgetService.annual` (6). 11 tests verdes.
 - [ ] **E2d · Service**: `DashboardService` (summary, balanceUntil, series, byCategory).
 - [ ] **E3a · Controller**: `CategoryController` (padre/subcategoría/ámbito/recurrencia/borrado).
 - [ ] **E3b · Controller**: `TransactionController` (normal + devoluciones).
@@ -55,5 +55,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: E2b hecha (73 tests verdes en total: 48 previos + 25 de `ImportService`).
-- **Próximo paso**: E2c — `RecategorizationService.applyRule` + `BudgetService.annual` con Mockito. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: E2c hecha (84 tests verdes en total: 73 previos + 11 de `applyRule` y `BudgetService.annual`).
+- **Próximo paso**: E2d — `DashboardService` con Mockito (summary, balanceUntil, series, byCategory). **Preguntar antes de arrancar** (ver regla de continuidad arriba).

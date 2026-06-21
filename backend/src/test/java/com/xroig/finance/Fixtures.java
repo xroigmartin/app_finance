@@ -1,6 +1,7 @@
 package com.xroig.finance;
 
 import com.xroig.finance.model.Account;
+import com.xroig.finance.model.Budget;
 import com.xroig.finance.model.Category;
 import com.xroig.finance.model.CategoryRule;
 import com.xroig.finance.model.RecurringBudget;
@@ -100,6 +101,18 @@ public final class Fixtures {
         t.setToAccount(to);
         t.setDate(date);
         return t;
+    }
+
+    public static Budget budget(Long id, Account account, Category category,
+                                int year, int month, BigDecimal amount) {
+        Budget b = new Budget();
+        b.setId(id);
+        b.setAccount(account);
+        b.setCategory(category);
+        b.setYear(year);
+        b.setMonth(month);
+        b.setAmount(amount);
+        return b;
     }
 
     public static RecurringBudgetAmount amount(BigDecimal value, String yearMonth) {
