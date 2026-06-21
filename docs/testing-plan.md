@@ -2,6 +2,8 @@
 
 Documento vivo: **actualízalo al final de cada etapa** (marca casillas y ajusta "Estado actual / Próximo paso"). Una sesión nueva debe poder retomar leyendo solo este fichero.
 
+> ⚠️ **Regla de continuidad (preferencia del usuario):** antes de empezar **cualquier etapa nueva**, pregunta primero al usuario si se continúa con el plan. No arranques la siguiente etapa sin su confirmación explícita.
+
 ## Objetivo y exigencia
 
 Tres niveles de tests, **en orden y con puerta de cobertura ≥ 90 % antes de pasar al siguiente**:
@@ -54,4 +56,4 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 ## Estado actual / Próximo paso
 
 - **Estado**: E1 hecha (33 tests unit puro verdes; informe JaCoCo en `target/site/jacoco/`).
-- **Próximo paso**: E2a — `RecurringBudgetService` con Mockito (upsert/reconciliación, parseAmounts, bitmask, get/delete).
+- **Próximo paso**: E2a — `RecurringBudgetService` con Mockito (upsert/reconciliación, parseAmounts, bitmask, get/delete). **Preguntar antes de arrancar** (ver regla de continuidad arriba).
