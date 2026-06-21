@@ -33,7 +33,7 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 - [x] **E3a · Controller**: `CategoryController` (padre/subcategoría/ámbito/recurrencia/borrado). 20 tests verdes.
 - [x] **E3b · Controller**: `TransactionController` (normal + devoluciones). 16 tests verdes.
 - [x] **E3c · Controller**: `BudgetController` (duplicados, hoja, copy). 15 tests verdes.
-- [ ] **E3d · Controller**: `AccountController` + `TransferController` + `CategoryRuleController`.
+- [x] **E3d · Controller**: `AccountController` (6) + `TransferController` (7) + `CategoryRuleController` (5). 18 tests verdes.
 - [ ] **E3e · Transversal**: `GlobalExceptionHandler`.
 - [ ] **E4 · Puerta 90 %**: medir JaCoCo, rellenar huecos hasta ≥ 90 % de lo cubrible por este nivel.
 
@@ -55,5 +55,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: E3c hecha (145 tests verdes en total: 130 previos + 15 de `BudgetController`).
-- **Próximo paso**: E3d — `AccountController` + `TransferController` + `CategoryRuleController` con Mockito. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: E3d hecha (163 tests verdes en total: 145 previos + 18 de los tres controllers).
+- **Próximo paso**: E3e — `GlobalExceptionHandler` (transversal). **Preguntar antes de arrancar** (ver regla de continuidad arriba).
