@@ -31,7 +31,7 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 - [x] **E2c · Service**: `RecategorizationService.applyRule` (5) + `BudgetService.annual` (6). 11 tests verdes.
 - [x] **E2d · Service**: `DashboardService` (summary, balanceUntil, series, byCategory, budgetStatus). 10 tests verdes.
 - [x] **E3a · Controller**: `CategoryController` (padre/subcategoría/ámbito/recurrencia/borrado). 20 tests verdes.
-- [ ] **E3b · Controller**: `TransactionController` (normal + devoluciones).
+- [x] **E3b · Controller**: `TransactionController` (normal + devoluciones). 16 tests verdes.
 - [ ] **E3c · Controller**: `BudgetController` (duplicados, hoja, copy).
 - [ ] **E3d · Controller**: `AccountController` + `TransferController` + `CategoryRuleController`.
 - [ ] **E3e · Transversal**: `GlobalExceptionHandler`.
@@ -55,5 +55,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: E3a hecha (114 tests verdes en total: 94 previos + 20 de `CategoryController`).
-- **Próximo paso**: E3b — `TransactionController` con Mockito (normal + devoluciones). **Preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: E3b hecha (130 tests verdes en total: 114 previos + 16 de `TransactionController`).
+- **Próximo paso**: E3c — `BudgetController` con Mockito (duplicados, hoja, copy). **Preguntar antes de arrancar** (ver regla de continuidad arriba).
