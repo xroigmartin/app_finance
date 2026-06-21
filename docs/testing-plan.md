@@ -39,7 +39,8 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Nivel 2 — Testcontainers (`@DataJpaTest` Postgres)
 
-- [ ] **T0 · Infra**: dependencias Testcontainers (postgresql + junit-jupiter), clase base con contenedor.
+- [x] **T0 · Infra**: dependencias Testcontainers (`testcontainers-postgresql` + `testcontainers-junit-jupiter`, Boot 4 gestiona la versión 2.0.2) + `spring-boot-data-jpa-test` + `spring-boot-testcontainers`; clase base `PostgresTestBase` (`@DataJpaTest` + `@ServiceConnection`, contenedor `postgres:17-alpine` estático compartido) y `SchemaSmokeTest` verde (Flyway aplica las 6 migraciones, `ddl-auto=validate` pasa).
+  - **Notas de Boot 4**: las slices de test viven en módulos nuevos (`spring-boot-data-jpa-test` → `org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest`; `AutoConfigureTestDatabase` en `org.springframework.boot.jdbc.test.autoconfigure`), no en los paquetes 3.x. Testcontainers 2.0 renombró los artefactos a `testcontainers-<módulo>`.
 - [ ] **T1**: `TransactionRepository` — neteo de devoluciones en las 7 sumas, roll-up de subcategorías, `extract(month)`.
 - [ ] **T2**: recurrencias — reconciliación contra `uq_amount_vigencia` (el bug que arreglamos).
 - [ ] **T3**: constraints UNIQUE que alimentan `GlobalExceptionHandler`.
@@ -55,5 +56,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **Nivel 1 COMPLETO** (E0–E4). 184 tests verdes; JaCoCo 90,1 % global / 98,3 % sin bootstrap. La puerta del 90 % se supera.
-- **Próximo paso**: T0 — infra de **Nivel 2 (Testcontainers)**: dependencias `postgresql` + `junit-jupiter` y clase base con contenedor Postgres. **Preguntar antes de arrancar** (ver regla de continuidad arriba). Nota: el contenedor necesita Docker disponible en la máquina de test.
+- **Estado**: Nivel 1 completo + **T0 hecho** (infra Testcontainers operativa; 185 tests verdes, Docker disponible y `postgres:17-alpine` en caché local).
+- **Próximo paso**: T1 — `TransactionRepository`: neteo de devoluciones en las 7 sumas, roll-up de subcategorías, `extract(month)`. Se escribe extendiendo `PostgresTestBase`. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
