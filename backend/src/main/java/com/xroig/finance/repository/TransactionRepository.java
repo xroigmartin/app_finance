@@ -124,16 +124,22 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Object[]> sumByExactCategoryAndMonthOfYear(@Param("year") int year,
                                                     @Param("accountId") Long accountId);
 
-    /** Net sum by top-level category (subcategories rolled up to their parent). */
+    /**
+     * Net sum by top-level category (subcategories rolled up to their parent).
+     * The parent is joined with an explicit {@code left join}: navigating
+     * {@code t.category.parent.name} implicitly would force an inner join and
+     * silently drop movements on top-level categories (those without a parent).
+     */
     @Query("""
-            select coalesce(t.category.parent.name, t.category.name),
-                   coalesce(t.category.parent.color, t.category.color),
+            select coalesce(p.name, c.name),
+                   coalesce(p.color, c.color),
                    sum(case when t.refundOf is null then t.amount else -t.amount end)
             from Transaction t
+                join t.category c
+                left join c.parent p
             where t.type = :type and t.date >= :from and t.date <= :to
               and (:accountId is null or t.account.id = :accountId)
-            group by coalesce(t.category.parent.name, t.category.name),
-                     coalesce(t.category.parent.color, t.category.color)
+            group by coalesce(p.name, c.name), coalesce(p.color, c.color)
             order by sum(case when t.refundOf is null then t.amount else -t.amount end) desc
             """)
     List<Object[]> sumByCategory(@Param("type") TransactionType type,

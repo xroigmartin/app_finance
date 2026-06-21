@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.0 |
-| Última actualización | 2026-06-21 |
+| Última actualización | 2026-06-22 |
 | Dominio | Dashboard / agregaciones (`/api/dashboard`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -61,7 +61,7 @@ El dashboard **no tiene tablas propias**. Lee de `transactions`, `transfers`, `a
 | RN-1 | Las **transferencias se excluyen** de los ingresos y gastos; el **patrimonio (saldo) sí** las incluye (resta en origen, suma en destino). |
 | RN-1b | Las **devoluciones** (gastos con `refundOf`) netean con signo invertido en todas las cifras: **reducen el gasto** de su categoría y **suman al saldo**. El neteo está en las queries de `TransactionRepository`, así que summary, series, desgloses por categoría y "gastado" de presupuestos lo aplican automáticamente. |
 | RN-2 | El saldo de una cuenta a una fecha = `saldo_inicial + neto de movimientos + transferencias entrantes − salientes` hasta esa fecha (`balanceUntil`). |
-| RN-3 | En los desgloses por categoría, las **subcategorías se enrollan a su categoría principal** (`sumByCategory`). |
+| RN-3 | En los desgloses por categoría, las **subcategorías se enrollan a su categoría principal** (`sumByCategory`). El join al padre es un `left join` explícito: las categorías de primer nivel (sin padre) también cuentan con sus movimientos directos. (Antes un join implícito sobre `t.category.parent.name` forzaba un *inner join* que las descartaba; corregido y cubierto por test de Nivel 2.) |
 | RN-4 | `Summary` ofrece dos lecturas de rentabilidad: **crecimiento de saldo** (delta de saldo, incluye transferencias) y **rentabilidad del ahorro** (ingresos − gastos, excluye transferencias). Los porcentajes son `null` cuando el saldo de partida no es positivo. |
 | RN-5 | El "gastado" de cada presupuesto se calcula sobre el **árbol de la categoría** (principal + subcategorías) y acotado a la cuenta del presupuesto (`sumByCategoryTreeAndPeriod`). |
 | RN-6 | El nº de meses de las series se **acota a `[1, 36]`** (por defecto 12). |
