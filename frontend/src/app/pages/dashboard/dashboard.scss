@@ -1,0 +1,157 @@
+h2 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+  color: var(--heading);
+}
+
+.toolbar {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.account-filter {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .85rem;
+  color: var(--heading);
+
+  select {
+    min-width: 12rem;
+  }
+}
+
+.section-title {
+  margin: 0 0 .75rem;
+}
+
+.kpi-sub {
+  font-size: .72rem;
+  color: var(--muted, #6f6a5c);
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+
+  .month-label {
+    font-weight: 700;
+    min-width: 11rem;
+    text-align: center;
+  }
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+
+  .kpi-label {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .kpi-value {
+    font-family: var(--serif);
+    font-size: 1.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--heading);
+  }
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  &.two {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 1000px) {
+    grid-template-columns: 1fr;
+
+    &.two {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.chart-card.full {
+  margin-bottom: 1.5rem;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 300px;
+}
+
+.budgets-card {
+  margin-bottom: 1.5rem;
+}
+
+.budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem 2rem;
+}
+
+.budget-item {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+.budget-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .9rem;
+}
+
+.budget-figures {
+  font-weight: 600;
+}
+
+.progress {
+  height: .55rem;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 999px;
+
+  &.over {
+    background: var(--expense);
+  }
+}
+
+.bottom {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 1rem;
+
+  @media (max-width: 1000px) {
+    grid-template-columns: 1fr;
+  }
+}

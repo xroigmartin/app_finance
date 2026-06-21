@@ -1,0 +1,201 @@
+.toolbar {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+
+  .month-label {
+    font-weight: 700;
+    min-width: 4rem;
+    text-align: center;
+  }
+}
+
+.account-select {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .9rem;
+
+  select { width: auto; }
+}
+
+.hint {
+  font-size: .8rem;
+  margin-left: auto;
+}
+
+/* ---- Tabla anual ---- */
+.annual-wrap {
+  overflow-x: auto;
+  padding: 0;
+}
+
+table.annual {
+  border-collapse: collapse;
+  font-size: .75rem;
+  white-space: nowrap;
+  min-width: 100%;
+
+  th,
+  td {
+    border: 1px solid var(--line);
+    padding: .25rem .4rem;
+    text-align: right;
+  }
+
+  .num { text-align: right; }
+
+  /* Columna de categoría: fija a la izquierda */
+  th.cat {
+    text-align: left;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--surface);
+    min-width: 13rem;
+    font-weight: 600;
+  }
+
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+
+    th {
+      background: var(--navy);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    th.cat {
+      background: var(--navy);
+      color: #fff;
+      z-index: 4;
+    }
+
+    .months-head th { border-bottom: none; }
+    .sub-head th { font-weight: 500; font-size: .68rem; }
+  }
+
+  .dot {
+    display: inline-block;
+    width: .6rem;
+    height: .6rem;
+    border-radius: 50%;
+    margin-right: .4rem;
+    vertical-align: middle;
+  }
+
+  /* Columna "Real" levemente sombreada para separar bloques de mes */
+  td.real { background: rgba(0, 0, 0, .025); }
+
+  tbody tr:hover td:not(.real) { background: rgba(150, 118, 42, .06); }
+
+  .section th {
+    background: var(--paper);
+    color: var(--heading);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-size: .72rem;
+    text-align: left;
+  }
+
+  .total th.cat,
+  .total td {
+    font-weight: 700;
+    background: #eef1f6;
+  }
+  .total td.real { background: #e7ebf2; }
+
+  .income-total th.cat { color: var(--income); }
+  .expense-total th.cat { color: var(--expense); }
+
+  .savings th.cat,
+  .savings td {
+    background: var(--navy);
+    color: #fff;
+  }
+  .savings td.real { background: var(--navy-2); }
+  .savings .amount-income { color: #7ad6a4; }
+  .savings .amount-expense { color: #f0a39c; }
+
+  .cumulative th.cat,
+  .cumulative td { background: #f4efe2; font-weight: 600; }
+  .cumulative td.real { background: #efe8d4; }
+
+  .rate {
+    th.cat, td { font-style: italic; color: var(--muted); }
+  }
+}
+
+.cell-input {
+  width: 4.5rem;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: right;
+  font: inherit;
+  padding: .1rem .2rem;
+  border-radius: 4px;
+
+  &:hover { border-color: var(--line-strong); }
+  &:focus {
+    outline: none;
+    border-color: var(--gold-soft);
+    background: #fff;
+  }
+}
+
+/* ---- Ajustes para tema oscuro (los fondos claros fijos no encajan) ---- */
+:host-context([data-theme='dark']) {
+  table.annual {
+    td.real { background: rgba(255, 255, 255, .03); }
+    tbody tr:hover td:not(.real) { background: rgba(193, 160, 80, .1); }
+
+    .total th.cat,
+    .total td { background: #262b36; }
+    .total td.real { background: #2c323e; }
+
+    .cumulative th.cat,
+    .cumulative td { background: #23252e; }
+    .cumulative td.real { background: #282b34; }
+  }
+
+  .cell-input:focus { background: #11141b; }
+}
+
+/* ---- Resumen anual ---- */
+.summary { margin-top: 1rem; }
+
+table.summary-table {
+  border-collapse: collapse;
+  min-width: 22rem;
+
+  th, td {
+    padding: .4rem .8rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+  }
+  td.num, th.num { text-align: right; }
+  thead th { color: var(--muted); font-weight: 600; }
+  tr.savings th, tr.savings td { font-weight: 700; }
+}
+
+/* ---- Jerarquía de categorías en la matriz ---- */
+table.annual {
+  tr.parent-agg th.cat { font-weight: 700; }
+  tr.parent-agg td.num { color: var(--muted); }
+
+  tr.sub-row th.cat.sub {
+    padding-left: 1.6rem;
+    font-weight: 400;
+  }
+  .sub-mark { opacity: .5; margin-right: .25rem; }
+}

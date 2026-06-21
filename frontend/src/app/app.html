@@ -1,0 +1,31 @@
+<div class="layout" [class.collapsed]="collapsed">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MF</span>
+      <span class="brand-text">
+        <span class="brand-name">Mis Finanzas</span>
+        <span class="brand-sub">Análisis financiero</span>
+      </span>
+      <button class="collapse-btn" (click)="toggle()" title="Ocultar menú" aria-label="Ocultar menú">‹</button>
+    </div>
+    <nav>
+      <span class="nav-label">Informes</span>
+      <a routerLink="/dashboard" routerLinkActive="active">Panel general</a>
+      <a routerLink="/transactions" routerLinkActive="active">Movimientos</a>
+      <span class="nav-label">Gestión</span>
+      <a routerLink="/budgets" routerLinkActive="active">Presupuestos</a>
+      <a routerLink="/accounts" routerLinkActive="active">Cuentas</a>
+      <a routerLink="/categories" routerLinkActive="active">Categorías</a>
+    </nav>
+    <button class="theme-btn" (click)="toggleTheme()"
+            [title]="theme.theme() === 'dark' ? 'Tema claro' : 'Tema oscuro'"
+            [attr.aria-label]="theme.theme() === 'dark' ? 'Activar tema claro' : 'Activar tema oscuro'">
+      @if (theme.theme() === 'dark') { ☀ Tema claro } @else { ☾ Tema oscuro }
+    </button>
+    <div class="sidebar-foot">Documento de uso interno</div>
+  </aside>
+  <main class="content">
+    <button class="reveal-btn" (click)="toggle()" title="Mostrar menú" aria-label="Mostrar menú">☰</button>
+    <router-outlet />
+  </main>
+</div>

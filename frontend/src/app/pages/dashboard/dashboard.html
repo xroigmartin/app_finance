@@ -1,0 +1,217 @@
+<h1>Dashboard</h1>
+
+<div class="card toolbar">
+  <div class="month-nav">
+    <button class="btn small" (click)="prevMonth()">‹</button>
+    <span class="month-label">{{ monthLabel }}</span>
+    <button class="btn small" (click)="nextMonth()">›</button>
+    @if (!isCurrentMonth) {
+      <button class="btn small" (click)="goToCurrentMonth()">Mes actual</button>
+    }
+  </div>
+  <label class="account-filter">Cuenta
+    <select [(ngModel)]="accountId" (ngModelChange)="onAccountChange()">
+      <option [ngValue]="null">Todas las cuentas</option>
+      @for (a of accounts; track a.id) {
+        <option [ngValue]="a.id">{{ a.name }}</option>
+      }
+    </select>
+  </label>
+</div>
+
+@if (summary) {
+  <h2 class="section-title">Año {{ year }} · {{ accountLabel }}</h2>
+  <div class="kpis">
+    <div class="card kpi">
+      <span class="kpi-label">Ingresos {{ year }}</span>
+      <span class="kpi-value amount-income">{{ summary.yearIncome | currency:'EUR' }}</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Gastos {{ year }}</span>
+      <span class="kpi-value amount-expense">{{ summary.yearExpense | currency:'EUR' }}</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Ahorro {{ year }}</span>
+      <span class="kpi-value" [class.amount-income]="summary.yearSavings >= 0"
+            [class.amount-expense]="summary.yearSavings < 0">
+        {{ summary.yearSavings | currency:'EUR' }}
+      </span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Variación de saldo {{ year }}</span>
+      <span class="kpi-value" [class.amount-income]="summary.yearBalanceDelta >= 0"
+            [class.amount-expense]="summary.yearBalanceDelta < 0">
+        @if (summary.yearGrowthPct !== null) {
+          {{ summary.yearGrowthPct | number:'1.2-2' }}%
+        } @else {
+          —
+        }
+      </span>
+      <span class="kpi-sub">{{ summary.yearBalanceDelta | currency:'EUR' }} (con transferencias)</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Rentabilidad {{ year }}</span>
+      <span class="kpi-value" [class.amount-income]="summary.yearSavings >= 0"
+            [class.amount-expense]="summary.yearSavings < 0">
+        @if (summary.yearSavingsYieldPct !== null) {
+          {{ summary.yearSavingsYieldPct | number:'1.2-2' }}%
+        } @else {
+          —
+        }
+      </span>
+      <span class="kpi-sub">ingresos − gastos sobre saldo inicial</span>
+    </div>
+  </div>
+
+  <h2 class="section-title">{{ monthLabel }} · {{ accountLabel }}</h2>
+  <div class="kpis">
+    <div class="card kpi">
+      <span class="kpi-label">Balance a fin de {{ monthLabel }}</span>
+      <span class="kpi-value">{{ summary.totalBalance | currency:'EUR' }}</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Ingresos · {{ monthLabel }}</span>
+      <span class="kpi-value amount-income">{{ summary.monthIncome | currency:'EUR' }}</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Gastos · {{ monthLabel }}</span>
+      <span class="kpi-value amount-expense">{{ summary.monthExpense | currency:'EUR' }}</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Ahorro · {{ monthLabel }}</span>
+      <span class="kpi-value" [class.amount-income]="summary.monthSavings >= 0"
+            [class.amount-expense]="summary.monthSavings < 0">
+        {{ summary.monthSavings | currency:'EUR' }}
+      </span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Variación de saldo · {{ monthLabel }}</span>
+      <span class="kpi-value" [class.amount-income]="summary.monthBalanceDelta >= 0"
+            [class.amount-expense]="summary.monthBalanceDelta < 0">
+        @if (summary.monthGrowthPct !== null) {
+          {{ summary.monthGrowthPct | number:'1.2-2' }}%
+        } @else {
+          —
+        }
+      </span>
+      <span class="kpi-sub">{{ summary.monthBalanceDelta | currency:'EUR' }} (con transferencias)</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Rentabilidad · {{ monthLabel }}</span>
+      <span class="kpi-value" [class.amount-income]="summary.monthSavings >= 0"
+            [class.amount-expense]="summary.monthSavings < 0">
+        @if (summary.monthSavingsYieldPct !== null) {
+          {{ summary.monthSavingsYieldPct | number:'1.2-2' }}%
+        } @else {
+          —
+        }
+      </span>
+      <span class="kpi-sub">ingresos − gastos sobre saldo inicial</span>
+    </div>
+  </div>
+}
+
+<div class="charts">
+  <div class="card chart-card">
+    <h2>Evolución 12 meses (hasta {{ monthLabel }})</h2>
+    <div class="chart-wrap"><canvas #monthlyChart></canvas></div>
+  </div>
+  <div class="card chart-card">
+    <h2>Gastos por categoría ({{ monthLabel }})</h2>
+    <div class="chart-wrap"><canvas #categoryChart></canvas></div>
+  </div>
+</div>
+
+<div class="charts two">
+  <div class="card chart-card">
+    <h2>Ingresos por categoría ({{ monthLabel }})</h2>
+    <div class="chart-wrap"><canvas #incomeCategoryChart></canvas></div>
+  </div>
+  <div class="card chart-card">
+    <h2>Ahorros acumulados (12 meses)</h2>
+    <div class="chart-wrap"><canvas #savingsChart></canvas></div>
+  </div>
+</div>
+
+<div class="card chart-card full">
+  <h2>Evolución del saldo · patrimonio a fin de mes (12 meses)</h2>
+  <div class="chart-wrap"><canvas #balanceChart></canvas></div>
+</div>
+
+<div class="charts two">
+  <div class="card chart-card">
+    <h2>Comparativa de ingresos por cuenta</h2>
+    <div class="chart-wrap"><canvas #incomeCompareChart></canvas></div>
+  </div>
+  <div class="card chart-card">
+    <h2>Comparativa de gastos por cuenta</h2>
+    <div class="chart-wrap"><canvas #expenseCompareChart></canvas></div>
+  </div>
+</div>
+
+@if (budgets.length > 0) {
+  <div class="card budgets-card">
+    <h2>Presupuestos · {{ monthLabel }}</h2>
+    <div class="budget-grid">
+      @for (s of budgets; track s.budgetId) {
+        <div class="budget-item">
+          <div class="budget-head">
+            <span class="badge" [style.background]="s.color">{{ s.category }}@if (accountId === null) {<span class="muted"> · {{ s.account }}</span>}</span>
+            <span class="budget-figures" [class.amount-expense]="overBudget(s)">
+              {{ s.spent | currency:'EUR' }} <span class="muted">/ {{ s.budget | currency:'EUR' }}</span>
+            </span>
+          </div>
+          <div class="progress">
+            <div class="progress-bar" [style.width.%]="percent(s)"
+                 [class.over]="overBudget(s)" [style.background]="overBudget(s) ? '' : s.color"></div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<div class="bottom">
+  @if (summary) {
+    <div class="card">
+      <h2>Cuentas (saldo a fin de {{ monthLabel }})</h2>
+      <table class="data">
+        <thead>
+          <tr><th>Cuenta</th><th>Tipo</th><th class="num">Saldo</th></tr>
+        </thead>
+        <tbody>
+          @for (a of summary.accounts; track a.id) {
+            <tr>
+              <td>{{ a.name }}</td>
+              <td class="muted">{{ a.type }}</td>
+              <td class="num">{{ a.balance | currency:'EUR' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+  <div class="card">
+    <h2>Últimos movimientos</h2>
+    <table class="data">
+      <thead>
+        <tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th class="num">Importe</th></tr>
+      </thead>
+      <tbody>
+        @for (t of recent; track t.id) {
+          <tr>
+            <td>{{ t.date | date:'dd/MM/yyyy' }}</td>
+            <td>{{ t.description }}</td>
+            <td><span class="badge" [style.background]="t.category.color">{{ t.category.name }}</span></td>
+            <td class="num" [class.amount-income]="t.type === 'INCOME'"
+                [class.amount-expense]="t.type === 'EXPENSE'">
+              {{ (t.type === 'EXPENSE' ? -t.amount : t.amount) | currency:'EUR' }}
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="4" class="muted">Sin movimientos</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

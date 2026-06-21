@@ -1,0 +1,23 @@
+h2 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+  color: var(--heading);
+}
+
+.toolbar {
+  margin-bottom: 1rem;
+}
+
+.form-card {
+  margin-bottom: 1rem;
+  border: 2px solid #c7d2fe;
+}
+
+.actions {
+  white-space: nowrap;
+  text-align: right;
+
+  .btn + .btn {
+    margin-left: .4rem;
+  }
+}

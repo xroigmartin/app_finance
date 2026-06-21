@@ -1,0 +1,10 @@
+backend/target/
+backend/*.db
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.vscode/
+.DS_Store
+.run/
+app.sh
+.claude/settings.local.json

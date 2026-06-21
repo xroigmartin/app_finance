@@ -1,0 +1,44 @@
+h2 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+  color: var(--heading);
+}
+
+.toolbar {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+
+.import-hint {
+  margin: -0.5rem 0 1rem;
+  font-size: .8rem;
+
+  code {
+    background: var(--line);
+    padding: .1rem .3rem;
+    border-radius: .3rem;
+  }
+}
+
+.form-card {
+  margin-bottom: 1rem;
+  border: 2px solid #c7d2fe;
+}
+
+.actions {
+  white-space: nowrap;
+  text-align: right;
+
+  .btn + .btn {
+    margin-left: .4rem;
+  }
+}

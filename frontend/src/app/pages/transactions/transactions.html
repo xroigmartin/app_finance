@@ -1,0 +1,172 @@
+<h1>Movimientos</h1>
+
+<div class="card toolbar">
+  <div class="form-row">
+    <label>Desde
+      <input type="date" [(ngModel)]="filterFrom" (change)="load()">
+    </label>
+    <label>Hasta
+      <input type="date" [(ngModel)]="filterTo" (change)="load()">
+    </label>
+    <label>Cuenta
+      <select [(ngModel)]="filterAccountId" (ngModelChange)="load()">
+        <option [ngValue]="null">Todas</option>
+        @for (a of accounts; track a.id) {
+          <option [ngValue]="a.id">{{ a.name }}</option>
+        }
+      </select>
+    </label>
+    <label>Categoría
+      <select [(ngModel)]="filterCategoryId" (ngModelChange)="load()">
+        <option [ngValue]="null">Todas</option>
+        @for (o of orderedCategories; track o.cat.id) {
+          <option [ngValue]="o.cat.id">{{ o.child ? '↳ ' : '' }}{{ o.cat.name }}</option>
+        }
+      </select>
+    </label>
+    <span class="spacer"></span>
+    <app-import-dialog kind="transactions" label="Importar movimientos" (done)="load()" />
+    <app-import-dialog kind="transfers" label="Importar transferencias" (done)="load()" />
+    <button class="btn primary" (click)="openNew()">＋ Nuevo movimiento</button>
+  </div>
+</div>
+
+<dialog #editDialog class="form-dialog" aria-labelledby="form-title" (cancel)="onCancel($event)">
+  <h2 id="form-title">{{ editingId ? 'Editar movimiento' : 'Nuevo movimiento' }}</h2>
+  @if (error) {
+    <p class="amount-expense">{{ error }}</p>
+  }
+  <form (ngSubmit)="save()" class="form-row">
+      <label>Fecha
+        <input type="date" [(ngModel)]="form.date" name="date" required>
+      </label>
+      <label>Tipo
+        <select [(ngModel)]="kind" name="kind" (ngModelChange)="onKindChange()">
+          <option value="EXPENSE">Gasto</option>
+          <option value="INCOME">Ingreso</option>
+          <option value="TRANSFER">Transferencia</option>
+          <option value="REFUND">Devolución</option>
+        </select>
+      </label>
+      <label>Importe
+        <input type="text" inputmode="decimal" pattern="\d{1,12}([.,]\d{1,2})?"
+               title="Importe con hasta dos decimales, con coma o punto (ej.: 1234,56)"
+               [(ngModel)]="form.amount" name="amount" required>
+      </label>
+
+      @if (isRefund) {
+        <label>Gasto a devolver
+          <select [(ngModel)]="refundOriginal" name="refundOriginal"
+                  (ngModelChange)="onRefundOriginalChange()" required>
+            @for (t of refundableExpenses; track t.id) {
+              <option [ngValue]="t">
+                {{ t.date | date:'dd/MM/yyyy' }} · {{ t.description || t.category.name }} · {{ t.amount | currency:'EUR' }}
+              </option>
+            }
+          </select>
+        </label>
+        @if (refundOriginal) {
+          <p class="muted refund-info">
+            Entra en <strong>{{ refundOriginal.account.name }}</strong> ·
+            categoría <strong>{{ refundOriginal.category.name }}</strong> ·
+            pendiente por devolver <strong>{{ pendingFor(refundOriginal) | currency:'EUR' }}</strong>.
+          </p>
+        } @else {
+          <p class="muted refund-info">No hay gastos pendientes de devolver en la lista actual.</p>
+        }
+      } @else if (isTransfer) {
+        <label>Origen
+          <select [(ngModel)]="fromAccountId" name="fromAccountId" required>
+            @for (a of accounts; track a.id) {
+              <option [ngValue]="a.id">{{ a.name }}</option>
+            }
+          </select>
+        </label>
+        <label>Destino
+          <select [(ngModel)]="toAccountId" name="toAccountId" required>
+            @for (a of accounts; track a.id) {
+              <option [ngValue]="a.id">{{ a.name }}</option>
+            }
+          </select>
+        </label>
+      } @else {
+        <label>Cuenta
+          <select [(ngModel)]="form.accountId" name="accountId" (ngModelChange)="syncCategory()" required>
+            @for (a of accounts; track a.id) {
+              <option [ngValue]="a.id">{{ a.name }}</option>
+            }
+          </select>
+        </label>
+        <label>Categoría
+          <select [(ngModel)]="form.categoryId" name="categoryId" required>
+            @for (o of formCategoryOptions; track o.cat.id) {
+              <option [ngValue]="o.cat.id">{{ o.child ? '↳ ' : '' }}{{ o.cat.name }}{{ scopeSuffix(o.cat) }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <label>Descripción
+        <input type="text" [(ngModel)]="form.description" name="description" placeholder="Opcional">
+      </label>
+      <button class="btn primary" type="submit">Guardar</button>
+      <button class="btn" type="button" (click)="closeForm()">Cancelar</button>
+    </form>
+</dialog>
+
+<div class="card">
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Descripción</th>
+        <th>Cuenta</th>
+        <th>Categoría</th>
+        <th class="num">Importe</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (m of movements; track m.source + m.id) {
+        @if (m.source === 'tx') {
+          <tr>
+            <td>{{ m.tx!.date | date:'dd/MM/yyyy' }}</td>
+            <td>
+              @if (m.tx!.refundOf) {
+                <span class="refund-mark">↩ Devolución</span>
+              }
+              {{ m.tx!.description }}
+            </td>
+            <td class="muted">{{ m.tx!.account.name }}</td>
+            <td><span class="badge" [style.background]="m.tx!.category.color">{{ m.tx!.category.name }}</span></td>
+            <td class="num" [class.amount-income]="m.tx!.type === 'INCOME' || m.tx!.refundOf"
+                [class.amount-expense]="m.tx!.type === 'EXPENSE' && !m.tx!.refundOf">
+              {{ (m.tx!.refundOf ? m.tx!.amount : (m.tx!.type === 'EXPENSE' ? -m.tx!.amount : m.tx!.amount)) | currency:'EUR' }}
+            </td>
+            <td class="actions">
+              @if (m.tx!.type === 'EXPENSE' && !m.tx!.refundOf && pendingFor(m.tx!) > 0) {
+                <button class="btn small" (click)="openRefund(m)">Devolver</button>
+              }
+              <button class="btn small" (click)="openEdit(m)">Editar</button>
+              <button class="btn small danger" (click)="remove(m)">Eliminar</button>
+            </td>
+          </tr>
+        } @else {
+          <tr>
+            <td>{{ m.tr!.date | date:'dd/MM/yyyy' }}</td>
+            <td>{{ m.tr!.description }}</td>
+            <td class="muted">{{ m.tr!.fromAccount.name }} → {{ m.tr!.toAccount.name }}</td>
+            <td><span class="badge transfer-badge">⇄ Transferencia</span></td>
+            <td class="num muted">{{ m.tr!.amount | currency:'EUR' }}</td>
+            <td class="actions">
+              <button class="btn small" (click)="openEdit(m)">Editar</button>
+              <button class="btn small danger" (click)="remove(m)">Eliminar</button>
+            </td>
+          </tr>
+        }
+      } @empty {
+        <tr><td colspan="6" class="muted">No hay movimientos en este periodo</td></tr>
+      }
+    </tbody>
+  </table>
+</div>

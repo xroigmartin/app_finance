@@ -1,0 +1,229 @@
+:root {
+  --paper: #f3f1ea;
+  --surface: #fffefa;
+  --line: #ddd7c9;
+  --line-strong: #c6bea9;
+  --ink: #1c2a42;
+  --heading: #0e1c33;
+  --muted: #6f6a5c;
+  --navy: #0d1d3a;
+  --navy-2: #16294d;
+  --gold: #96762a;
+  --gold-soft: #c1a050;
+  --income: #1d6b48;
+  --expense: #9c2a23;
+  --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+}
+
+:root[data-theme='dark'] {
+  --paper: #14161d;
+  --surface: #1d2029;
+  --line: #2b303b;
+  --line-strong: #3b414f;
+  --ink: #d4d8e0;
+  --heading: #f0f2f6;
+  --muted: #98a1b2;
+  --navy: #11203d;
+  --navy-2: #1b3056;
+  --gold: #c1a050;
+  --gold-soft: #d2b463;
+  --income: #34d399;
+  --expense: #f17a73;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: .95rem;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+h1 {
+  font-family: var(--serif);
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: var(--heading);
+  margin: 0 0 1.75rem;
+  padding-bottom: .65rem;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 44px;
+    height: 2px;
+    background: var(--gold);
+  }
+}
+
+h2 {
+  font-family: var(--serif);
+  font-weight: 600;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 1.4rem 1.6rem;
+  box-shadow: 0 1px 2px rgba(13, 29, 58, .04);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.btn {
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  padding: .5rem 1.1rem;
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  background: var(--surface);
+  color: var(--heading);
+  transition: border-color .15s, background .15s, color .15s;
+
+  &:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  &.primary {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: #f3efe4;
+
+    &:hover {
+      background: var(--navy-2);
+      color: #fff;
+    }
+
+    &:disabled {
+      opacity: .55;
+      cursor: default;
+    }
+  }
+
+  &.danger {
+    background: transparent;
+    border-color: rgba(156, 42, 35, .4);
+    color: var(--expense);
+
+    &:hover {
+      border-color: var(--expense);
+      background: rgba(156, 42, 35, .06);
+      color: var(--expense);
+    }
+  }
+
+  &.small {
+    padding: .3rem .7rem;
+    font-size: .68rem;
+  }
+}
+
+input, select {
+  font: inherit;
+  padding: .5rem .7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--ink);
+
+  &:focus {
+    outline: 2px solid rgba(150, 118, 42, .45);
+    outline-offset: 0;
+    border-color: var(--gold);
+  }
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+
+  th, td {
+    text-align: left;
+    padding: .65rem .75rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  thead th {
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  th {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  tbody tr {
+    transition: background .12s;
+
+    &:hover {
+      background: rgba(150, 118, 42, .05);
+    }
+  }
+
+  td.num, th.num {
+    text-align: right;
+  }
+}
+
+.amount-income {
+  color: var(--income);
+  font-weight: 600;
+}
+
+.amount-expense {
+  color: var(--expense);
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  padding: .18rem .55rem;
+  border-radius: 2px;
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  align-items: flex-end;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    font-size: .7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+  }
+}
+
+.muted {
+  color: var(--muted);
+}

@@ -1,0 +1,184 @@
+<h1>Presupuestos</h1>
+
+<div class="card toolbar">
+  <div class="month-nav">
+    <button class="btn small" (click)="prevYear()">‹</button>
+    <span class="month-label">{{ year }}</span>
+    <button class="btn small" (click)="nextYear()">›</button>
+  </div>
+  <label class="account-select">Cuenta
+    <select [(ngModel)]="accountId" (ngModelChange)="onAccountChange()">
+      <option [ngValue]="null">Todas las cuentas</option>
+      @for (a of accounts; track a.id) {
+        <option [ngValue]="a.id">{{ a.name }}</option>
+      }
+    </select>
+  </label>
+  <span class="muted hint">
+    @if (editable) {
+      Escribe el importe presupuestado en cualquier celda. Vacío o 0 lo elimina.
+    } @else {
+      Vista agregada de todas las cuentas (solo lectura).
+    }
+  </span>
+</div>
+
+@if (error) {
+  <p class="amount-expense">{{ error }}</p>
+}
+
+@if (data) {
+  <!-- Plantillas reutilizadas por las secciones de ingresos y gastos -->
+  <!-- Editable budget cell + real + difference, for a leaf or subcategory row -->
+  <ng-template #leafCells let-row>
+    @for (i of monthIndexes; track i) {
+      <td class="num">
+        @if (editable) {
+          <input class="cell-input" type="text" inputmode="decimal"
+                 [value]="row.months[i].budget || ''"
+                 (change)="onCellEdit(row, i, $event)">
+        } @else {
+          {{ fmt(row.months[i].budget) }}
+        }
+      </td>
+      <td class="num real">{{ fmt(row.months[i].actual) }}</td>
+      <td class="num"
+          [ngClass]="diffClass(diff(row.months[i].actual, row.months[i].budget), row.type)">
+        {{ fmt(diff(row.months[i].actual, row.months[i].budget)) }}
+      </td>
+    }
+  </ng-template>
+
+  <ng-template #catRows let-rows>
+    @for (row of rows; track row.categoryId) {
+      @if (row.children.length) {
+        <!-- Parent with subcategories: read-only aggregate, then editable children -->
+        <tr class="parent-agg">
+          <th class="cat" scope="row">
+            <span class="dot" [style.background]="row.color"></span>{{ row.category }}
+          </th>
+          @for (i of monthIndexes; track i) {
+            <td class="num">{{ fmt(row.months[i].budget) }}</td>
+            <td class="num real">{{ fmt(row.months[i].actual) }}</td>
+            <td class="num"
+                [ngClass]="diffClass(diff(row.months[i].actual, row.months[i].budget), row.type)">
+              {{ fmt(diff(row.months[i].actual, row.months[i].budget)) }}
+            </td>
+          }
+        </tr>
+        @for (child of row.children; track child.categoryId) {
+          <tr class="sub-row">
+            <th class="cat sub" scope="row">
+              <span class="sub-mark">↳</span>
+              <span class="dot" [style.background]="child.color"></span>{{ child.category }}
+            </th>
+            <ng-container *ngTemplateOutlet="leafCells; context: { $implicit: child }"></ng-container>
+          </tr>
+        }
+      } @else {
+        <tr>
+          <th class="cat" scope="row">
+            <span class="dot" [style.background]="row.color"></span>{{ row.category }}
+          </th>
+          <ng-container *ngTemplateOutlet="leafCells; context: { $implicit: row }"></ng-container>
+        </tr>
+      }
+    }
+  </ng-template>
+
+  <ng-template #totalRow let-s let-label="label" let-type="type" let-cls="cls">
+    <tr class="total" [class]="cls">
+      <th class="cat" scope="row">{{ label }}</th>
+      @for (i of monthIndexes; track i) {
+        <td class="num">{{ fmt(s.budget[i]) }}</td>
+        <td class="num real">{{ fmt(s.actual[i]) }}</td>
+        <td class="num" [ngClass]="diffClass(diff(s.actual[i], s.budget[i]), type)">
+          {{ fmt(diff(s.actual[i], s.budget[i])) }}
+        </td>
+      }
+    </tr>
+  </ng-template>
+
+  <div class="card annual-wrap">
+    <table class="annual">
+      <thead>
+        <tr class="months-head">
+          <th class="cat"></th>
+          @for (i of monthIndexes; track i) {
+            <th class="num" colspan="3">{{ monthsShort[i] }}</th>
+          }
+        </tr>
+        <tr class="sub-head">
+          <th class="cat">Categoría</th>
+          @for (i of monthIndexes; track i) {
+            <th class="num">Pres.</th>
+            <th class="num">Real</th>
+            <th class="num">Dif.</th>
+          }
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr class="section"><th class="cat" [attr.colspan]="37" scope="rowgroup">INGRESOS</th></tr>
+        <ng-container *ngTemplateOutlet="catRows; context: { $implicit: data.income }"></ng-container>
+        <ng-container *ngTemplateOutlet="totalRow;
+          context: { $implicit: income, label: 'TOTAL INGRESOS', type: 'INCOME', cls: 'income-total' }">
+        </ng-container>
+
+        <tr class="section"><th class="cat" [attr.colspan]="37" scope="rowgroup">GASTOS</th></tr>
+        <ng-container *ngTemplateOutlet="catRows; context: { $implicit: data.expense }"></ng-container>
+        <ng-container *ngTemplateOutlet="totalRow;
+          context: { $implicit: expense, label: 'TOTAL GASTOS', type: 'EXPENSE', cls: 'expense-total' }">
+        </ng-container>
+
+        <ng-container *ngTemplateOutlet="totalRow;
+          context: { $implicit: savings, label: 'AHORRO', type: 'INCOME', cls: 'savings' }">
+        </ng-container>
+
+        <tr class="rate">
+          <th class="cat" scope="row">% Ahorro</th>
+          @for (i of monthIndexes; track i) {
+            <td class="num">{{ pct(rate(savings.budget[i], income.budget[i])) }}</td>
+            <td class="num real">{{ pct(rate(savings.actual[i], income.actual[i])) }}</td>
+            <td class="num"></td>
+          }
+        </tr>
+
+        <ng-container *ngTemplateOutlet="totalRow;
+          context: { $implicit: cumulative, label: 'AHORRO ACUMULADO', type: 'INCOME', cls: 'cumulative' }">
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card summary">
+    <h2>Resumen anual {{ year }} — {{ selectedAccountName }}</h2>
+    <table class="summary-table">
+      <thead>
+        <tr><th></th><th class="num">Presupuesto</th><th class="num">Real</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">Ingresos</th>
+          <td class="num">{{ income.totalBudget | currency:'EUR':'symbol':'1.0-2' }}</td>
+          <td class="num">{{ income.totalActual | currency:'EUR':'symbol':'1.0-2' }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Gastos</th>
+          <td class="num">{{ expense.totalBudget | currency:'EUR':'symbol':'1.0-2' }}</td>
+          <td class="num">{{ expense.totalActual | currency:'EUR':'symbol':'1.0-2' }}</td>
+        </tr>
+        <tr class="savings">
+          <th scope="row">Ahorro</th>
+          <td class="num">{{ savings.totalBudget | currency:'EUR':'symbol':'1.0-2' }}</td>
+          <td class="num">{{ savings.totalActual | currency:'EUR':'symbol':'1.0-2' }}</td>
+        </tr>
+        <tr>
+          <th scope="row">% Ahorro</th>
+          <td class="num">{{ pct(rate(savings.totalBudget, income.totalBudget)) }}</td>
+          <td class="num">{{ pct(rate(savings.totalActual, income.totalActual)) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+}

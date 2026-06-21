@@ -1,0 +1,239 @@
+<h1>Categorías</h1>
+
+<div class="card toolbar">
+  <button class="btn primary" (click)="openNew()">＋ Nueva categoría</button>
+</div>
+
+<dialog #catDialog class="form-dialog" aria-labelledby="cat-form-title" (cancel)="onCatCancel($event)">
+  <h2 id="cat-form-title">{{ editingId ? 'Editar categoría' : 'Nueva categoría' }}</h2>
+  @if (error) {
+    <p class="amount-expense">{{ error }}</p>
+  }
+  <form (ngSubmit)="save()" class="form-row">
+      <label>Nombre
+        <input type="text" [(ngModel)]="form.name" name="name" required>
+      </label>
+      <label>Categoría principal
+        <select [(ngModel)]="formParentId" name="parent" (ngModelChange)="onParentChange()">
+          <option [ngValue]="null">— Ninguna (categoría principal)</option>
+          @for (p of parentOptions; track p.id) {
+            <option [ngValue]="p.id">{{ p.name }} ({{ p.type === 'EXPENSE' ? 'gasto' : 'ingreso' }}) · {{ scopeLabel(p) }}</option>
+          }
+        </select>
+      </label>
+      <label>Tipo
+        <select [(ngModel)]="form.type" name="type" [disabled]="isSubcategory">
+          <option value="EXPENSE">Gasto</option>
+          <option value="INCOME">Ingreso</option>
+        </select>
+      </label>
+      <label>Ámbito
+        <select [(ngModel)]="formAccountId" name="scope" [disabled]="scopeLocked">
+          <option [ngValue]="null">Global (todas las cuentas)</option>
+          @for (a of accounts; track a.id) {
+            <option [ngValue]="a.id">{{ a.name }}</option>
+          }
+        </select>
+      </label>
+      <label>Color
+        <input type="color" [(ngModel)]="form.color" name="color">
+      </label>
+      <button class="btn primary" type="submit">Guardar</button>
+      <button class="btn" type="button" (click)="closeForm()">Cancelar</button>
+    </form>
+    @if (isSubcategory) {
+      <p class="muted form-hint">
+        Las subcategorías heredan el tipo de su categoría principal.
+        @if (scopeLocked) {
+          El ámbito también se hereda porque la categoría principal pertenece a una cuenta.
+        } @else {
+          Como la categoría principal es global, puedes hacer la subcategoría global o de una cuenta concreta.
+        }
+      </p>
+    }
+
+    <div class="recurrence">
+      <h3>Recurrencia (pago previsto)</h3>
+      @if (canHaveRecurrence) {
+        <p class="muted form-hint">
+          Define un pago recurrente (comunidad, hipoteca…). Rellena el <strong>previsto</strong> de la
+          matriz de presupuestos en los meses elegidos. Si el importe cambia, añade otro importe con su
+          fecha de vigencia: los meses anteriores conservan el importe viejo y los posteriores el nuevo.
+        </p>
+
+        <label class="rec-active">
+          <input type="checkbox" [(ngModel)]="recActive" name="recActive">
+          Recurrencia activa
+        </label>
+
+        <div class="rec-field">
+          <span class="rec-label">Meses</span>
+          <div class="month-toggle">
+            @for (label of monthLabels; track $index) {
+              <button type="button" class="month-btn" [class.on]="recMonths[$index]"
+                      (click)="toggleMonth($index)">{{ label }}</button>
+            }
+          </div>
+        </div>
+
+        <div class="rec-field">
+          <span class="rec-label">Importes</span>
+          <div class="rec-amounts">
+            @for (a of recAmounts; track $index) {
+              <div class="rec-amount-row">
+                <label>Importe
+                  <input type="number" step="0.01" min="0" [(ngModel)]="a.amount"
+                         name="recAmount{{ $index }}">
+                </label>
+                <label>Válido desde
+                  <input type="month" [(ngModel)]="a.validoDesde" name="recValidoDesde{{ $index }}">
+                </label>
+                <button type="button" class="btn small danger" (click)="removeAmount($index)">Quitar</button>
+              </div>
+            } @empty {
+              <p class="muted">Aún no hay importes. Añade al menos uno para que la recurrencia tenga efecto.</p>
+            }
+            <button type="button" class="btn small" (click)="addAmount()">＋ Añadir importe</button>
+          </div>
+        </div>
+      } @else {
+        <p class="muted form-hint">
+          Solo las categorías <strong>hoja</strong> (sin subcategorías) y <strong>ligadas a una cuenta</strong>
+          admiten recurrencia. Si es una categoría global, crea una subcategoría ligada a una cuenta y
+          defínela ahí.
+        </p>
+      }
+    </div>
+</dialog>
+
+<div class="columns">
+  <div class="card">
+    <h2>Gastos</h2>
+    <ul class="cat-list">
+      @for (c of expenseCategories; track c.id) {
+        <li>
+          <span class="cat-name">
+            <span class="badge" [style.background]="c.color">{{ c.name }}</span>
+            <span class="scope-tag" [class.global]="!c.account">{{ scopeLabel(c) }}</span>
+          </span>
+          <span class="actions">
+            <button class="btn small" (click)="openNewSub(c)">＋ Sub</button>
+            <button class="btn small" (click)="openEdit(c)">Editar</button>
+            <button class="btn small danger" (click)="remove(c)">Eliminar</button>
+          </span>
+        </li>
+        @for (s of childrenOf(c.id); track s.id) {
+          <li class="sub">
+            <span class="cat-name">
+              <span class="sub-mark">↳</span>
+              <span class="badge" [style.background]="s.color">{{ s.name }}</span>
+              <span class="scope-tag" [class.global]="!s.account">{{ scopeLabel(s) }}</span>
+            </span>
+            <span class="actions">
+              <button class="btn small" (click)="openEdit(s)">Editar</button>
+              <button class="btn small danger" (click)="remove(s)">Eliminar</button>
+            </span>
+          </li>
+        }
+      } @empty {
+        <li class="muted">Sin categorías de gasto</li>
+      }
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Ingresos</h2>
+    <ul class="cat-list">
+      @for (c of incomeCategories; track c.id) {
+        <li>
+          <span class="cat-name">
+            <span class="badge" [style.background]="c.color">{{ c.name }}</span>
+            <span class="scope-tag" [class.global]="!c.account">{{ scopeLabel(c) }}</span>
+          </span>
+          <span class="actions">
+            <button class="btn small" (click)="openNewSub(c)">＋ Sub</button>
+            <button class="btn small" (click)="openEdit(c)">Editar</button>
+            <button class="btn small danger" (click)="remove(c)">Eliminar</button>
+          </span>
+        </li>
+        @for (s of childrenOf(c.id); track s.id) {
+          <li class="sub">
+            <span class="cat-name">
+              <span class="sub-mark">↳</span>
+              <span class="badge" [style.background]="s.color">{{ s.name }}</span>
+              <span class="scope-tag" [class.global]="!s.account">{{ scopeLabel(s) }}</span>
+            </span>
+            <span class="actions">
+              <button class="btn small" (click)="openEdit(s)">Editar</button>
+              <button class="btn small danger" (click)="remove(s)">Eliminar</button>
+            </span>
+          </li>
+        }
+      } @empty {
+        <li class="muted">Sin categorías de ingreso</li>
+      }
+    </ul>
+  </div>
+</div>
+
+<div class="card rules-card">
+  <div class="rules-head">
+    <h2>Reglas de categorización automática</h2>
+    <button class="btn primary" (click)="openNewRule()">＋ Nueva regla</button>
+  </div>
+  <p class="muted rules-hint">
+    Al importar, los movimientos sin categoría se asignan a la primera regla cuyo texto
+    aparezca en la descripción (sin distinguir mayúsculas ni acentos). Puedes poner varias
+    alternativas separadas por <code>|</code>, p. ej. <code>consum|lidl|spar</code>.
+    Al crear o editar una regla, los movimientos en "Otros gastos/ingresos" que coincidan
+    se recategorizan automáticamente.
+  </p>
+
+  @if (ruleInfo) {
+    <p class="amount-income">{{ ruleInfo }}</p>
+  }
+
+  <dialog #ruleDialog class="form-dialog" aria-labelledby="rule-form-title" (cancel)="onRuleCancel($event)">
+    <h2 id="rule-form-title">{{ editingRuleId ? 'Editar regla' : 'Nueva regla' }}</h2>
+    @if (ruleError) {
+      <p class="amount-expense">{{ ruleError }}</p>
+    }
+    <form (ngSubmit)="saveRule()" class="form-row">
+      <label>Patrón
+        <input type="text" [(ngModel)]="ruleForm.pattern" name="pattern"
+               placeholder="consum|lidl|spar" required>
+      </label>
+      <label>Categoría
+        <select [(ngModel)]="ruleForm.categoryId" name="categoryId" required>
+          @for (o of orderedCategories; track o.cat.id) {
+            <option [ngValue]="o.cat.id">{{ o.child ? '↳ ' : '' }}{{ o.cat.name }} ({{ o.cat.type === 'EXPENSE' ? 'gasto' : 'ingreso' }}) · {{ scopeLabel(o.cat) }}</option>
+          }
+        </select>
+      </label>
+      <button class="btn primary" type="submit">Guardar</button>
+      <button class="btn" type="button" (click)="closeRuleForm()">Cancelar</button>
+    </form>
+  </dialog>
+
+  <table class="data">
+    <thead>
+      <tr><th>Patrón</th><th>Categoría</th><th></th></tr>
+    </thead>
+    <tbody>
+      @for (r of rules; track r.id) {
+        <tr>
+          <td><code>{{ r.pattern }}</code></td>
+          <td>
+            <span class="badge" [style.background]="r.category.color">{{ r.category.name }}</span>
+            <span class="scope-tag" [class.global]="!r.category.account">{{ scopeLabel(r.category) }}</span>
+          </td>
+          <td class="actions">
+            <button class="btn small" (click)="openEditRule(r)">Editar</button>
+            <button class="btn small danger" (click)="removeRule(r)">Eliminar</button>
+          </td>
+        </tr>
+      } @empty {
+        <tr><td colspan="3" class="muted">No hay reglas. Las importaciones sin categoría irán a "Otros gastos/ingresos".</td></tr>
+      }
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,58 @@
+<h1>Cuentas</h1>
+
+<div class="card toolbar">
+  <button class="btn primary" (click)="openNew()">＋ Nueva cuenta</button>
+</div>
+
+@if (showForm) {
+  <div class="card form-card">
+    <h2>{{ editingId ? 'Editar cuenta' : 'Nueva cuenta' }}</h2>
+    @if (error) {
+      <p class="amount-expense">{{ error }}</p>
+    }
+    <form (ngSubmit)="save()" class="form-row">
+      <label>Nombre
+        <input type="text" [(ngModel)]="form.name" name="name" required>
+      </label>
+      <label>Tipo
+        <select [(ngModel)]="form.type" name="type">
+          <option>Banco</option>
+          <option>Efectivo</option>
+          <option>Tarjeta</option>
+          <option>Inversión</option>
+          <option>Otro</option>
+        </select>
+      </label>
+      <label>Saldo inicial
+        <input type="text" inputmode="decimal" pattern="-?\d{1,12}([.,]\d{1,2})?"
+               title="Importe con hasta dos decimales, con coma o punto (ej.: 1234,56)"
+               [(ngModel)]="form.initialBalance" name="initialBalance" required>
+      </label>
+      <button class="btn primary" type="submit">Guardar</button>
+      <button class="btn" type="button" (click)="showForm = false">Cancelar</button>
+    </form>
+  </div>
+}
+
+<div class="card">
+  <table class="data">
+    <thead>
+      <tr><th>Nombre</th><th>Tipo</th><th class="num">Saldo inicial</th><th></th></tr>
+    </thead>
+    <tbody>
+      @for (a of accounts; track a.id) {
+        <tr>
+          <td>{{ a.name }}</td>
+          <td class="muted">{{ a.type }}</td>
+          <td class="num">{{ a.initialBalance | currency:'EUR' }}</td>
+          <td class="actions">
+            <button class="btn small" (click)="openEdit(a)">Editar</button>
+            <button class="btn small danger" (click)="remove(a)">Eliminar</button>
+          </td>
+        </tr>
+      } @empty {
+        <tr><td colspan="4" class="muted">No hay cuentas</td></tr>
+      }
+    </tbody>
+  </table>
+</div>

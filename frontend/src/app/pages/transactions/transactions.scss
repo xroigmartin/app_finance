@@ -1,0 +1,70 @@
+h2 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+  color: var(--heading);
+}
+
+.toolbar {
+  margin-bottom: 1rem;
+
+  .spacer {
+    flex: 1;
+  }
+}
+
+.import-hint {
+  margin: .75rem 0 0;
+  font-size: .8rem;
+
+  code {
+    background: var(--paper);
+    padding: .1rem .3rem;
+    border-radius: .3rem;
+  }
+}
+
+.form-dialog {
+  width: min(720px, 94vw);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 1.4rem 1.6rem;
+  box-shadow: 0 10px 30px rgba(13, 29, 58, .18);
+
+  &::backdrop {
+    background: rgba(15, 23, 42, .45);
+  }
+}
+
+.actions {
+  white-space: nowrap;
+  text-align: right;
+
+  .btn + .btn {
+    margin-left: .4rem;
+  }
+}
+
+.transfer-badge {
+  background: transparent;
+  border: 1px solid var(--line-strong, var(--line));
+  color: var(--muted);
+}
+
+.refund-mark {
+  display: inline-block;
+  margin-right: .4rem;
+  padding: .05rem .4rem;
+  border-radius: 1rem;
+  font-size: .7rem;
+  font-weight: 600;
+  background: var(--income, #15803d);
+  color: #fff;
+}
+
+.refund-info {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: .8rem;
+}

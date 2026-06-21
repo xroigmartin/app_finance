@@ -1,0 +1,81 @@
+<h1>Transferencias</h1>
+
+<div class="card toolbar">
+  <span class="muted">Movimientos entre tus cuentas: no cuentan como ingreso ni gasto.</span>
+  <div class="toolbar-actions">
+    <app-import-dialog kind="transfers" (done)="load()" />
+    <button class="btn primary" (click)="openNew()" [disabled]="accounts.length < 2">
+      ＋ Nueva transferencia
+    </button>
+  </div>
+</div>
+
+@if (showForm) {
+  <div class="card form-card">
+    <h2>{{ editingId ? 'Editar transferencia' : 'Nueva transferencia' }}</h2>
+    @if (error) {
+      <p class="amount-expense">{{ error }}</p>
+    }
+    <form (ngSubmit)="save()" class="form-row">
+      <label>Fecha
+        <input type="date" [(ngModel)]="form.date" name="date" required>
+      </label>
+      <label>Desde
+        <select [(ngModel)]="form.fromAccountId" name="fromAccountId" required>
+          @for (a of accounts; track a.id) {
+            <option [ngValue]="a.id">{{ a.name }}</option>
+          }
+        </select>
+      </label>
+      <label>Hasta
+        <select [(ngModel)]="form.toAccountId" name="toAccountId" required>
+          @for (a of accounts; track a.id) {
+            <option [ngValue]="a.id">{{ a.name }}</option>
+          }
+        </select>
+      </label>
+      <label>Importe
+        <input type="text" inputmode="decimal" pattern="\d{1,12}([.,]\d{1,2})?"
+               title="Importe con hasta dos decimales, con coma o punto (ej.: 1234,56)"
+               [(ngModel)]="form.amount" name="amount" required>
+      </label>
+      <label>Descripción
+        <input type="text" [(ngModel)]="form.description" name="description" placeholder="Opcional">
+      </label>
+      <button class="btn primary" type="submit">Guardar</button>
+      <button class="btn" type="button" (click)="showForm = false">Cancelar</button>
+    </form>
+  </div>
+}
+
+<div class="card">
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Desde</th>
+        <th>Hasta</th>
+        <th>Descripción</th>
+        <th class="num">Importe</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (t of transfers; track t.id) {
+        <tr>
+          <td>{{ t.date | date:'dd/MM/yyyy' }}</td>
+          <td>{{ t.fromAccount.name }}</td>
+          <td>{{ t.toAccount.name }}</td>
+          <td class="muted">{{ t.description }}</td>
+          <td class="num">{{ t.amount | currency:'EUR' }}</td>
+          <td class="actions">
+            <button class="btn small" (click)="openEdit(t)">Editar</button>
+            <button class="btn small danger" (click)="remove(t)">Eliminar</button>
+          </td>
+        </tr>
+      } @empty {
+        <tr><td colspan="6" class="muted">No hay transferencias</td></tr>
+      }
+    </tbody>
+  </table>
+</div>
