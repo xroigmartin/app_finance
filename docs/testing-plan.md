@@ -41,7 +41,7 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 - [x] **T0 · Infra**: dependencias Testcontainers (`testcontainers-postgresql` + `testcontainers-junit-jupiter`, Boot 4 gestiona la versión 2.0.2) + `spring-boot-data-jpa-test` + `spring-boot-testcontainers`; clase base `PostgresTestBase` (`@DataJpaTest` + `@ServiceConnection`, contenedor `postgres:17-alpine` estático compartido) y `SchemaSmokeTest` verde (Flyway aplica las 6 migraciones, `ddl-auto=validate` pasa).
   - **Notas de Boot 4**: las slices de test viven en módulos nuevos (`spring-boot-data-jpa-test` → `org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest`; `AutoConfigureTestDatabase` en `org.springframework.boot.jdbc.test.autoconfigure`), no en los paquetes 3.x. Testcontainers 2.0 renombró los artefactos a `testcontainers-<módulo>`.
-- [ ] **T1**: `TransactionRepository` — neteo de devoluciones en las 7 sumas, roll-up de subcategorías, `extract(month)`.
+- [x] **T1**: `TransactionRepository` — neteo de devoluciones, roll-up de subcategorías, `extract(month/year)`, scoping por cuenta. 9 tests verdes. **Cazó un bug real**: `sumByCategory` descartaba las categorías de primer nivel por un *inner join* implícito al padre (`fix` aplicado: `left join` explícito + PRD dashboard). Ajuste de infra: `PostgresTestBase` pasó al patrón **singleton container** (el `@Container` estático paraba el contenedor en el `afterAll` de la primera clase y dejaba el contexto cacheado apuntando a un puerto muerto).
 - [ ] **T2**: recurrencias — reconciliación contra `uq_amount_vigencia` (el bug que arreglamos).
 - [ ] **T3**: constraints UNIQUE que alimentan `GlobalExceptionHandler`.
 - [ ] **T4 · Puerta 90 %** de la capa de repositorio.
@@ -56,5 +56,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: Nivel 1 completo + **T0 hecho** (infra Testcontainers operativa; 185 tests verdes, Docker disponible y `postgres:17-alpine` en caché local).
-- **Próximo paso**: T1 — `TransactionRepository`: neteo de devoluciones en las 7 sumas, roll-up de subcategorías, `extract(month)`. Se escribe extendiendo `PostgresTestBase`. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: **T1 hecho** (194 tests verdes en suite completa). Bug de `sumByCategory` corregido y `PostgresTestBase` migrado a singleton container.
+- **Próximo paso**: T2 — recurrencias: reconciliación contra `uq_amount_vigencia` (el bug que arreglamos en su día), extendiendo `PostgresTestBase`. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
