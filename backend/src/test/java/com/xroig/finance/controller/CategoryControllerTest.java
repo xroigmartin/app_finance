@@ -132,6 +132,19 @@ class CategoryControllerTest {
     }
 
     @Test
+    void create_subcategoryOfGlobalParentStaysGlobalWhenNoAccountGiven() {
+        Category parent = category(20, "Hogar", TransactionType.EXPENSE); // global
+        when(categoryRepository.findById(20L)).thenReturn(Optional.of(parent));
+        when(recurringBudgetRepository.existsByCategoryId(20L)).thenReturn(false);
+        when(categoryRepository.save(any(Category.class))).thenAnswer(i -> i.getArgument(0));
+
+        Category saved = controller.create(request("Luz", TransactionType.EXPENSE, 20L, null));
+
+        assertThat(saved.getParent()).isSameAs(parent);
+        assertThat(saved.getAccount()).isNull();
+    }
+
+    @Test
     void create_subcategoryWhenParentHasRecurrenceThrows409() {
         Category parent = category(20, "Hogar", TransactionType.EXPENSE, corriente);
         when(categoryRepository.findById(20L)).thenReturn(Optional.of(parent));
@@ -234,6 +247,38 @@ class CategoryControllerTest {
         assertThatThrownBy(() -> controller.update(7L, request("X", TransactionType.EXPENSE, null, null)))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(e -> assertThat(statusOf(e)).isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void update_convertingToSubcategoryInheritsParentTypeAndScope() {
+        Category existing = category(7, "X", TransactionType.INCOME);
+        Category parent = category(20, "Hogar", TransactionType.EXPENSE, corriente);
+        when(categoryRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(categoryRepository.findById(20L)).thenReturn(Optional.of(parent));
+        when(categoryRepository.existsByParentId(7L)).thenReturn(false);
+        when(transactionRepository.existsByCategoryIdAndAccountIdNot(7L, 1L)).thenReturn(false);
+        when(categoryRepository.save(any(Category.class))).thenAnswer(i -> i.getArgument(0));
+
+        Category updated = controller.update(7L, request("X", TransactionType.INCOME, 20L, null));
+
+        assertThat(updated.getParent()).isSameAs(parent);
+        assertThat(updated.getType()).isEqualTo(TransactionType.EXPENSE); // inherited
+        assertThat(updated.getAccount()).isSameAs(corriente);            // inherited
+    }
+
+    @Test
+    void update_assigningAccountWithCompatibleChildSucceeds() {
+        Category existing = category(7, "X", TransactionType.EXPENSE);
+        Category sameAccountChild = category(8, "Sub", TransactionType.EXPENSE, corriente);
+        when(categoryRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(corriente));
+        when(categoryRepository.findByParentId(7L)).thenReturn(List.of(sameAccountChild));
+        when(transactionRepository.existsByCategoryIdAndAccountIdNot(7L, 1L)).thenReturn(false);
+        when(categoryRepository.save(any(Category.class))).thenAnswer(i -> i.getArgument(0));
+
+        Category updated = controller.update(7L, request("X", TransactionType.EXPENSE, null, 1L));
+
+        assertThat(updated.getAccount()).isSameAs(corriente);
     }
 
     @Test

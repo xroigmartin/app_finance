@@ -35,7 +35,7 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 - [x] **E3c · Controller**: `BudgetController` (duplicados, hoja, copy). 15 tests verdes.
 - [x] **E3d · Controller**: `AccountController` (6) + `TransferController` (7) + `CategoryRuleController` (5). 18 tests verdes.
 - [x] **E3e · Transversal**: `GlobalExceptionHandler`. 6 tests verdes.
-- [ ] **E4 · Puerta 90 %**: medir JaCoCo, rellenar huecos hasta ≥ 90 % de lo cubrible por este nivel.
+- [x] **E4 · Puerta 90 %**: JaCoCo **90,1 % global** (5391/5983) y **98,3 % sin bootstrap/config** (5391/5487). Añadidos `DashboardController` (9) y `RecurringBudgetController` (3) que estaban a 0 %, y huecos de rama en `CategoryController` (→ 98,8 %). 184 tests verdes. Lo único a 0 % es bootstrap no cubrible por Mockito (`DataSeeder` 442 instr., `WebConfig` 34, `FinanceApplication` 8) — aplazado a un test de contexto/integración en niveles posteriores.
 
 ## Nivel 2 — Testcontainers (`@DataJpaTest` Postgres)
 
@@ -55,5 +55,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: E3e hecha (169 tests verdes en total: 163 previos + 6 de `GlobalExceptionHandler`). Con esto Nivel 1 está completo salvo la puerta de cobertura.
-- **Próximo paso**: E4 — medir JaCoCo y rellenar huecos hasta ≥ 90 % de lo cubrible por el Nivel 1. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: **Nivel 1 COMPLETO** (E0–E4). 184 tests verdes; JaCoCo 90,1 % global / 98,3 % sin bootstrap. La puerta del 90 % se supera.
+- **Próximo paso**: T0 — infra de **Nivel 2 (Testcontainers)**: dependencias `postgresql` + `junit-jupiter` y clase base con contenedor Postgres. **Preguntar antes de arrancar** (ver regla de continuidad arriba). Nota: el contenedor necesita Docker disponible en la máquina de test.
