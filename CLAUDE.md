@@ -16,6 +16,8 @@ Per-domain PRDs live in `docs/prd/` (index and template in `docs/README.md`), wr
 
 This is a **local git repository with no remote** (the user manages the remote, if any). The user has asked that **every change we make be committed**: when you finish a logical unit of work (code + its PRD update), create a commit for it. Group related edits into one coherent commit with a clear Spanish message. Do not push (there is no remote). Commit messages are in Spanish, matching the project's language.
 
+**Do not add the `Co-Authored-By: Claude ...` trailer** to commit messages (explicit user preference).
+
 ## Commands
 
 ```bash
