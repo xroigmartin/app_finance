@@ -26,7 +26,7 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 - [x] **E0 · Infra**: JaCoCo en `pom.xml`; `mvn test` verde (el informe se generará al haber tests).
 - [x] **E1 · Unit puro**: `ImportFileParser` (24), `RecategorizationService.matches` (5), `RecurringBudget` (4) + `Fixtures`. 33 tests verdes.
-- [ ] **E2a · Service**: `RecurringBudgetService` (upsert/reconciliación, parseAmounts, bitmask, get/delete).
+- [x] **E2a · Service**: `RecurringBudgetService` (upsert/reconciliación, parseAmounts, bitmask, get/delete). 15 tests verdes.
 - [ ] **E2b · Service**: `ImportService` (resolveType/Category/Date, buildDescription, dedup, errores por fila, transfers).
 - [ ] **E2c · Service**: `RecategorizationService.applyRule` + `BudgetService.annual`.
 - [ ] **E2d · Service**: `DashboardService` (summary, balanceUntil, series, byCategory).
@@ -55,5 +55,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: E1 hecha (33 tests unit puro verdes; informe JaCoCo en `target/site/jacoco/`).
-- **Próximo paso**: E2a — `RecurringBudgetService` con Mockito (upsert/reconciliación, parseAmounts, bitmask, get/delete). **Preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: E2a hecha (48 tests verdes en total: 33 de E1 + 15 de `RecurringBudgetService`).
+- **Próximo paso**: E2b — `ImportService` con Mockito (resolveType/Category/Date, buildDescription, dedup, errores por fila, transfers). **Preguntar antes de arrancar** (ver regla de continuidad arriba).
