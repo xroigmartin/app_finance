@@ -34,7 +34,7 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 - [x] **E3b · Controller**: `TransactionController` (normal + devoluciones). 16 tests verdes.
 - [x] **E3c · Controller**: `BudgetController` (duplicados, hoja, copy). 15 tests verdes.
 - [x] **E3d · Controller**: `AccountController` (6) + `TransferController` (7) + `CategoryRuleController` (5). 18 tests verdes.
-- [ ] **E3e · Transversal**: `GlobalExceptionHandler`.
+- [x] **E3e · Transversal**: `GlobalExceptionHandler`. 6 tests verdes.
 - [ ] **E4 · Puerta 90 %**: medir JaCoCo, rellenar huecos hasta ≥ 90 % de lo cubrible por este nivel.
 
 ## Nivel 2 — Testcontainers (`@DataJpaTest` Postgres)
@@ -55,5 +55,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: E3d hecha (163 tests verdes en total: 145 previos + 18 de los tres controllers).
-- **Próximo paso**: E3e — `GlobalExceptionHandler` (transversal). **Preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: E3e hecha (169 tests verdes en total: 163 previos + 6 de `GlobalExceptionHandler`). Con esto Nivel 1 está completo salvo la puerta de cobertura.
+- **Próximo paso**: E4 — medir JaCoCo y rellenar huecos hasta ≥ 90 % de lo cubrible por el Nivel 1. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
