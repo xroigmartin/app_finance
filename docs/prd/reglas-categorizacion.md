@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.0 |
-| Última actualización | 2026-06-21 |
+| Última actualización | 2026-06-22 |
 | Dominio | Reglas de categorización (`category_rules`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -118,5 +118,6 @@ La gestión de reglas vive en la **página de Categorías** (`pages/categories`)
 - Backend: `model/CategoryRule.java`, `controller/CategoryRuleController.java` (incluye `RuleRequest`, `RuleResponse`), `service/RecategorizationService.java`, `repository/CategoryRuleRepository.java`.
 - Coincidencia compartida con la importación: `service/ImportFileParser.java` (`normalizeHeader`).
 - Esquema: `db/migration/V2__category_rules.sql`.
+- Tests: `service/RecategorizationServiceTest.java` y `service/RecategorizationServiceApplyRuleTest.java` (lógica de coincidencia y aplicación) y `controller/CategoryRuleControllerTest.java` (CRUD con mocks); el contrato HTTP en `controller/CategoryRuleControllerMvcTest.java` (slice `@WebMvcTest`): validación del record `RuleRequest` (`@NotBlank pattern`/`@NotNull categoryId`→400), forma del JSON `RuleResponse` (`{rule, recategorized}` con `pattern` recortado) y los `ResponseStatusException` como `problem+json` (categoría no válida→400, regla no encontrada→404).
 - Frontend: sección de reglas en `pages/categories/` (`categories.ts`, `categories.html`), modelos `CategoryRule` / `RuleRequest` en `models.ts`.
 - Relacionado: PRD Importación de extractos, PRD Categorías, PRD Movimientos.
