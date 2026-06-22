@@ -126,5 +126,6 @@ Página `pages/dashboard` (componente `DashboardPage`), con **Chart.js** directa
 
 - Backend: `controller/DashboardController.java`, `service/DashboardService.java`, `dto/DashboardDtos.java`.
 - Consultas de agregación: `repository/TransactionRepository.java` (`sumByTypeAndPeriod`, `sumByCategory`, `sumByCategoryTreeAndPeriod`, `netTotalByAccountUntil`), `repository/TransferRepository.java` (`totalInUntil`, `totalOutUntil`).
+- Tests: `service/DashboardServiceTest.java` (matemática de agregación con repos mockeados), `controller/DashboardControllerTest.java` (lógica con mocks) y `controller/DashboardControllerMvcTest.java` (contrato HTTP con el slice `@WebMvcTest`: binding con fallback a la fecha actual, clamp de `months` a 1..36, serialización de listas/DTO y param numérico mal formado→400, verificando la delegación al `DashboardService`).
 - Frontend: `pages/dashboard/` (`dashboard.ts`, `dashboard.html`), `theme.service.ts`, modelos en `models.ts`.
 - Relacionado: PRD Cuentas, PRD Movimientos, PRD Transferencias, PRD Presupuestos, PRD Categorías.
