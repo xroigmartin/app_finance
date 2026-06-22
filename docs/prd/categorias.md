@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.1 |
-| Última actualización | 2026-06-21 |
+| Última actualización | 2026-06-22 |
 | Dominio | Categorías (`categories`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -192,4 +192,5 @@ Página `pages/categories` (componente `CategoriesPage`).
 - Agregación / roll-up: `repository/TransactionRepository.java` (`sumByCategory`, `sumByCategoryAndMonthOfYear`, `sumByCategoryTreeAndPeriod`).
 - Siembra por defecto: `config/DataSeeder.java` (`seedCategories`).
 - Esquema: `db/migration/V1__init.sql`, `V3__categories_per_account.sql`, `V4__subcategories.sql`.
+- Tests: `controller/CategoryControllerTest.java` (reglas de ámbito/recurrencia con repos mockeados), `controller/GlobalExceptionHandlerTest.java` (mapeo de mensajes) y, contra Postgres real, `repository/ConstraintViolationsTest.java` (el índice `ux_categories_name_scope` impide nombres duplicados en el mismo ámbito/padre pero permite el mismo nombre en otra cuenta o bajo otro padre, y la `DataIntegrityViolationException` resultante se mapea al `409` real del handler).
 - Frontend: `pages/categories/` (`categories.ts`, `categories.html`), modelo `Category` en `models.ts`.
