@@ -42,7 +42,7 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 - [x] **T0 · Infra**: dependencias Testcontainers (`testcontainers-postgresql` + `testcontainers-junit-jupiter`, Boot 4 gestiona la versión 2.0.2) + `spring-boot-data-jpa-test` + `spring-boot-testcontainers`; clase base `PostgresTestBase` (`@DataJpaTest` + `@ServiceConnection`, contenedor `postgres:17-alpine` estático compartido) y `SchemaSmokeTest` verde (Flyway aplica las 6 migraciones, `ddl-auto=validate` pasa).
   - **Notas de Boot 4**: las slices de test viven en módulos nuevos (`spring-boot-data-jpa-test` → `org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest`; `AutoConfigureTestDatabase` en `org.springframework.boot.jdbc.test.autoconfigure`), no en los paquetes 3.x. Testcontainers 2.0 renombró los artefactos a `testcontainers-<módulo>`.
 - [x] **T1**: `TransactionRepository` — neteo de devoluciones, roll-up de subcategorías, `extract(month/year)`, scoping por cuenta. 9 tests verdes. **Cazó un bug real**: `sumByCategory` descartaba las categorías de primer nivel por un *inner join* implícito al padre (`fix` aplicado: `left join` explícito + PRD dashboard). Ajuste de infra: `PostgresTestBase` pasó al patrón **singleton container** (el `@Container` estático paraba el contenedor en el `afterAll` de la primera clase y dejaba el contexto cacheado apuntando a un puerto muerto).
-- [ ] **T2**: recurrencias — reconciliación contra `uq_amount_vigencia` (el bug que arreglamos).
+- [x] **T2**: recurrencias — `RecurringBudgetReconciliationTest` (servicio importado en el slice `@DataJpaTest`). 6 tests verdes. Demuestra contra Postgres real lo que Mockito no podía: editar el importe manteniendo el mes de vigencia **no** viola `uq_amount_vigencia` (la reconciliación en sitio evita el insert-antes-de-delete del flush de Hibernate), las constraints `uq_amount_vigencia`/`chk_recurring_months`/`category_id` único se aplican de verdad (`DataIntegrityViolationException`), y borrar la recurrencia hace cascada al histórico de importes. Patrón: `EntityManager.flush()/clear()` entre upserts para recargar de BD y forzar el SQL.
 - [ ] **T3**: constraints UNIQUE que alimentan `GlobalExceptionHandler`.
 - [ ] **T4 · Puerta 90 %** de la capa de repositorio.
 
@@ -56,5 +56,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **T1 hecho** (194 tests verdes en suite completa). Bug de `sumByCategory` corregido y `PostgresTestBase` migrado a singleton container.
-- **Próximo paso**: T2 — recurrencias: reconciliación contra `uq_amount_vigencia` (el bug que arreglamos en su día), extendiendo `PostgresTestBase`. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: **T2 hecho** (200 tests verdes en suite completa). Reconciliación de recurrencias verificada contra Postgres real; servicio importado en el slice con `@Import(RecurringBudgetService.class)`.
+- **Próximo paso**: T3 — constraints UNIQUE que alimentan `GlobalExceptionHandler` (nombre de cuenta, nombre de categoría por ámbito/padre, etc.), contra Postgres real. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
