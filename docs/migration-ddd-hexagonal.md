@@ -107,9 +107,9 @@ La suite actual es la red de caracterización. Por capa:
 ## Etapas
 
 ### H0 · Cimientos
-- [ ] **H0a · Shared kernel**: `Money` (VO BigDecimal+EUR con operaciones), `DateRange`, base de IDs tipados, jerarquía `DomainException` (`NotFound`/`Conflict`/`Validation`). Tests de dominio de estos VOs.
-- [ ] **H0b · ArchUnit**: dependencia de test + `ArchitectureTest` con las reglas de dirección (de momento laxas; se endurecen según migran los dominios). Verde con la estructura actual marcada como "legacy" excluida.
-- [ ] **H0c · Esqueleto + advice**: crear el árbol de paquetes vacío por contexto; `shared/web/GlobalExceptionHandler` que mapea `DomainException`→HTTP (conviviendo con el actual hasta que migre cada dominio).
+- [x] **H0a · Shared kernel**: `shared/domain` con `Money` (VO en EUR, normalizado a 2 decimales HALF_UP, igualdad por valor y aritmética), `DateRange` (rango inclusivo que rechaza el invertido), `DomainId` (contrato de IDs tipados) y la jerarquía `DomainException` (`NotFound`/`Conflict`/`Validation`, base abstracta). Tests de dominio: `MoneyTest` (6), `DateRangeTest` (3).
+- [x] **H0b · ArchUnit**: dependencia `archunit-junit5` 1.3.0 (parsea bytecode de Java 25 sin problema) + `ArchitectureTest` (3 reglas: dominio puro de frameworks; dominio sin depender de application/infrastructure; application sin depender de infrastructure). Reglas **scoping a los nuevos paquetes** `..domain../..application../..infrastructure..`, así la estructura legacy (`model`/`controller`/`service`/`repository`/`dto`/`config`, sin esos segmentos) queda excluida sin esfuerzo. `archunit.properties` con `failOnEmptyShould=false` para las reglas que aún no casan clases.
+- [x] **H0c · Advice de dominio**: `shared/web/DomainExceptionHandler` (`@RestControllerAdvice`) que mapea `NotFound→404`, `Conflict→409`, `Validation→400` y la base `DomainException→400`, como `application/problem+json`. Convive con el `controller/GlobalExceptionHandler` legado (tipos disjuntos). Test `DomainExceptionHandlerTest` (4). **Nota/desviación**: no pre-creo el árbol vacío de los 8 contextos (sería ruido de `package-info` sin código); cada contexto se crea al migrarse (H1+). Solo existe `shared/` porque ya tiene contenido.
 
 ### H1 · Piloto: Accounts (valida el patrón end-to-end)
 - [ ] Dominio `Account` puro (con la regla de saldo = inicial + neto de movimientos expresada como concepto de dominio), `AccountId`, puerto `AccountRepository`.
@@ -158,5 +158,5 @@ La suite actual es la red de caracterización. Por capa:
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **plan creado, sin código migrado todavía.** Backend aún en capas clásicas; 311 tests verdes al 99 %.
-- **Próximo paso**: **H0 · Cimientos** (shared kernel + ArchUnit + esqueleto de paquetes + advice de dominio). **Preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: **H0 hecho** (cimientos). `shared/domain` (Money, DateRange, DomainId, jerarquía DomainException), `shared/web/DomainExceptionHandler` y ArchUnit con 3 reglas verdes. 327 tests verdes (16 nuevos). Backend de negocio aún en capas clásicas; nada migrado todavía.
+- **Próximo paso**: **H1 · Piloto Accounts** — migrar el dominio más simple end-to-end (domain `Account` + `AccountId` + puerto `AccountRepository`; persistencia `AccountJpaEntity`+adaptador+mapper; aplicación + casos de uso; `AccountController` fino) para validar el patrón y dejarlo de plantilla. **Preguntar antes de arrancar** (ver regla de continuidad arriba).
