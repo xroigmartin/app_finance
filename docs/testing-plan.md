@@ -50,12 +50,13 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 - [x] **M0 · Infra**: patrón `@WebMvcTest` + beans mockeados, validado con `AccountControllerMvcTest` (6 tests verdes) sobre el controller CRUD más simple. Demuestra lo que los tests Mockito de E3 no tocaban: routing, (de)serialización JSON, validación `@Valid`→400 y que el `@RestControllerAdvice` (`GlobalExceptionHandler`) participa en el slice mapeando `DataIntegrityViolationException`→409 `application/problem+json`.
   - **Notas de Boot 4**: el slice `@WebMvcTest` vive en el módulo nuevo `spring-boot-webmvc-test` (`org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest`), añadido como dependencia de test (igual que `spring-boot-data-jpa-test` en T0). `@MockBean`/`@SpyBean` están eliminados: se usa **`@MockitoBean`** (`org.springframework.test.context.bean.override.mockito.MockitoBean`). Aserciones con **`MockMvcTester`** (API AssertJ, Spring 7) en vez del `MockMvc.perform(...).andExpect(...)` clásico, para no salir del idioma AssertJ del resto de la suite.
-- [ ] **M1..Mn**: contrato HTTP por controller (status, JSON, `@Valid` → 400, advice → 409).
+- [x] **M1 · `TransactionController`** (el de mayor superficie HTTP): `TransactionControllerMvcTest`, 16 tests verdes (9 métodos + 7 casos parametrizados de validación). Cubre lo que solo el slice ve: binding de query params (ventana de fechas por defecto 1970–2999 verificada por `ArgumentCaptor`, fecha mal formada→400), validación del record `TransactionRequest` (`@NotNull`/`@Positive`→400 sin tocar `save`), JSON malformado→400, códigos `@ResponseStatus` (201/204) y los `ResponseStatusException` como `application/problem+json` con `detail` en español (cuenta no válida→400, movimiento no encontrado→404). La lógica de `apply`/`applyRefund` queda en el test Mockito E3b.
+- [ ] **M2..Mn**: resto de controllers (`CategoryController`, `BudgetController`, `TransferController`, `CategoryRuleController`, `DashboardController`, `RecurringBudgetController`).
 - [ ] **M · Puerta 90 %** global de la aplicación.
 
 ---
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **Nivel 2 cerrado** (T0–T4) y **M0 hecho** (infra Nivel 3). 220 tests verdes en la suite completa. `AccountControllerMvcTest` fija el patrón `@WebMvcTest` + `@MockitoBean` + `MockMvcTester`.
-- **Próximo paso**: **M1..Mn** — contrato HTTP por controller (status, JSON, `@Valid`→400, advice→409) reutilizando el patrón de M0, empezando por los controllers con más superficie HTTP (`TransactionController`, `CategoryController`, `BudgetController`). Es continuación de la misma etapa (Nivel 3 ya arrancado).
+- **Estado**: **Nivel 2 cerrado** (T0–T4); **M0** (infra) y **M1** (`TransactionController`) hechos. 236 tests verdes en la suite completa. Patrón Nivel 3 fijado: `@WebMvcTest` + `@MockitoBean` + `MockMvcTester`.
+- **Próximo paso**: **M2** — `CategoryController` (ámbito padre/subcategoría, recurrencia, borrado) por el contrato HTTP, y seguir con `BudgetController` y el resto. Es continuación de la misma etapa (Nivel 3 ya arrancado).
