@@ -223,6 +223,43 @@ class TransactionRepositoryTest extends PostgresTestBase {
                 .isEqualByComparingTo("20"); // excluding r1
     }
 
+    // ---------- search: optional filters and ordering ----------
+
+    @Test
+    void search_filtersByRangeAccountAndCategoryOrderedDateThenIdDesc() {
+        Category ocio = category("Ocio", TransactionType.EXPENSE, corriente, null);
+        Transaction jan = expense("100", comida, JAN);
+        Transaction febA = expense("200", comida, FEB);
+        Transaction febB = expense("300", comida, FEB);
+        Transaction ocioJan = expense("50", ocio, JAN);          // other category
+        expense("70", comida, LocalDate.of(2024, 4, 1));         // out of range
+
+        // No account/category filter: every in-range row, newest date first and
+        // id desc within the same date (the two Feb rows lead the two Jan rows).
+        List<Transaction> all = transactionRepository.search(JAN, FEB, null, null);
+        assertThat(all).extracting(Transaction::getId)
+                .containsExactly(febB.getId(), febA.getId(),
+                        Math.max(jan.getId(), ocioJan.getId()),
+                        Math.min(jan.getId(), ocioJan.getId()));
+
+        // Narrowed to account + category: only 'comida' on 'corriente' in range.
+        assertThat(transactionRepository.search(JAN, FEB, corriente.getId(), comida.getId()))
+                .extracting(Transaction::getId)
+                .containsExactly(febB.getId(), febA.getId(), jan.getId());
+    }
+
+    @Test
+    void search_byAccountOnly_excludesOtherAccounts() {
+        Account otra = account("Otra");
+        expense("100", comida, JAN);
+        tx(TransactionType.EXPENSE, "999", otra, comida, JAN, null);
+
+        assertThat(transactionRepository.search(JAN, FEB, corriente.getId(), null))
+                .extracting(Transaction::getAmount)
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("100"));
+    }
+
     // ---- helpers to read the Object[] rows ----
 
     private static int month(Object[] row) {

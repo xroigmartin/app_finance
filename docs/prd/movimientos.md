@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.0 |
-| Última actualización | 2026-06-21 |
+| Última actualización | 2026-06-22 |
 | Dominio | Movimientos / transacciones (`transactions`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -155,4 +155,5 @@ Página `pages/transactions` (componente `TransactionsPage`).
 - Backend: `model/Transaction.java`, `controller/TransactionController.java` (incluye `TransactionRequest`), `repository/TransactionRepository.java`.
 - Esquema: `db/migration/V1__init.sql`, `db/migration/V6__transaction_refunds.sql` (devoluciones).
 - Frontend: `pages/transactions/` (`transactions.ts`, `transactions.html`), modelos `Transaction` / `TransactionRequest` en `models.ts`.
+- Tests: `controller/TransactionControllerTest.java` (alta normal y devoluciones con repos mockeados) y, contra Postgres real, `repository/TransactionRepositoryTest.java` (el neteo de devoluciones en las siete sumas netas, el roll-up de un nivel de subcategorías, el `extract(month/year)` y el `search` con sus filtros opcionales de cuenta/categoría y el orden `fecha desc, id desc`).
 - Relacionado: PRD Transferencias, PRD Importación de extractos, PRD Categorías, PRD Dashboard.

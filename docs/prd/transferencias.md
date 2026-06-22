@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.0 |
-| Última actualización | 2026-06-16 |
+| Última actualización | 2026-06-22 |
 | Dominio | Transferencias (`transfers`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -129,4 +129,5 @@ Base: `/api/transfers`.
 - Efecto en saldo: `service/DashboardService.java` (`balanceUntil`), `repository/TransferRepository.java` (`totalInUntil`, `totalOutUntil`).
 - Esquema: `db/migration/V1__init.sql`.
 - Frontend: gestión en `pages/transactions/`; componente legado en `pages/transfers/`; modelos `Transfer` / `TransferRequest` en `models.ts`.
+- Tests: `controller/TransferControllerTest.java` (CRUD con repos mockeados) y, contra Postgres real, `repository/TransferRepositoryTest.java` (el `search` casa una transferencia cuando la cuenta es origen **o** destino y ordena `fecha desc, id desc`; `totalInUntil`/`totalOutUntil` son direccionales y acotados por fecha, y suman 0 sin transferencias).
 - Relacionado: PRD Movimientos, PRD Cuentas, PRD Importación de extractos.
