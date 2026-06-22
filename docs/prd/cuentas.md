@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.0 |
-| Última actualización | 2026-06-16 |
+| Última actualización | 2026-06-22 |
 | Dominio | Cuentas (`accounts`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -128,4 +128,5 @@ Página `pages/accounts` (componente `AccountsPage`).
 - Backend: `model/Account.java`, `controller/AccountController.java`, `repository/AccountRepository.java`.
 - Cálculo de saldo: `service/DashboardService.java` (`balanceUntil`).
 - Esquema: `db/migration/V1__init.sql`.
+- Tests: `controller/AccountControllerTest.java` (lógica con repos mockeados) y `controller/AccountControllerMvcTest.java` (contrato HTTP con el slice `@WebMvcTest`: listado/alta como JSON, `@Valid`→400 con nombre en blanco, guardas de borrado→409 y el `DataIntegrityViolationException`→409 `problem+json` del `GlobalExceptionHandler`). Es además el test de referencia del Nivel 3 (patrón `MockMvcTester` + `@MockitoBean`).
 - Frontend: `pages/accounts/` (`accounts.ts`, `accounts.html`), modelo `Account` en `models.ts`.

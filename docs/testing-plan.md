@@ -48,7 +48,8 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Nivel 3 — MockMvc (`@WebMvcTest`)
 
-- [ ] **M0 · Infra**: patrón `@WebMvcTest` + beans mockeados.
+- [x] **M0 · Infra**: patrón `@WebMvcTest` + beans mockeados, validado con `AccountControllerMvcTest` (6 tests verdes) sobre el controller CRUD más simple. Demuestra lo que los tests Mockito de E3 no tocaban: routing, (de)serialización JSON, validación `@Valid`→400 y que el `@RestControllerAdvice` (`GlobalExceptionHandler`) participa en el slice mapeando `DataIntegrityViolationException`→409 `application/problem+json`.
+  - **Notas de Boot 4**: el slice `@WebMvcTest` vive en el módulo nuevo `spring-boot-webmvc-test` (`org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest`), añadido como dependencia de test (igual que `spring-boot-data-jpa-test` en T0). `@MockBean`/`@SpyBean` están eliminados: se usa **`@MockitoBean`** (`org.springframework.test.context.bean.override.mockito.MockitoBean`). Aserciones con **`MockMvcTester`** (API AssertJ, Spring 7) en vez del `MockMvc.perform(...).andExpect(...)` clásico, para no salir del idioma AssertJ del resto de la suite.
 - [ ] **M1..Mn**: contrato HTTP por controller (status, JSON, `@Valid` → 400, advice → 409).
 - [ ] **M · Puerta 90 %** global de la aplicación.
 
@@ -56,5 +57,5 @@ Cobertura medida con **JaCoCo** (`mvn test` genera `target/site/jacoco/index.htm
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **Nivel 2 cerrado** (T0–T4). 214 tests verdes en la suite completa; JaCoCo global 90,2 %. Toda query custom de la capa de repositorio está ejercitada contra Postgres real (Transaction, Category, Transfer, RecurringBudget) y las constraints UNIQUE/CHECK se verifican en el esquema real pasando por el `GlobalExceptionHandler` real (T2/T3).
-- **Próximo paso**: **Nivel 3 — M0** (infra `@WebMvcTest` con beans mockeados) y M1..Mn (contrato HTTP por controller). **Es una etapa nueva: preguntar antes de arrancar** (ver regla de continuidad arriba).
+- **Estado**: **Nivel 2 cerrado** (T0–T4) y **M0 hecho** (infra Nivel 3). 220 tests verdes en la suite completa. `AccountControllerMvcTest` fija el patrón `@WebMvcTest` + `@MockitoBean` + `MockMvcTester`.
+- **Próximo paso**: **M1..Mn** — contrato HTTP por controller (status, JSON, `@Valid`→400, advice→409) reutilizando el patrón de M0, empezando por los controllers con más superficie HTTP (`TransactionController`, `CategoryController`, `BudgetController`). Es continuación de la misma etapa (Nivel 3 ya arrancado).
