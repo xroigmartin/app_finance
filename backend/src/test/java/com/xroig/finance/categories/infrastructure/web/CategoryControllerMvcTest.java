@@ -1,13 +1,15 @@
-package com.xroig.finance.controller;
+package com.xroig.finance.categories.infrastructure.web;
 
-import com.xroig.finance.model.Category;
+import com.xroig.finance.categories.application.CategoryView;
+import com.xroig.finance.categories.application.port.CreateCategory;
+import com.xroig.finance.categories.application.port.CreateCategory.CreateCategoryCommand;
+import com.xroig.finance.categories.application.port.DeleteCategory;
+import com.xroig.finance.categories.application.port.FindCategories;
+import com.xroig.finance.categories.application.port.UpdateCategory;
 import com.xroig.finance.model.TransactionType;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.BudgetRepository;
-import com.xroig.finance.repository.CategoryRepository;
-import com.xroig.finance.repository.CategoryRuleRepository;
-import com.xroig.finance.repository.RecurringBudgetRepository;
-import com.xroig.finance.repository.TransactionRepository;
+import com.xroig.finance.shared.domain.ConflictException;
+import com.xroig.finance.shared.domain.NotFoundException;
+import com.xroig.finance.shared.domain.ValidationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -18,43 +20,42 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.util.List;
-import java.util.Optional;
 
-import static com.xroig.finance.Fixtures.category;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Level-3 HTTP-contract test (stage M2) for {@link CategoryController}. The whole
- * branch logic (parent/subcategory resolution, scope rules, recurrence and delete
- * guards) is already verified by the Mockito test {@code CategoryControllerTest};
- * here we pin only what the {@code @WebMvcTest} slice adds: nested-JSON binding of
- * the optional {@code parent {id}} / {@code account {id}}, bean validation
- * ({@code @NotBlank name}/{@code @NotNull type} → 400), the {@code @ResponseStatus}
- * codes, and that each {@link org.springframework.web.server.ResponseStatusException}
- * reaches the wire as {@code application/problem+json} with its Spanish {@code detail}
- * (representative 400/404/409 mappings).
+ * HTTP-contract test for the migrated {@link CategoryController} (stage H2). The branch
+ * logic is verified by {@code CategoryServiceTest}; here we pin what the {@code
+ * @WebMvcTest} slice adds: nested-JSON binding of the optional {@code parent}/{@code
+ * account} {@code {id}}, bean validation ({@code @NotBlank}/{@code @NotNull} → 400),
+ * the {@code @ResponseStatus} codes, the {@link CategoryView} JSON shape, and the
+ * domain exceptions reaching the wire as {@code problem+json} (400/404/409).
  */
 @WebMvcTest(CategoryController.class)
 class CategoryControllerMvcTest {
 
     @Autowired private MockMvcTester mvc;
 
-    @MockitoBean private CategoryRepository categoryRepository;
-    @MockitoBean private TransactionRepository transactionRepository;
-    @MockitoBean private BudgetRepository budgetRepository;
-    @MockitoBean private CategoryRuleRepository ruleRepository;
-    @MockitoBean private AccountRepository accountRepository;
-    @MockitoBean private RecurringBudgetRepository recurringBudgetRepository;
+    @MockitoBean private FindCategories findCategories;
+    @MockitoBean private CreateCategory createCategory;
+    @MockitoBean private UpdateCategory updateCategory;
+    @MockitoBean private DeleteCategory deleteCategory;
+
+    private static CategoryView view(Long id, String name, TransactionType type, CategoryView parent) {
+        return new CategoryView(id, name, type, "#000", null, parent);
+    }
 
     // ---------- GET ----------
 
     @Test
     void findAll_returns200WithJsonArray() {
-        when(categoryRepository.findAll()).thenReturn(List.of(category(1, "Comida", TransactionType.EXPENSE)));
+        when(findCategories.all()).thenReturn(List.of(view(1L, "Comida", TransactionType.EXPENSE, null)));
 
         assertThat(mvc.get().uri("/api/categories"))
                 .hasStatusOk()
@@ -65,7 +66,8 @@ class CategoryControllerMvcTest {
 
     @Test
     void create_topLevel_returns201AsGlobalCategory() {
-        when(categoryRepository.save(any(Category.class))).thenAnswer(i -> i.getArgument(0));
+        when(createCategory.create(any(CreateCategoryCommand.class)))
+                .thenReturn(view(1L, "Comida", TransactionType.EXPENSE, null));
 
         assertThat(mvc.post().uri("/api/categories")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -77,13 +79,12 @@ class CategoryControllerMvcTest {
     }
 
     @Test
-    void create_subcategory_bindsNestedParentAndInheritsType() {
-        // Global top-level parent (no recurrence) → the child binds to it and
-        // inherits its type; the nested {"parent":{"id":5}} must round-trip.
-        when(categoryRepository.findById(5L))
-                .thenReturn(Optional.of(category(5, "Hogar", TransactionType.EXPENSE)));
-        when(recurringBudgetRepository.existsByCategoryId(5L)).thenReturn(false);
-        when(categoryRepository.save(any(Category.class))).thenAnswer(i -> i.getArgument(0));
+    void create_subcategory_bindsNestedParentAndReturnsInheritedType() {
+        // The use case inherits the type (EXPENSE) and links the parent; the slice must
+        // bind {"parent":{"id":5}} and serialize the nested parent back.
+        when(createCategory.create(any(CreateCategoryCommand.class)))
+                .thenReturn(view(10L, "Luz", TransactionType.EXPENSE,
+                        view(5L, "Hogar", TransactionType.EXPENSE, null)));
 
         MvcTestResult result = mvc.post().uri("/api/categories")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -94,21 +95,49 @@ class CategoryControllerMvcTest {
 
         assertThat(result).hasStatus(HttpStatus.CREATED);
         assertThat(result).bodyJson().extractingPath("$.parent.id").asNumber().isEqualTo(5);
-        // type inherited from the parent (EXPENSE), not the body's INCOME
         assertThat(result).bodyJson().extractingPath("$.type").isEqualTo("EXPENSE");
+    }
+
+    @Test
+    void create_accountBound_bindsNestedAccountAndReturns201() {
+        when(createCategory.create(any(CreateCategoryCommand.class)))
+                .thenReturn(new CategoryView(2L, "Comida", TransactionType.EXPENSE, "#000",
+                        new CategoryView.AccountRef(1L, "Corriente", "Banco", java.math.BigDecimal.ZERO), null));
+
+        assertThat(mvc.post().uri("/api/categories")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Comida","type":"EXPENSE","account":{"id":1}}
+                        """))
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson().extractingPath("$.account.id").asNumber().isEqualTo(1);
+    }
+
+    @Test
+    void update_valid_returns200WithBody() {
+        when(updateCategory.update(anyLong(), any()))
+                .thenReturn(view(7L, "Nuevo", TransactionType.INCOME, null));
+
+        assertThat(mvc.put().uri("/api/categories/{id}", 7)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Nuevo","type":"INCOME"}
+                        """))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.name").isEqualTo("Nuevo");
     }
 
     // ---------- POST/PUT: bean validation ----------
 
     @Test
-    void create_blankName_returns400AndDoesNotSave() {
+    void create_blankName_returns400AndDoesNotCallUseCase() {
         assertThat(mvc.post().uri("/api/categories")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"name":"","type":"EXPENSE"}
                         """))
                 .hasStatus(HttpStatus.BAD_REQUEST);
-        verify(categoryRepository, never()).save(any());
+        verify(createCategory, never()).create(any());
     }
 
     @Test
@@ -128,11 +157,12 @@ class CategoryControllerMvcTest {
                 .hasStatus(HttpStatus.BAD_REQUEST);
     }
 
-    // ---------- representative ResponseStatusException → problem+json ----------
+    // ---------- domain exceptions → problem+json ----------
 
     @Test
     void create_unknownParent_returns400ProblemDetail() {
-        when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
+        when(createCategory.create(any(CreateCategoryCommand.class)))
+                .thenThrow(new ValidationException("Categoría principal no válida"));
 
         assertThat(mvc.post().uri("/api/categories")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -146,9 +176,9 @@ class CategoryControllerMvcTest {
 
     @Test
     void create_subcategoryUnderParentWithRecurrence_returns409() {
-        when(categoryRepository.findById(5L))
-                .thenReturn(Optional.of(category(5, "Hogar", TransactionType.EXPENSE)));
-        when(recurringBudgetRepository.existsByCategoryId(5L)).thenReturn(true);
+        when(createCategory.create(any(CreateCategoryCommand.class)))
+                .thenThrow(new ConflictException(
+                        "La categoría principal tiene una recurrencia; quítala antes de añadirle subcategorías"));
 
         assertThat(mvc.post().uri("/api/categories")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -158,12 +188,12 @@ class CategoryControllerMvcTest {
                 .hasStatus(HttpStatus.CONFLICT)
                 .bodyJson().extractingPath("$.detail")
                 .isEqualTo("La categoría principal tiene una recurrencia; quítala antes de añadirle subcategorías");
-        verify(categoryRepository, never()).save(any());
     }
 
     @Test
     void update_notFound_returns404ProblemDetail() {
-        when(categoryRepository.findById(7L)).thenReturn(Optional.empty());
+        when(updateCategory.update(anyLong(), any()))
+                .thenThrow(new NotFoundException("Categoría no encontrada"));
 
         assertThat(mvc.put().uri("/api/categories/{id}", 7)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -174,27 +204,22 @@ class CategoryControllerMvcTest {
                 .bodyJson().extractingPath("$.detail").isEqualTo("Categoría no encontrada");
     }
 
-    // ---------- DELETE: guards and status ----------
+    // ---------- DELETE ----------
 
     @Test
     void delete_withSubcategories_returns409() {
-        when(categoryRepository.existsByParentId(3L)).thenReturn(true);
+        doThrow(new ConflictException("La categoría tiene subcategorías y no se puede eliminar"))
+                .when(deleteCategory).delete(3L);
 
         assertThat(mvc.delete().uri("/api/categories/{id}", 3))
                 .hasStatus(HttpStatus.CONFLICT)
                 .bodyJson().extractingPath("$.detail")
                 .isEqualTo("La categoría tiene subcategorías y no se puede eliminar");
-        verify(categoryRepository, never()).deleteById(any());
     }
 
     @Test
     void delete_happyPath_returns204() {
-        when(categoryRepository.existsByParentId(3L)).thenReturn(false);
-        when(transactionRepository.existsByCategoryId(3L)).thenReturn(false);
-        when(budgetRepository.existsByCategoryId(3L)).thenReturn(false);
-        when(ruleRepository.existsByCategoryId(3L)).thenReturn(false);
-
         assertThat(mvc.delete().uri("/api/categories/{id}", 3)).hasStatus(HttpStatus.NO_CONTENT);
-        verify(categoryRepository).deleteById(3L);
+        verify(deleteCategory).delete(3L);
     }
 }

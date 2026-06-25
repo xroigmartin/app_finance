@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.1 |
-| Última actualización | 2026-06-22 |
+| Versión | 1.2 |
+| Última actualización | 2026-06-25 |
 | Dominio | Categorías (`categories`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -187,10 +187,14 @@ Página `pages/categories` (componente `CategoriesPage`).
 
 ## 12. Referencias de código
 
-- Backend: `model/Category.java`, `controller/CategoryController.java`, `controller/GlobalExceptionHandler.java`, `repository/CategoryRepository.java`.
-- Recurrencia: `controller/RecurringBudgetController.java`, `service/RecurringBudgetService.java` (validaciones hoja + ligada a cuenta), guardas en `controller/CategoryController.java` (`create`/`update`). Ver PRD Presupuestos.
+Categorías está migrado a **arquitectura hexagonal + DDD** (etapa H2 de `docs/migration-ddd-hexagonal.md`). El contexto `categories` separa el modelo de dominio puro de la persistencia, y las reglas que antes vivían en el `CategoryController` (resolución de padre/ámbito, herencia, recurrencia incompatible, guardas de borrado) son ahora del agregado y del servicio de aplicación.
+
+- **Dominio** (`categories/domain`): agregado `Category` (jerarquía de un solo nivel y herencia de tipo como invariantes), value object `CategoryScope` (global vs. ligada a cuenta, referencia la cuenta por `AccountId`), `CategoryId`, y los puertos de salida `CategoryRepository`, `CategoryReferences` (guardas transversales: movimientos/presupuesto/regla/recurrencia) y `AccountExistence`. `type` reutiliza el enum puro `model/TransactionType` (se moverá a `shared/domain` en H3).
+- **Aplicación** (`categories/application`): casos de uso en `application/port` (`FindCategories`/`CreateCategory`/`UpdateCategory`/`DeleteCategory`) y `CategoryService`, que preserva el **orden exacto** de las guardas del controlador antiguo. Lado de lectura **CQRS**: read model `CategoryView` (con `account`/`parent` anidados, reproduce el JSON heredado) y puerto `CategoryQueryPort`.
+- **Infraestructura** (`categories/infrastructure`): `CategoryJpaEntity` (asociaciones `@ManyToOne` cuenta/padre vía `getReferenceById`), `CategoryJpaRepository`, `CategoryJpaMapper`, `CategoryPersistenceAdapter`, `CategoryQueryAdapter` (ensambla los `CategoryView`), `CategoryReferencesAdapter` y `AccountExistenceAdapter` (contra los stores legados); web: `CategoryController` fino + `CategoryRequest`.
+- Recurrencia: `controller/RecurringBudgetController.java`, `service/RecurringBudgetService.java` (validaciones hoja + ligada a cuenta); las guardas de recurrencia incompatible viven ahora en `CategoryService`. Ver PRD Presupuestos.
 - Agregación / roll-up: `repository/TransactionRepository.java` (`sumByCategory`, `sumByCategoryAndMonthOfYear`, `sumByCategoryTreeAndPeriod`).
 - Siembra por defecto: `config/DataSeeder.java` (`seedCategories`).
-- Esquema: `db/migration/V1__init.sql`, `V3__categories_per_account.sql`, `V4__subcategories.sql`.
-- Tests: `controller/CategoryControllerTest.java` (reglas de ámbito/recurrencia con repos mockeados), `controller/GlobalExceptionHandlerTest.java` (mapeo de mensajes) y, contra Postgres real, `repository/ConstraintViolationsTest.java` (el índice `ux_categories_name_scope` impide nombres duplicados en el mismo ámbito/padre pero permite el mismo nombre en otra cuenta o bajo otro padre, y la `DataIntegrityViolationException` resultante se mapea al `409` real del handler) y `repository/CategoryRepositoryTest.java` (`findVisibleForAccount` devuelve las globales más las propias de la cuenta excluyendo las de otras cuentas; `findByParentId` devuelve solo los hijos directos). El contrato HTTP se cubre en `controller/CategoryControllerMvcTest.java` (slice `@WebMvcTest`): binding del JSON anidado `parent {id}`/`account {id}` (la subcategoría hereda el `type` del padre), validación `@NotBlank`/`@NotNull`→400, y los `ResponseStatusException` como `problem+json` (padre inexistente→400, subcategoría bajo padre con recurrencia→409, no encontrada→404, borrado con subcategorías→409).
-- Frontend: `pages/categories/` (`categories.ts`, `categories.html`), modelo `Category` en `models.ts`.
+- Esquema: `db/migration/V1__init.sql`, `V3__categories_per_account.sql`, `V4__subcategories.sql` (sin cambios; durante la migración `CategoryJpaEntity` y el legado `model/Category` mapean la misma tabla).
+- Tests: dominio `categories/domain/CategoryTest`; aplicación `categories/application/CategoryServiceTest` (todas las ramas de ámbito/recurrencia/jerarquía con puertos mockeados); persistencia `categories/infrastructure/persistence/CategoryPersistenceAdapterTest` (`@DataJpaTest`: round-trip, hijos y ensamblado del read model) más los tests unitarios de `CategoryReferencesAdapter`/`AccountExistenceAdapter`; contrato HTTP `categories/infrastructure/web/CategoryControllerMvcTest` (`@WebMvcTest` con los puertos de entrada mockeados: binding del JSON anidado `parent {id}`/`account {id}`, `@NotBlank`/`@NotNull`→400, y las excepciones de dominio como `problem+json` 400/404/409). Siguen vigentes, contra Postgres real, `repository/ConstraintViolationsTest.java` (índice `ux_categories_name_scope`) y `repository/CategoryRepositoryTest.java` (`findVisibleForAccount`/`findByParentId` del repositorio legado, aún usado por presupuestos/reglas).
+- Frontend: `pages/categories/` (`categories.ts`, `categories.html`), modelo `Category` en `models.ts` (sin cambios).
