@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.0 |
-| Última actualización | 2026-06-22 |
+| Versión | 1.1 |
+| Última actualización | 2026-06-25 |
 | Dominio | Cuentas (`accounts`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -32,7 +32,7 @@ Sin al menos una cuenta no es posible registrar movimientos ni importar extracto
 
 ## 3. Modelo de datos
 
-Tabla `accounts` (migración `V1__init.sql`), entidad `Account`:
+Tabla `accounts` (migración `V1__init.sql`). Desde la migración a arquitectura hexagonal (etapa H1), el modelo de dominio puro `accounts/domain/Account` (con `AccountId` y `Money` como value objects) está **separado** de la entidad de persistencia `accounts/infrastructure/persistence/AccountJpaEntity`, que es la que mapea esta tabla; un `AccountJpaMapper` convierte entre ambos. El esquema y las columnas no cambian:
 
 | Campo | Tipo | Restricciones | Notas |
 |---|---|---|---|
@@ -95,8 +95,8 @@ Página `pages/accounts` (componente `AccountsPage`).
 
 | Caso | Comportamiento |
 |---|---|
-| Nombre vacío | Rechazado: `@NotBlank` (back) + `required` (front). |
-| Tipo vacío | Rechazado: `@NotBlank`. |
+| Nombre vacío | Rechazado en dos niveles: `@NotBlank` en el DTO web `AccountRequest` (→ `400`) y, como invariante de dominio, `Account` lanza `ValidationException` (→ `400` vía `DomainExceptionHandler`). En el front, `required`. |
+| Tipo vacío | Rechazado igual que el nombre (`@NotBlank` en el DTO + invariante de dominio). |
 | Saldo inicial no numérico / formato inválido | El front muestra "Saldo inicial no válido…" y no envía la petición. |
 | Editar cuenta inexistente | `404 Cuenta no encontrada`. |
 | Eliminar cuenta con movimientos | `409` con mensaje de movimientos asociados. |
@@ -125,8 +125,13 @@ Página `pages/accounts` (componente `AccountsPage`).
 
 ## 12. Referencias de código
 
-- Backend: `model/Account.java`, `controller/AccountController.java`, `repository/AccountRepository.java`.
-- Cálculo de saldo: `service/DashboardService.java` (`balanceUntil`).
-- Esquema: `db/migration/V1__init.sql`.
-- Tests: `controller/AccountControllerTest.java` (lógica con repos mockeados) y `controller/AccountControllerMvcTest.java` (contrato HTTP con el slice `@WebMvcTest`: listado/alta como JSON, `@Valid`→400 con nombre en blanco, guardas de borrado→409 y el `DataIntegrityViolationException`→409 `problem+json` del `GlobalExceptionHandler`). Es además el test de referencia del Nivel 3 (patrón `MockMvcTester` + `@MockitoBean`).
-- Frontend: `pages/accounts/` (`accounts.ts`, `accounts.html`), modelo `Account` en `models.ts`.
+Cuentas es el **piloto de la arquitectura hexagonal + DDD** (etapa H1 de `docs/migration-ddd-hexagonal.md`). Estructura por capas del contexto `accounts`:
+
+- **Dominio** (puro, sin Spring ni JPA): `accounts/domain/Account.java` (agregado con sus invariantes y el concepto de saldo calculado `balanceWith`), `accounts/domain/AccountId.java`, y los puertos de salida `accounts/domain/AccountRepository.java` y `accounts/domain/AccountUsage.java` (guarda de borrado).
+- **Aplicación**: puertos de entrada (casos de uso) en `accounts/application/port/` (`FindAccounts`, `CreateAccount`, `UpdateAccount`, `DeleteAccount`) y el servicio `accounts/application/AccountService.java` que los implementa.
+- **Infraestructura · persistencia**: `AccountJpaEntity`, `AccountJpaRepository` (Spring Data), `AccountJpaMapper` y los adaptadores `AccountPersistenceAdapter` (implementa `AccountRepository`) y `AccountUsageAdapter` (resuelve la guarda contra los stores legados de movimientos/transferencias).
+- **Infraestructura · web**: `accounts/infrastructure/web/AccountController.java` (adaptador fino que solo delega en los puertos de entrada) y los DTOs `AccountRequest`/`AccountResponse`.
+- Cálculo de saldo (lectura): `service/DashboardService.java` (`balanceUntil`) — aún en capas clásicas; el concepto de dominio equivalente vive en `Account.balanceWith`.
+- Esquema: `db/migration/V1__init.sql` (sin cambios; durante la migración `AccountJpaEntity` y el legado `model/Account` mapean la misma tabla).
+- Tests: dominio `accounts/domain/AccountTest`; aplicación `accounts/application/AccountServiceTest` (puertos mockeados); persistencia `accounts/infrastructure/persistence/AccountPersistenceAdapterTest` (`@DataJpaTest` contra Postgres real: round-trip del mapper y guarda de borrado); contrato HTTP `accounts/infrastructure/web/AccountControllerMvcTest` (`@WebMvcTest` con los puertos de entrada como `@MockitoBean`: listado/alta/edición como JSON, `@Valid`→400, `404`/`409` de dominio y `DataIntegrityViolationException`→409 `problem+json`).
+- Frontend: `pages/accounts/` (`accounts.ts`, `accounts.html`), modelo `Account` en `models.ts` (sin cambios).

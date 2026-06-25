@@ -34,4 +34,14 @@ class ArchitectureTest {
     static final ArchRule application_does_not_depend_on_infrastructure = noClasses()
             .that().resideInAPackage("..application..")
             .should().dependOnClassesThat().resideInAnyPackage("..infrastructure..");
+
+    /**
+     * Within a context the inbound web adapter must reach the application through its
+     * ports, never the persistence adapter/JPA directly (it would couple the two
+     * sides of the hexagon). Matches once a context like {@code accounts} exists.
+     */
+    @ArchTest
+    static final ArchRule web_adapters_do_not_depend_on_persistence = noClasses()
+            .that().resideInAPackage("..infrastructure.web..")
+            .should().dependOnClassesThat().resideInAPackage("..infrastructure.persistence..");
 }
