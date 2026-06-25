@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.0 |
-| Última actualización | 2026-06-22 |
+| Versión | 1.1 |
+| Última actualización | 2026-06-25 |
 | Dominio | Movimientos / transacciones (`transactions`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -152,8 +152,12 @@ Página `pages/transactions` (componente `TransactionsPage`).
 
 ## 12. Referencias de código
 
-- Backend: `model/Transaction.java`, `controller/TransactionController.java` (incluye `TransactionRequest`), `repository/TransactionRepository.java`.
-- Esquema: `db/migration/V1__init.sql`, `db/migration/V6__transaction_refunds.sql` (devoluciones).
-- Frontend: `pages/transactions/` (`transactions.ts`, `transactions.html`), modelos `Transaction` / `TransactionRequest` en `models.ts`.
-- Tests: `controller/TransactionControllerTest.java` (alta normal y devoluciones con repos mockeados) y, contra Postgres real, `repository/TransactionRepositoryTest.java` (el neteo de devoluciones en las siete sumas netas, el roll-up de un nivel de subcategorías, el `extract(month/year)` y el `search` con sus filtros opcionales de cuenta/categoría y el orden `fecha desc, id desc`). El contrato HTTP se cubre en `controller/TransactionControllerMvcTest.java` (slice `@WebMvcTest`): binding de query params (ventana de fechas por defecto 1970–2999, fecha mal formada→400), validación del record `TransactionRequest` (`@NotNull`/`@Positive`→400), códigos `@ResponseStatus` y los `ResponseStatusException` saliendo como `application/problem+json` con su `detail` en español (cuenta no válida→400, movimiento no encontrado→404).
+Movimientos está migrado a **arquitectura hexagonal + DDD** (etapa H3 de `docs/migration-ddd-hexagonal.md`). La semántica de **devolución**, antes en `TransactionController.applyRefund`, es ahora una invariante del agregado.
+
+- **Dominio** (`transactions/domain`): agregado `Transaction` (devolución como invariante: hereda tipo/cuenta/categoría del gasto original, no excede el pendiente, no es devolución de devolución ni de un ingreso; importe positivo), `TransactionId`, y los puertos de salida `TransactionRepository` (con `refundedAmountFor`), `AccountExistence` y `CategoryCatalog`. El tipo usa el enum compartido `shared/domain/TransactionType`.
+- **Aplicación** (`transactions/application`): casos de uso `FindTransactions`/`CreateTransaction`/`UpdateTransaction`/`DeleteTransaction` + `TransactionService`, que preserva el orden de `apply`/`applyRefund` legado (incluida la comprobación «no es su propia devolución» y la resolución cuenta/categoría con su comprobación de ámbito). Lectura **CQRS**: read model `TransactionView` (con `account`/`category` anidados y `refundOf` por id) + `TransactionQueryPort` (search con ventana de fechas y filtros; recent).
+- **Infraestructura** (`transactions/infrastructure`): `TransactionJpaEntity` (asociaciones `@ManyToOne` cuenta/categoría/refundOf vía `getReferenceById`), `TransactionJpaRepository` (search, recent, `sumRefundedAmount`), `TransactionJpaMapper`, `TransactionPersistenceAdapter`, `TransactionQueryAdapter`, `AccountExistenceAdapter`, `CategoryCatalogAdapter`; web: `TransactionController` fino + `TransactionRequest`. El endpoint `/import` sigue delegando en el `ImportService` legado hasta H7.
+- Esquema: `db/migration/V1__init.sql`, `db/migration/V6__transaction_refunds.sql` (devoluciones; sin cambios, `TransactionJpaEntity` y el legado `model/Transaction` mapean la misma tabla).
+- Frontend: `pages/transactions/` (`transactions.ts`, `transactions.html`), modelos `Transaction` / `TransactionRequest` en `models.ts` (sin cambios).
+- Tests: dominio `transactions/domain/TransactionTest`; aplicación `transactions/application/TransactionServiceTest` (todas las ramas con puertos mockeados); persistencia `TransactionPersistenceAdapterTest` (`@DataJpaTest`: round-trip, suma de devoluciones, read model) más `AccountExistenceAdapterTest`/`CategoryCatalogAdapterTest`; contrato HTTP `TransactionControllerMvcTest`. Sigue vigente, contra Postgres real, `repository/TransactionRepositoryTest.java` (las sumas netas de agregación que aún usan dashboard/presupuestos sobre el repositorio legado).
 - Relacionado: PRD Transferencias, PRD Importación de extractos, PRD Categorías, PRD Dashboard.
