@@ -9,7 +9,7 @@ import com.xroig.finance.categories.domain.CategoryId;
 import com.xroig.finance.categories.domain.CategoryReferences;
 import com.xroig.finance.categories.domain.CategoryRepository;
 import com.xroig.finance.categories.domain.CategoryScope;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.shared.domain.ConflictException;
 import com.xroig.finance.shared.domain.NotFoundException;
 import com.xroig.finance.shared.domain.ValidationException;

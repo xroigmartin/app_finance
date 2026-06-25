@@ -4,7 +4,7 @@ import com.xroig.finance.controller.CategoryRuleController.RuleRequest;
 import com.xroig.finance.controller.CategoryRuleController.RuleResponse;
 import com.xroig.finance.model.Category;
 import com.xroig.finance.model.CategoryRule;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.repository.CategoryRepository;
 import com.xroig.finance.repository.CategoryRuleRepository;
 import com.xroig.finance.service.RecategorizationService;

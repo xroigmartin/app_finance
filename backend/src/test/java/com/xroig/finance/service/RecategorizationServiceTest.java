@@ -2,7 +2,7 @@ package com.xroig.finance.service;
 
 import com.xroig.finance.model.Category;
 import com.xroig.finance.model.CategoryRule;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import org.junit.jupiter.api.Test;
 
 import static com.xroig.finance.Fixtures.category;

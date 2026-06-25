@@ -1,7 +1,7 @@
 package com.xroig.finance.repository;
 
 import com.xroig.finance.model.Transaction;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -53,9 +53,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query("""
             select coalesce(sum(case when t.refundOf is null
-                                     then (case when t.type = com.xroig.finance.model.TransactionType.INCOME
+                                     then (case when t.type = com.xroig.finance.shared.domain.TransactionType.INCOME
                                                 then t.amount else -t.amount end)
-                                     else (case when t.type = com.xroig.finance.model.TransactionType.INCOME
+                                     else (case when t.type = com.xroig.finance.shared.domain.TransactionType.INCOME
                                                 then -t.amount else t.amount end) end), 0)
             from Transaction t
             """)
@@ -63,9 +63,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query("""
             select coalesce(sum(case when t.refundOf is null
-                                     then (case when t.type = com.xroig.finance.model.TransactionType.INCOME
+                                     then (case when t.type = com.xroig.finance.shared.domain.TransactionType.INCOME
                                                 then t.amount else -t.amount end)
-                                     else (case when t.type = com.xroig.finance.model.TransactionType.INCOME
+                                     else (case when t.type = com.xroig.finance.shared.domain.TransactionType.INCOME
                                                 then -t.amount else t.amount end) end), 0)
             from Transaction t where t.account.id = :accountId and t.date <= :until
             """)

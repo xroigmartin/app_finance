@@ -2,7 +2,7 @@ package com.xroig.finance.controller;
 
 import com.xroig.finance.dto.ImportDtos.ImportResult;
 import com.xroig.finance.model.Transaction;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.repository.AccountRepository;
 import com.xroig.finance.repository.CategoryRepository;
 import com.xroig.finance.repository.TransactionRepository;

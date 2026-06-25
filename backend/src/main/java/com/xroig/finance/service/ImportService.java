@@ -1,5 +1,6 @@
 package com.xroig.finance.service;
 
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.dto.ImportDtos.ImportResult;
 import com.xroig.finance.dto.ImportDtos.RowError;
 import com.xroig.finance.model.*;

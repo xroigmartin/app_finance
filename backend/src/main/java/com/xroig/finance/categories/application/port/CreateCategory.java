@@ -1,7 +1,7 @@
 package com.xroig.finance.categories.application.port;
 
 import com.xroig.finance.categories.application.CategoryView;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 
 /** Inbound port: create a top-level category or a subcategory. */
 public interface CreateCategory {

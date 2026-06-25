@@ -7,7 +7,7 @@ import com.xroig.finance.model.CategoryRule;
 import com.xroig.finance.model.RecurringBudget;
 import com.xroig.finance.model.RecurringBudgetAmount;
 import com.xroig.finance.model.Transaction;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.model.Transfer;
 
 import java.math.BigDecimal;

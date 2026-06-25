@@ -1,6 +1,6 @@
 package com.xroig.finance.categories.domain;
 
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.shared.domain.ValidationException;
 
 import java.util.Objects;

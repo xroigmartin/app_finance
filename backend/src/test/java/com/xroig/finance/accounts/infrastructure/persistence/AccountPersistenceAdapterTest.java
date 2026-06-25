@@ -5,7 +5,7 @@ import com.xroig.finance.accounts.domain.Account;
 import com.xroig.finance.accounts.domain.AccountId;
 import com.xroig.finance.model.Category;
 import com.xroig.finance.model.Transaction;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.model.Transfer;
 import com.xroig.finance.repository.AccountRepository;
 import com.xroig.finance.repository.CategoryRepository;

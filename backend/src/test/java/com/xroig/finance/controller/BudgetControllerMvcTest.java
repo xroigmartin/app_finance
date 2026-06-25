@@ -1,7 +1,7 @@
 package com.xroig.finance.controller;
 
 import com.xroig.finance.model.Budget;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.repository.AccountRepository;
 import com.xroig.finance.repository.BudgetRepository;
 import com.xroig.finance.repository.CategoryRepository;

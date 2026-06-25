@@ -8,7 +8,7 @@ import com.xroig.finance.dto.DashboardDtos.BudgetStatus;
 import com.xroig.finance.dto.DashboardDtos.CategoryAmount;
 import com.xroig.finance.dto.DashboardDtos.MonthlyPoint;
 import com.xroig.finance.dto.DashboardDtos.Summary;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.repository.AccountRepository;
 import com.xroig.finance.repository.BudgetRepository;
 import com.xroig.finance.repository.TransactionRepository;

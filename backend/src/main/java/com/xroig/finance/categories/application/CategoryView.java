@@ -1,6 +1,6 @@
 package com.xroig.finance.categories.application;
 
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 
 import java.math.BigDecimal;
 

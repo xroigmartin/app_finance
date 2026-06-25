@@ -1,7 +1,7 @@
 package com.xroig.finance.categories.infrastructure.persistence;
 
 import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

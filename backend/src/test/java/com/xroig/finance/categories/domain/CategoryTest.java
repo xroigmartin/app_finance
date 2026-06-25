@@ -1,7 +1,7 @@
 package com.xroig.finance.categories.domain;
 
 import com.xroig.finance.accounts.domain.AccountId;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.shared.domain.ValidationException;
 import org.junit.jupiter.api.Test;
 

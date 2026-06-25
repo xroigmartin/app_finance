@@ -4,7 +4,7 @@ import com.xroig.finance.model.Account;
 import com.xroig.finance.model.Category;
 import com.xroig.finance.model.CategoryRule;
 import com.xroig.finance.model.Transaction;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.repository.CategoryRepository;
 import com.xroig.finance.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;

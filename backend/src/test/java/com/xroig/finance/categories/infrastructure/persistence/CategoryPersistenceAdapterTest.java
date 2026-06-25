@@ -9,7 +9,7 @@ import com.xroig.finance.categories.application.CategoryView;
 import com.xroig.finance.categories.domain.Category;
 import com.xroig.finance.categories.domain.CategoryId;
 import com.xroig.finance.categories.domain.CategoryScope;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.shared.domain.Money;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

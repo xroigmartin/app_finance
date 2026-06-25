@@ -1,7 +1,7 @@
 package com.xroig.finance.controller;
 
 import com.xroig.finance.model.CategoryRule;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.repository.CategoryRepository;
 import com.xroig.finance.repository.CategoryRuleRepository;
 import com.xroig.finance.service.RecategorizationService;

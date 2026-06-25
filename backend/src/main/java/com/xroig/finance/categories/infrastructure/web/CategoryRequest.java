@@ -1,6 +1,6 @@
 package com.xroig.finance.categories.infrastructure.web;
 
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 

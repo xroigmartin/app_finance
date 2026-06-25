@@ -6,7 +6,7 @@ import com.xroig.finance.categories.application.port.CreateCategory.CreateCatego
 import com.xroig.finance.categories.application.port.DeleteCategory;
 import com.xroig.finance.categories.application.port.FindCategories;
 import com.xroig.finance.categories.application.port.UpdateCategory;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.shared.domain.ConflictException;
 import com.xroig.finance.shared.domain.NotFoundException;
 import com.xroig.finance.shared.domain.ValidationException;

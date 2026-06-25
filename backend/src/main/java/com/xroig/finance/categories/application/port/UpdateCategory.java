@@ -1,7 +1,7 @@
 package com.xroig.finance.categories.application.port;
 
 import com.xroig.finance.categories.application.CategoryView;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 
 /** Inbound port: edit a category, possibly changing its scope or its parent. */
 public interface UpdateCategory {

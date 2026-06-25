@@ -5,7 +5,7 @@ import com.xroig.finance.model.Account;
 import com.xroig.finance.model.Category;
 import com.xroig.finance.model.RecurringBudget;
 import com.xroig.finance.model.RecurringBudgetAmount;
-import com.xroig.finance.model.TransactionType;
+import com.xroig.finance.shared.domain.TransactionType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 

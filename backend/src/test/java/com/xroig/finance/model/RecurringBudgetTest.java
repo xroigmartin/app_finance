@@ -1,5 +1,6 @@
 package com.xroig.finance.model;
 
+import com.xroig.finance.shared.domain.TransactionType;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
