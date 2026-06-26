@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.0 |
-| Última actualización | 2026-06-22 |
+| Versión | 1.1 |
+| Última actualización | 2026-06-26 |
 | Dominio | Transferencias (`transfers`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -125,9 +125,14 @@ Base: `/api/transfers`.
 
 ## 12. Referencias de código
 
-- Backend: `model/Transfer.java`, `controller/TransferController.java` (incluye `TransferRequest`), `repository/TransferRepository.java`.
+Transferencias está migrado a **arquitectura hexagonal + DDD** (etapa H4 de `docs/migration-ddd-hexagonal.md`). La regla **origen ≠ destino**, antes en `TransferController.apply`, es ahora una invariante del agregado `Transfer` (también re-comprobada en `reassign` al editar).
+
+- **Dominio** (`transfers/domain`): agregado `Transfer` (invariantes: origen ≠ destino, importe positivo, fecha obligatoria; ambos extremos referenciados por `AccountId`), `TransferId`, y los puertos de salida `TransferRepository` y `AccountExistence`.
+- **Aplicación** (`transfers/application`): casos de uso `FindTransfers`/`CreateTransfer`/`UpdateTransfer`/`DeleteTransfer` + `TransferService`, que preserva el orden legado (el agregado valida origen ≠ destino **antes** de comprobar la existencia de las cuentas). Lectura **CQRS**: read model `TransferView` (con `fromAccount`/`toAccount` anidados) + `TransferQueryPort` (search con ventana de fechas y filtro por cuenta, en cualquiera de los dos extremos).
+- **Infraestructura** (`transfers/infrastructure`): `TransferJpaEntity` (asociaciones `@ManyToOne` origen/destino vía `getReferenceById`), `TransferJpaRepository` (`search`), `TransferJpaMapper`, `TransferPersistenceAdapter`, `TransferQueryAdapter`, `AccountExistenceAdapter` (bean `transfersAccountExistenceAdapter`); web: `TransferController` fino + `TransferRequest`. El endpoint `/import` sigue delegando en el `ImportService` legado hasta H7.
+- **Legado que persiste**: `model/Transfer.java` y `repository/TransferRepository.java` (con `totalInUntil`/`totalOutUntil`/`existsByFromAccountIdOrToAccountId`) siguen vivos porque los consumen `DashboardService` (efecto en saldo, migra en H8) y la guarda de borrado de cuentas (PRD Cuentas, RN-3). `TransferJpaEntity` y `model/Transfer` mapean la **misma** tabla `transfers`.
 - Efecto en saldo: `service/DashboardService.java` (`balanceUntil`), `repository/TransferRepository.java` (`totalInUntil`, `totalOutUntil`).
 - Esquema: `db/migration/V1__init.sql`.
-- Frontend: gestión en `pages/transactions/`; componente legado en `pages/transfers/`; modelos `Transfer` / `TransferRequest` en `models.ts`.
-- Tests: `controller/TransferControllerTest.java` (CRUD con repos mockeados) y, contra Postgres real, `repository/TransferRepositoryTest.java` (el `search` casa una transferencia cuando la cuenta es origen **o** destino y ordena `fecha desc, id desc`; `totalInUntil`/`totalOutUntil` son direccionales y acotados por fecha, y suman 0 sin transferencias). El contrato HTTP se cubre en `controller/TransferControllerMvcTest.java` (slice `@WebMvcTest`): binding de query params con ventana de fechas por defecto, validación del record `TransferRequest` (`@NotNull`/`@Positive`→400) y los `ResponseStatusException` como `problem+json` (mismo origen/destino→400, cuenta no válida→400, no encontrada→404).
+- Frontend: gestión en `pages/transactions/`; componente legado en `pages/transfers/`; modelos `Transfer` / `TransferRequest` en `models.ts` (sin cambios).
+- Tests: dominio `transfers/domain/TransferTest`; aplicación `transfers/application/TransferServiceTest` (todas las ramas con puertos mockeados); persistencia `TransferPersistenceAdapterTest` (`@DataJpaTest`: round-trip del mapper y read model, `search` casa una transferencia cuando la cuenta es origen **o** destino, orden `fecha desc, id desc`) más `AccountExistenceAdapterTest`; contrato HTTP `TransferControllerMvcTest` (slice `@WebMvcTest` con los puertos de entrada como `@MockitoBean`): binding de query params con ventana de fechas por defecto, validación de `TransferRequest` (`@NotNull`/`@Positive`→400) y las `DomainException` como `problem+json` (mismo origen/destino→400, cuenta no válida→400, no encontrada→404). Sigue vigente, contra Postgres real, `repository/TransferRepositoryTest.java` (las sumas direccionales `totalInUntil`/`totalOutUntil` y el `search` del repositorio legado que aún usa el dashboard).
 - Relacionado: PRD Movimientos, PRD Cuentas, PRD Importación de extractos.
