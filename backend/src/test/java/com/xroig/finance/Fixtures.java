@@ -3,7 +3,6 @@ package com.xroig.finance;
 import com.xroig.finance.model.Account;
 import com.xroig.finance.model.Budget;
 import com.xroig.finance.model.Category;
-import com.xroig.finance.model.CategoryRule;
 import com.xroig.finance.model.Transaction;
 import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.model.Transfer;
@@ -57,14 +56,6 @@ public final class Fixtures {
         c.setParent(parent);
         c.setAccount(parent.getAccount());
         return c;
-    }
-
-    public static CategoryRule rule(long id, String pattern, Category category) {
-        CategoryRule r = new CategoryRule();
-        r.setId(id);
-        r.setPattern(pattern);
-        r.setCategory(category);
-        return r;
     }
 
     public static Transaction transaction(Long id, TransactionType type, BigDecimal amount,

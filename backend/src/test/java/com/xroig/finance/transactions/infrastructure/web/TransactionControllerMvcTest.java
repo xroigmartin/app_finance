@@ -1,6 +1,7 @@
 package com.xroig.finance.transactions.infrastructure.web;
 
-import com.xroig.finance.service.ImportService;
+import com.xroig.finance.imports.application.ImportResult;
+import com.xroig.finance.imports.application.port.ImportTransactions;
 import com.xroig.finance.shared.domain.NotFoundException;
 import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.shared.domain.ValidationException;
@@ -50,7 +51,7 @@ class TransactionControllerMvcTest {
     @MockitoBean private CreateTransaction createTransaction;
     @MockitoBean private UpdateTransaction updateTransaction;
     @MockitoBean private DeleteTransaction deleteTransaction;
-    @MockitoBean private ImportService importService;
+    @MockitoBean private ImportTransactions importTransactions;
 
     private static final String VALID_BODY = """
             {"date":"2024-01-15","amount":50,"type":"EXPENSE","accountId":1,"categoryId":2}
@@ -172,9 +173,9 @@ class TransactionControllerMvcTest {
     }
 
     @Test
-    void importFile_delegatesToImportService() {
-        when(importService.importTransactions(any(), eq(1L)))
-                .thenReturn(new com.xroig.finance.dto.ImportDtos.ImportResult(3, 0, List.of()));
+    void importFile_delegatesToImportUseCase() {
+        when(importTransactions.importTransactions(any(), eq(1L)))
+                .thenReturn(new ImportResult(3, 0, List.of()));
 
         assertThat(mvc.post().uri("/api/transactions/import")
                 .param("accountId", "1")
