@@ -4,26 +4,27 @@ import com.xroig.finance.accounts.domain.AccountId;
 import com.xroig.finance.categories.domain.CategoryId;
 import com.xroig.finance.categories.domain.CategoryReferences;
 import com.xroig.finance.budgets.infrastructure.persistence.RecurringBudgetJpaRepository;
+import com.xroig.finance.categorization.infrastructure.persistence.CategoryRuleJpaRepository;
 import com.xroig.finance.repository.BudgetRepository;
-import com.xroig.finance.repository.CategoryRuleRepository;
 import com.xroig.finance.repository.TransactionRepository;
 import org.springframework.stereotype.Component;
 
 /**
  * Adapter for {@link CategoryReferences}: resolves the cross-aggregate guards against
- * the legacy movement/budget/rule stores plus the migrated budgets context's recurrence
- * store. When the remaining contexts migrate it will point at their own ports instead.
+ * the legacy movement/budget stores plus the migrated budgets context's recurrence store
+ * and the categorization context's rule store. When the remaining contexts migrate it
+ * will point at their own ports instead.
  */
 @Component
 public class CategoryReferencesAdapter implements CategoryReferences {
 
     private final TransactionRepository transactions;
     private final BudgetRepository budgets;
-    private final CategoryRuleRepository rules;
+    private final CategoryRuleJpaRepository rules;
     private final RecurringBudgetJpaRepository recurrences;
 
     public CategoryReferencesAdapter(TransactionRepository transactions, BudgetRepository budgets,
-                                     CategoryRuleRepository rules, RecurringBudgetJpaRepository recurrences) {
+                                     CategoryRuleJpaRepository rules, RecurringBudgetJpaRepository recurrences) {
         this.transactions = transactions;
         this.budgets = budgets;
         this.rules = rules;

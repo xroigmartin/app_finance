@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.0 |
-| Última actualización | 2026-06-22 |
+| Versión | 2.0 |
+| Última actualización | 2026-06-27 |
 | Dominio | Reglas de categorización (`category_rules`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -29,7 +29,7 @@ Una **regla de categorización** asigna automáticamente una categoría a los mo
 
 ## 3. Modelo de datos
 
-Tabla `category_rules` (migración `V2__category_rules.sql`), entidad `CategoryRule`:
+Tabla `category_rules` (migración `V2__category_rules.sql`). El agregado de dominio `CategoryRule` (puro) se separa de la entidad de persistencia `CategoryRuleJpaEntity`, que mapea esta tabla:
 
 | Campo | Tipo | Restricciones | Notas |
 |---|---|---|---|
@@ -53,9 +53,9 @@ No hay restricción de unicidad sobre el patrón: pueden existir varias reglas c
 
 | ID | Regla |
 |---|---|
-| RN-1 | **Coincidencia**: el patrón es una **subcadena sin distinguir mayúsculas ni acentos** de la descripción. Se admiten varias alternativas separadas por `\|`; coincide si **alguna** está contenida en la descripción (normalización vía `ImportFileParser.normalizeHeader`). |
+| RN-1 | **Coincidencia**: el patrón es una **subcadena sin distinguir mayúsculas ni acentos** de la descripción. Se admiten varias alternativas separadas por `\|`; coincide si **alguna** está contenida en la descripción. La lógica vive en el servicio de dominio `PatternMatcher` (contexto `categorization`), que normaliza con el VO `shared/domain/TextNormalizer`; el agregado `CategoryRule` la expone como `matches(descripcion)`. |
 | RN-2 | Durante la importación, a un movimiento sin categoría se le asigna la categoría de la **primera regla** que coincida; si ninguna coincide, va a la categoría de respaldo "Otros gastos" / "Otros ingresos" según el tipo (ver PRD Importación). |
-| RN-3 | Al **guardar** una regla (alta o edición), se reaplican sus patrones a los movimientos que están en la categoría de respaldo del tipo correspondiente, moviendo los que coincidan a la categoría de la regla (`RecategorizationService.applyRule`). |
+| RN-3 | Al **guardar** una regla (alta o edición), se reaplican sus patrones a los movimientos que están en la categoría de respaldo del tipo correspondiente, moviendo los que coincidan a la categoría de la regla (caso de uso `CategoryRuleService.create`/`update`, que orquesta los puertos `RuleCategoryCatalog` y `TransactionRecategorizer`). |
 | RN-4 | La recategorización **solo** toca movimientos de respaldo ("Otros gastos/ingresos"); nunca sobrescribe una categoría asignada explícitamente o por otra regla. |
 | RN-5 | Si la categoría destino es **de una cuenta** concreta, solo se recategorizan movimientos de **esa** cuenta; si es **global**, se recategorizan con independencia de la cuenta. |
 | RN-6 | El tipo (ingreso/gasto) de los movimientos recategorizados lo determina la categoría de respaldo del mismo tipo que la categoría destino. |
@@ -74,7 +74,7 @@ Base: `/api/category-rules`.
 
 **`RuleRequest`:** `{ "pattern": "consum|lidl|spar", "categoryId": 4 }`
 
-**`RuleResponse`:** `{ "rule": { … }, "recategorized": 7 }` — `recategorized` es cuántos movimientos de respaldo se movieron a la categoría de la regla.
+**`RuleSaved`** (devuelto por alta/edición)**:** `{ "rule": { … }, "recategorized": 7 }` — `rule` es el read model `CategoryRuleView` (patrón + categoría destino anidada, reutilizando `CategoryView`) y `recategorized` es cuántos movimientos de respaldo se movieron a la categoría de la regla. El `GET` devuelve un array de `CategoryRuleView`.
 
 ## 7. UI/UX
 
@@ -95,7 +95,7 @@ La gestión de reglas vive en la **página de Categorías** (`pages/categories`)
 
 ## 9. Casos límite y notas
 
-- La lógica de coincidencia es **compartida** entre la importación y la recategorización (`RecategorizationService.matches`), de modo que ambas se comportan igual.
+- La lógica de coincidencia es **compartida** entre la importación y la recategorización (`PatternMatcher`), de modo que ambas se comportan igual. La importación sigue siendo legada (se migrará en H7) y consume `PatternMatcher.matches`; `ImportFileParser.normalizeHeader` delega ahora en `shared/domain/TextNormalizer`, fuente única de la normalización.
 - El orden de evaluación en la importación es el de `findAll()` del repositorio; con patrones solapados, gana la primera regla que coincida. No hay prioridad explícita configurable.
 - Una alternativa en blanco dentro del patrón (p. ej. `lidl|`) se ignora.
 
@@ -115,9 +115,14 @@ La gestión de reglas vive en la **página de Categorías** (`pages/categories`)
 
 ## 12. Referencias de código
 
-- Backend: `model/CategoryRule.java`, `controller/CategoryRuleController.java` (incluye `RuleRequest`, `RuleResponse`), `service/RecategorizationService.java`, `repository/CategoryRuleRepository.java`.
-- Coincidencia compartida con la importación: `service/ImportFileParser.java` (`normalizeHeader`).
-- Esquema: `db/migration/V2__category_rules.sql`.
-- Tests: `service/RecategorizationServiceTest.java` y `service/RecategorizationServiceApplyRuleTest.java` (lógica de coincidencia y aplicación) y `controller/CategoryRuleControllerTest.java` (CRUD con mocks); el contrato HTTP en `controller/CategoryRuleControllerMvcTest.java` (slice `@WebMvcTest`): validación del record `RuleRequest` (`@NotBlank pattern`/`@NotNull categoryId`→400), forma del JSON `RuleResponse` (`{rule, recategorized}` con `pattern` recortado) y los `ResponseStatusException` como `problem+json` (categoría no válida→400, regla no encontrada→404).
-- Frontend: sección de reglas en `pages/categories/` (`categories.ts`, `categories.html`), modelos `CategoryRule` / `RuleRequest` en `models.ts`.
+Contexto `categorization` (arquitectura hexagonal + DDD, migrado en H6):
+
+- Dominio: `categorization/domain/CategoryRule.java` (agregado, invariante de patrón y `matches`), `CategoryRuleId.java`, `PatternMatcher.java` (servicio de dominio de coincidencia) y los puertos de salida `CategoryRuleRepository`, `RuleCategoryCatalog`, `TransactionRecategorizer`.
+- Aplicación: `categorization/application/CategoryRuleService.java` (implementa `FindRules`/`CreateRule`/`UpdateRule`/`DeleteRule`), read model `CategoryRuleView` + `CategoryRuleQueryPort`, resultado `RuleSaved`.
+- Infraestructura: `categorization/infrastructure/persistence/` (`CategoryRuleJpaEntity`, `CategoryRuleJpaRepository`, `CategoryRuleJpaMapper`, `CategoryRulePersistenceAdapter`, `CategoryRuleQueryAdapter`, `RuleCategoryCatalogAdapter`, `TransactionRecategorizerAdapter` como ACL sobre el store de movimientos) y `categorization/infrastructure/web/` (`CategoryRuleController` + `CategoryRuleRequest`).
+- Normalización compartida: `shared/domain/TextNormalizer.java` (fuente única; `service/ImportFileParser.normalizeHeader` delega aquí).
+- La guarda de borrado de categorías con reglas se resuelve vía `categories/infrastructure/persistence/CategoryReferencesAdapter` apuntando a `CategoryRuleJpaRepository.existsByCategoryId`.
+- Esquema: `db/migration/V2__category_rules.sql` (sin cambios; `CategoryRuleJpaEntity` mapea la misma tabla).
+- Tests: dominio (`categorization/domain/CategoryRuleTest`, `PatternMatcherTest`), aplicación (`categorization/application/CategoryRuleServiceTest`, todas las ramas), adaptadores (`CategoryRulePersistenceAdapterTest` round-trip + read model + `existsByCategory`, `RuleCategoryCatalogAdapterTest`, `TransactionRecategorizerAdapterTest`) y contrato HTTP (`categorization/infrastructure/web/CategoryRuleControllerMvcTest`: validación de `CategoryRuleRequest`→400, forma JSON `{rule, recategorized}`, `DomainException`→`problem+json` con categoría no válida→400 y regla no encontrada→404). Normalización: `shared/domain/TextNormalizerTest`.
+- Frontend: sección de reglas en `pages/categories/` (`categories.ts`, `categories.html`), modelos `CategoryRule` / `RuleRequest` / `RuleSaveResult` en `models.ts`.
 - Relacionado: PRD Importación de extractos, PRD Categorías, PRD Movimientos.

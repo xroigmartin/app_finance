@@ -13,8 +13,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import com.xroig.finance.shared.domain.TextNormalizer;
 import java.nio.charset.StandardCharsets;
-import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -55,9 +55,7 @@ public class ImportFileParser {
     }
 
     public static String normalizeHeader(String header) {
-        String s = Normalizer.normalize(header.trim().toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "");
-        return s.replace('﻿', ' ').trim();
+        return TextNormalizer.normalize(header);
     }
 
     public static LocalDate parseDate(String value) {

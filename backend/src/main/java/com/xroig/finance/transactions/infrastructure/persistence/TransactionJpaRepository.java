@@ -30,6 +30,9 @@ public interface TransactionJpaRepository extends JpaRepository<TransactionJpaEn
 
     List<TransactionJpaEntity> findTop10ByOrderByDateDescIdDesc();
 
+    /** All movements in a category; used by the categorization context's recategorizer. */
+    List<TransactionJpaEntity> findByCategoryId(Long categoryId);
+
     /** Total already refunded for an original movement, optionally excluding one refund (when editing it). */
     @Query("""
             select coalesce(sum(t.amount), 0) from TransactionJpaEntity t

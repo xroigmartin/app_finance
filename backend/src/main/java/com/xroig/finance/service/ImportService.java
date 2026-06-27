@@ -1,5 +1,6 @@
 package com.xroig.finance.service;
 
+import com.xroig.finance.categorization.domain.PatternMatcher;
 import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.dto.ImportDtos.ImportResult;
 import com.xroig.finance.dto.ImportDtos.RowError;
@@ -256,7 +257,7 @@ public class ImportService {
         return ruleRepository.findAll().stream()
                 .filter(rule -> rule.getCategory().getType() == type)
                 .filter(rule -> visibleForAccount(rule.getCategory(), account))
-                .filter(rule -> RecategorizationService.matches(rule, description))
+                .filter(rule -> PatternMatcher.matches(rule.getPattern(), description))
                 .map(CategoryRule::getCategory)
                 .findFirst()
                 .orElse(null);
