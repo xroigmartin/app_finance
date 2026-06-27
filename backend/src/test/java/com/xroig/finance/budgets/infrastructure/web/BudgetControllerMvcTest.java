@@ -1,11 +1,16 @@
-package com.xroig.finance.controller;
+package com.xroig.finance.budgets.infrastructure.web;
 
-import com.xroig.finance.model.Budget;
-import com.xroig.finance.shared.domain.TransactionType;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.BudgetRepository;
-import com.xroig.finance.repository.CategoryRepository;
-import com.xroig.finance.service.BudgetService;
+import com.xroig.finance.budgets.application.AnnualBudgetView;
+import com.xroig.finance.budgets.application.BudgetView;
+import com.xroig.finance.budgets.application.port.CopyBudgets;
+import com.xroig.finance.budgets.application.port.CreateBudget;
+import com.xroig.finance.budgets.application.port.CreateBudget.BudgetCommand;
+import com.xroig.finance.budgets.application.port.DeleteBudget;
+import com.xroig.finance.budgets.application.port.FindBudgets;
+import com.xroig.finance.budgets.application.port.UpdateBudget;
+import com.xroig.finance.shared.domain.ConflictException;
+import com.xroig.finance.shared.domain.NotFoundException;
+import com.xroig.finance.shared.domain.ValidationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -16,16 +21,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
-import static com.xroig.finance.Fixtures.account;
-import static com.xroig.finance.Fixtures.budget;
-import static com.xroig.finance.Fixtures.category;
-import static com.xroig.finance.Fixtures.eur;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -33,70 +35,75 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Level-3 HTTP-contract test (stage M3) for {@link BudgetController}. The branch
- * logic (leaf/parent rejection, cross-account, duplicate skip in copy) lives in
- * the Mockito test {@code BudgetControllerTest}; here we pin what the
- * {@code @WebMvcTest} slice adds: query-parameter binding with the current-date
- * fallback, the record validations on {@code BudgetRequest}/{@code CopyRequest}
- * ({@code @NotNull}/{@code @Positive}/{@code @Min(1)}/{@code @Max(12)} → 400), the
- * {@code @ResponseStatus} codes, and the {@code ResponseStatusException} →
- * {@code application/problem+json} mappings (409 duplicate, 400 parent category,
- * 404 not found).
+ * HTTP-contract test for the migrated {@link BudgetController} (stage H5a). The branch
+ * logic is verified by {@code BudgetServiceTest}; here we pin what the {@code @WebMvcTest}
+ * slice adds: query-parameter binding with the current-date fallback, the bean validation
+ * on {@link BudgetRequest}/{@link CopyRequest} (→ 400), the {@code @ResponseStatus} codes,
+ * the {@link BudgetView}/{@link AnnualBudgetView} JSON, and the domain exceptions as
+ * {@code problem+json} (duplicate → 409, parent category → 400, not found → 404).
  */
 @WebMvcTest(BudgetController.class)
 class BudgetControllerMvcTest {
 
     @Autowired private MockMvcTester mvc;
 
-    @MockitoBean private BudgetRepository budgetRepository;
-    @MockitoBean private CategoryRepository categoryRepository;
-    @MockitoBean private AccountRepository accountRepository;
-    @MockitoBean private BudgetService budgetService;
+    @MockitoBean private FindBudgets findBudgets;
+    @MockitoBean private CreateBudget createBudget;
+    @MockitoBean private UpdateBudget updateBudget;
+    @MockitoBean private DeleteBudget deleteBudget;
+    @MockitoBean private CopyBudgets copyBudgets;
 
     private static final String VALID_BODY = """
             {"accountId":1,"categoryId":2,"year":2024,"month":3,"amount":100}
             """;
 
+    private static BudgetView view() {
+        return new BudgetView(7L, null, null, 2024, 3, new BigDecimal("100"));
+    }
+
     // ---------- GET: query-parameter binding ----------
 
     @Test
     void find_byAccount_bindsParams() {
-        when(budgetRepository.findByAccountIdAndYearAndMonth(1L, 2024, 3)).thenReturn(List.of());
+        when(findBudgets.find(2024, 3, 1L)).thenReturn(List.of(view()));
 
-        assertThat(mvc.get().uri("/api/budgets?year=2024&month=3&accountId=1")).hasStatusOk();
-        verify(budgetRepository).findByAccountIdAndYearAndMonth(1L, 2024, 3);
+        assertThat(mvc.get().uri("/api/budgets?year=2024&month=3&accountId=1"))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$[0].amount").asNumber().isEqualTo(100);
+        verify(findBudgets).find(2024, 3, 1L);
     }
 
     @Test
     void find_withoutParams_fallsBackToCurrentYearMonthAndAllAccounts() {
         LocalDate now = LocalDate.now();
-        when(budgetRepository.findByYearAndMonth(now.getYear(), now.getMonthValue())).thenReturn(List.of());
+        when(findBudgets.find(now.getYear(), now.getMonthValue(), null)).thenReturn(List.of());
 
         assertThat(mvc.get().uri("/api/budgets")).hasStatusOk();
-        verify(budgetRepository).findByYearAndMonth(now.getYear(), now.getMonthValue());
+        verify(findBudgets).find(now.getYear(), now.getMonthValue(), null);
     }
 
     @Test
     void annual_bindsYearAndAccount() {
+        when(findBudgets.annual(2024, 1L)).thenReturn(new AnnualBudgetView(2024, 1L, List.of(), List.of()));
+
         assertThat(mvc.get().uri("/api/budgets/annual?year=2024&accountId=1")).hasStatusOk();
-        verify(budgetService).annual(2024, 1L);
+        verify(findBudgets).annual(2024, 1L);
     }
 
     @Test
     void annual_withoutYear_usesCurrentYear() {
+        when(findBudgets.annual(eq(LocalDate.now().getYear()), isNull()))
+                .thenReturn(new AnnualBudgetView(LocalDate.now().getYear(), null, List.of(), List.of()));
+
         assertThat(mvc.get().uri("/api/budgets/annual")).hasStatusOk();
-        verify(budgetService).annual(eq(LocalDate.now().getYear()), isNull());
+        verify(findBudgets).annual(eq(LocalDate.now().getYear()), isNull());
     }
 
     // ---------- POST: happy path, validation, business mappings ----------
 
     @Test
     void create_valid_returns201() {
-        when(budgetRepository.existsByAccountIdAndCategoryIdAndYearAndMonth(1L, 2L, 2024, 3)).thenReturn(false);
-        when(accountRepository.findById(1L)).thenReturn(Optional.of(account(1, "Corriente")));
-        when(categoryRepository.findById(2L)).thenReturn(Optional.of(category(2, "Comida", TransactionType.EXPENSE)));
-        when(categoryRepository.existsByParentId(2L)).thenReturn(false);
-        when(budgetRepository.save(any(Budget.class))).thenAnswer(i -> i.getArgument(0));
+        when(createBudget.create(any(BudgetCommand.class))).thenReturn(view());
 
         assertThat(mvc.post().uri("/api/budgets")
                 .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
@@ -114,11 +121,11 @@ class BudgetControllerMvcTest {
             "{\"accountId\":1,\"year\":2024,\"month\":3,\"amount\":100}",                     // null categoryId
             "{\"accountId\":1,\"categoryId\":2,\"month\":3,\"amount\":100}",                  // null year
     })
-    void create_invalidBody_returns400AndDoesNotSave(String body) {
+    void create_invalidBody_returns400AndDoesNotCreate(String body) {
         assertThat(mvc.post().uri("/api/budgets")
                 .contentType(MediaType.APPLICATION_JSON).content(body))
                 .hasStatus(HttpStatus.BAD_REQUEST);
-        verify(budgetRepository, never()).save(any());
+        verify(createBudget, never()).create(any());
     }
 
     @Test
@@ -130,22 +137,22 @@ class BudgetControllerMvcTest {
 
     @Test
     void create_duplicate_returns409ProblemDetail() {
-        when(budgetRepository.existsByAccountIdAndCategoryIdAndYearAndMonth(1L, 2L, 2024, 3)).thenReturn(true);
+        when(createBudget.create(any(BudgetCommand.class)))
+                .thenThrow(new ConflictException("La categoría ya tiene presupuesto en ese mes para esta cuenta"));
 
         assertThat(mvc.post().uri("/api/budgets")
                 .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
                 .hasStatus(HttpStatus.CONFLICT)
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
                 .bodyJson().extractingPath("$.detail")
                 .isEqualTo("La categoría ya tiene presupuesto en ese mes para esta cuenta");
-        verify(budgetRepository, never()).save(any());
     }
 
     @Test
     void create_onParentCategory_returns400ProblemDetail() {
-        when(budgetRepository.existsByAccountIdAndCategoryIdAndYearAndMonth(1L, 2L, 2024, 3)).thenReturn(false);
-        when(accountRepository.findById(1L)).thenReturn(Optional.of(account(1, "Corriente")));
-        when(categoryRepository.findById(2L)).thenReturn(Optional.of(category(2, "Hogar", TransactionType.EXPENSE)));
-        when(categoryRepository.existsByParentId(2L)).thenReturn(true); // has subcategories
+        when(createBudget.create(any(BudgetCommand.class)))
+                .thenThrow(new ValidationException(
+                        "No se puede presupuestar una categoría con subcategorías; presupuesta sus subcategorías"));
 
         assertThat(mvc.post().uri("/api/budgets")
                 .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
@@ -158,7 +165,8 @@ class BudgetControllerMvcTest {
 
     @Test
     void update_notFound_returns404ProblemDetail() {
-        when(budgetRepository.findById(99L)).thenReturn(Optional.empty());
+        when(updateBudget.update(anyLong(), any()))
+                .thenThrow(new NotFoundException("Presupuesto no encontrado"));
 
         assertThat(mvc.put().uri("/api/budgets/{id}", 99)
                 .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
@@ -167,20 +175,26 @@ class BudgetControllerMvcTest {
     }
 
     @Test
+    void update_valid_returns200WithBody() {
+        when(updateBudget.update(anyLong(), any())).thenReturn(view());
+
+        assertThat(mvc.put().uri("/api/budgets/{id}", 5)
+                .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.amount").asNumber().isEqualTo(100);
+    }
+
+    @Test
     void delete_returns204AndDelegates() {
         assertThat(mvc.delete().uri("/api/budgets/{id}", 5)).hasStatus(HttpStatus.NO_CONTENT);
-        verify(budgetRepository).deleteById(5L);
+        verify(deleteBudget).delete(5L);
     }
 
     // ---------- POST /copy ----------
 
     @Test
     void copy_valid_returns200WithCopiedList() {
-        Budget source = budget(1L, account(1, "Corriente"),
-                category(2, "Comida", TransactionType.EXPENSE), 2024, 1, eur("100"));
-        when(budgetRepository.findByYearAndMonth(2024, 1)).thenReturn(List.of(source));
-        when(budgetRepository.existsByAccountIdAndCategoryIdAndYearAndMonth(1L, 2L, 2024, 2)).thenReturn(false);
-        when(budgetRepository.saveAll(any())).thenAnswer(i -> i.getArgument(0));
+        when(copyBudgets.copy(any())).thenReturn(List.of(view()));
 
         assertThat(mvc.post().uri("/api/budgets/copy")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -199,6 +213,6 @@ class BudgetControllerMvcTest {
                         {"fromYear":2024,"fromMonth":13,"toYear":2024,"toMonth":2}
                         """))
                 .hasStatus(HttpStatus.BAD_REQUEST);
-        verify(budgetRepository, never()).saveAll(any());
+        verify(copyBudgets, never()).copy(any());
     }
 }
