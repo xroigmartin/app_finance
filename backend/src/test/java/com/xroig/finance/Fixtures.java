@@ -4,16 +4,12 @@ import com.xroig.finance.model.Account;
 import com.xroig.finance.model.Budget;
 import com.xroig.finance.model.Category;
 import com.xroig.finance.model.CategoryRule;
-import com.xroig.finance.model.RecurringBudget;
-import com.xroig.finance.model.RecurringBudgetAmount;
 import com.xroig.finance.model.Transaction;
 import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.model.Transfer;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Builders to keep test setup short and readable. */
 public final class Fixtures {
@@ -113,27 +109,5 @@ public final class Fixtures {
         b.setMonth(month);
         b.setAmount(amount);
         return b;
-    }
-
-    public static RecurringBudgetAmount amount(BigDecimal value, String yearMonth) {
-        RecurringBudgetAmount a = new RecurringBudgetAmount();
-        a.setAmount(value);
-        a.setValidoDesde(LocalDate.parse(yearMonth + "-01"));
-        return a;
-    }
-
-    public static RecurringBudget recurrence(Category category, int monthsMask, boolean active,
-                                             RecurringBudgetAmount... amounts) {
-        RecurringBudget r = new RecurringBudget();
-        r.setCategory(category);
-        r.setMonths(monthsMask);
-        r.setActive(active);
-        List<RecurringBudgetAmount> list = new ArrayList<>();
-        for (RecurringBudgetAmount a : amounts) {
-            a.setRecurringBudget(r);
-            list.add(a);
-        }
-        r.setAmounts(list);
-        return r;
     }
 }

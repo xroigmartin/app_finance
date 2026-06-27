@@ -9,16 +9,15 @@ import com.xroig.finance.budgets.application.BudgetView;
 import com.xroig.finance.budgets.application.BudgetView.AccountRef;
 import com.xroig.finance.budgets.application.BudgetView.CategoryRef;
 import com.xroig.finance.budgets.domain.BudgetId;
+import com.xroig.finance.budgets.domain.RecurringBudget;
+import com.xroig.finance.budgets.domain.RecurringBudgetRepository;
 import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
 import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
-import com.xroig.finance.model.RecurringBudget;
-import com.xroig.finance.repository.RecurringBudgetRepository;
 import com.xroig.finance.repository.TransactionRepository;
 import com.xroig.finance.shared.domain.TransactionType;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -41,9 +40,10 @@ import java.util.Optional;
  * zero. When {@code accountId} is null the figures are the aggregate of all accounts and
  * cells carry no {@code budgetId} (read-only).
  *
- * <p>While the recurrence command side is still legacy, this read uses the legacy
- * {@code RecurringBudgetRepository}/{@code TransactionRepository} for the recurrence and
- * real-movement sums; it will point at the budgets context's own stores as they migrate.
+ * <p>The recurrence-planned figures come from the budgets context's own
+ * {@link RecurringBudgetRepository} (the active recurrences as aggregates, reusing their
+ * planned-amount behavior); real-movement sums still use the legacy {@code TransactionRepository}
+ * until the reporting context migrates.
  */
 @Component
 public class BudgetQueryAdapter implements BudgetQueryPort {
@@ -102,18 +102,11 @@ public class BudgetQueryAdapter implements BudgetQueryPort {
 
         // Recurrence-generated planned amount per category per month.
         Map<Long, BigDecimal[]> recurrenceByCat = new HashMap<>();
-        List<RecurringBudget> active = accountId != null
-                ? recurrences.findActiveByAccountWithAmounts(accountId)
-                : recurrences.findAllActiveWithAmounts();
-        for (RecurringBudget r : active) {
-            BigDecimal[] arr = recurrenceByCat.computeIfAbsent(r.getCategory().getId(), k -> zero12());
+        for (RecurringBudget r : recurrences.findActiveByAccount(accountId)) {
+            BigDecimal[] arr = recurrenceByCat.computeIfAbsent(r.categoryId().value(), k -> zero12());
             for (int m = 1; m <= 12; m++) {
-                if (r.appliesToMonth(m)) {
-                    BigDecimal amount = r.amountAt(LocalDate.of(year, m, 1));
-                    if (amount != null) {
-                        arr[m - 1] = amount;
-                    }
-                }
+                int month = m;
+                r.plannedAmount(year, month).ifPresent(money -> arr[month - 1] = money.amount());
             }
         }
 

@@ -3,17 +3,20 @@ package com.xroig.finance.budgets.infrastructure.persistence;
 import com.xroig.finance.PostgresTestBase;
 import com.xroig.finance.budgets.application.AnnualBudgetView;
 import com.xroig.finance.budgets.application.AnnualBudgetView.AnnualRow;
+import com.xroig.finance.budgets.domain.MonthsMask;
+import com.xroig.finance.budgets.domain.RecurrenceAmount;
+import com.xroig.finance.budgets.domain.RecurringBudget;
+import com.xroig.finance.budgets.domain.RecurringBudgetRepository;
+import com.xroig.finance.categories.domain.CategoryId;
 import com.xroig.finance.model.Account;
 import com.xroig.finance.model.Budget;
 import com.xroig.finance.model.Category;
-import com.xroig.finance.model.RecurringBudget;
-import com.xroig.finance.model.RecurringBudgetAmount;
 import com.xroig.finance.model.Transaction;
 import com.xroig.finance.repository.AccountRepository;
 import com.xroig.finance.repository.BudgetRepository;
 import com.xroig.finance.repository.CategoryRepository;
-import com.xroig.finance.repository.RecurringBudgetRepository;
 import com.xroig.finance.repository.TransactionRepository;
+import com.xroig.finance.shared.domain.Money;
 import com.xroig.finance.shared.domain.TransactionType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,7 @@ import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,10 +34,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * against real PostgreSQL (stage H5a, replaces the legacy mocked {@code BudgetServiceTest}):
  * planned from a manual budget vs. recurrence, real movement sums, parent/child
  * aggregation with nested children, account vs. aggregate scope, and the income/expense
- * split sorted by name. Data is seeded through the legacy repositories, which map the same
- * tables the adapter reads.
+ * split sorted by name. Budgets/movements are seeded through the legacy repositories (same
+ * tables the adapter reads); recurrences through the migrated budgets persistence adapter.
  */
-@Import(BudgetQueryAdapter.class)
+@Import({BudgetQueryAdapter.class, RecurringBudgetPersistenceAdapter.class, RecurringBudgetJpaMapper.class})
 class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
 
     private static final int YEAR = 2024;
@@ -66,7 +70,7 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
     void recurrence_fillsPlannedWhenNoManualBudget() {
         Account corriente = account("Corriente");
         Category comunidad = category("Comunidad", TransactionType.EXPENSE, corriente);
-        recurrence(comunidad, 0b0000_0000_0100, true, amount("80", "2024-01")); // month 3 active
+        recurrence(comunidad, List.of(3), true, ramount("80", "2024-01")); // month 3 active
 
         AnnualRow row = rowFor(adapter.annual(YEAR, corriente.getId()).expense(), comunidad.getId());
 
@@ -79,7 +83,7 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
     void manualBudgetOverridesRecurrence() {
         Account corriente = account("Corriente");
         Category comunidad = category("Comunidad", TransactionType.EXPENSE, corriente);
-        recurrence(comunidad, 0b0000_0000_0100, true, amount("80", "2024-01"));
+        recurrence(comunidad, List.of(3), true, ramount("80", "2024-01"));
         budget(corriente, comunidad, 3, "120");
 
         AnnualRow row = rowFor(adapter.annual(YEAR, corriente.getId()).expense(), comunidad.getId());
@@ -192,22 +196,12 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
         transactionRepository.save(t);
     }
 
-    private void recurrence(Category category, int monthsMask, boolean active, RecurringBudgetAmount... amounts) {
-        RecurringBudget r = new RecurringBudget();
-        r.setCategory(category);
-        r.setMonths(monthsMask);
-        r.setActive(active);
-        for (RecurringBudgetAmount a : amounts) {
-            a.setRecurringBudget(r);
-            r.getAmounts().add(a);
-        }
-        recurringRepository.save(r);
+    private void recurrence(Category category, List<Integer> months, boolean active, RecurrenceAmount... amounts) {
+        recurringRepository.save(RecurringBudget.create(new CategoryId(category.getId()),
+                MonthsMask.ofMonths(months), active, List.of(amounts)));
     }
 
-    private RecurringBudgetAmount amount(String value, String yearMonth) {
-        RecurringBudgetAmount a = new RecurringBudgetAmount();
-        a.setAmount(new BigDecimal(value));
-        a.setValidoDesde(LocalDate.parse(yearMonth + "-01"));
-        return a;
+    private RecurrenceAmount ramount(String value, String yearMonth) {
+        return new RecurrenceAmount(Money.of(value), YearMonth.parse(yearMonth));
     }
 }

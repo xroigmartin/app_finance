@@ -1,9 +1,11 @@
-package com.xroig.finance.controller;
+package com.xroig.finance.budgets.infrastructure.web;
 
-import com.xroig.finance.dto.RecurringBudgetDtos.AmountResponse;
-import com.xroig.finance.dto.RecurringBudgetDtos.RecurringBudgetRequest;
-import com.xroig.finance.dto.RecurringBudgetDtos.RecurringBudgetResponse;
-import com.xroig.finance.service.RecurringBudgetService;
+import com.xroig.finance.budgets.application.RecurringBudgetView;
+import com.xroig.finance.budgets.application.RecurringBudgetView.AmountView;
+import com.xroig.finance.budgets.application.port.DeleteRecurrence;
+import com.xroig.finance.budgets.application.port.FindRecurrence;
+import com.xroig.finance.budgets.application.port.UpsertRecurrence;
+import com.xroig.finance.budgets.application.port.UpsertRecurrence.RecurrenceCommand;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -26,21 +28,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Level-3 HTTP-contract test (stage M5) for {@link RecurringBudgetController}, the
- * recurrence sub-resource ({@code /api/categories/{id}/recurrence}). The upsert/
- * reconciliation logic is in {@code RecurringBudgetServiceTest}; here we pin what
- * the {@code @WebMvcTest} slice adds: the {@code {categoryId}} path-variable
- * binding, the {@code RecurringBudgetResponse} JSON shape, the cascading bean
- * validation of {@code RecurringBudgetRequest} (its {@code @NotEmpty} lists and the
- * {@code @Valid} nested {@code AmountRequest} with {@code @NotNull}/{@code @Positive})
- * → 400, and the {@code @ResponseStatus} codes.
+ * Level-3 HTTP-contract test for {@link RecurringBudgetController}, the recurrence sub-resource
+ * ({@code /api/categories/{id}/recurrence}). Pins what the {@code @WebMvcTest} slice adds: the
+ * {@code {categoryId}} path-variable binding, the {@link RecurringBudgetView} JSON shape, the
+ * cascading bean validation of {@link RecurringBudgetRequest} (its {@code @NotEmpty} lists and
+ * the {@code @Valid} nested amounts with {@code @NotNull}/{@code @Positive}) → 400, and the
+ * {@code @ResponseStatus} codes. The use-case logic lives in {@code RecurringBudgetServiceTest}.
  */
 @WebMvcTest(RecurringBudgetController.class)
 class RecurringBudgetControllerMvcTest {
 
     @Autowired private MockMvcTester mvc;
 
-    @MockitoBean private RecurringBudgetService recurringBudgetService;
+    @MockitoBean private FindRecurrence findRecurrence;
+    @MockitoBean private UpsertRecurrence upsertRecurrence;
+    @MockitoBean private DeleteRecurrence deleteRecurrence;
 
     private static final String VALID_BODY = """
             {"months":[1,2],"active":true,"amounts":[{"amount":100,"validoDesde":"2024-01"}]}
@@ -48,8 +50,8 @@ class RecurringBudgetControllerMvcTest {
 
     @Test
     void get_returns200WithJson() {
-        when(recurringBudgetService.get(5L)).thenReturn(new RecurringBudgetResponse(
-                5L, List.of(1, 2), true, List.of(new AmountResponse(1L, new BigDecimal("100"), "2024-01"))));
+        when(findRecurrence.get(5L)).thenReturn(new RecurringBudgetView(
+                5L, List.of(1, 2), true, List.of(new AmountView(1L, new BigDecimal("100"), "2024-01"))));
 
         MvcTestResult result = mvc.get().uri("/api/categories/{id}/recurrence", 5).exchange();
 
@@ -57,18 +59,19 @@ class RecurringBudgetControllerMvcTest {
         assertThat(result).bodyJson().extractingPath("$.categoryId").asNumber().isEqualTo(5);
         assertThat(result).bodyJson().extractingPath("$.months").asArray().containsExactly(1, 2);
         assertThat(result).bodyJson().extractingPath("$.amounts[0].validoDesde").isEqualTo("2024-01");
+        assertThat(result).bodyJson().extractingPath("$.amounts[0].id").asNumber().isEqualTo(1);
     }
 
     @Test
     void upsert_valid_bindsPathVariableAndReturns200() {
-        when(recurringBudgetService.upsert(eq(5L), any(RecurringBudgetRequest.class)))
-                .thenReturn(new RecurringBudgetResponse(5L, List.of(1, 2), true, List.of()));
+        when(upsertRecurrence.upsert(eq(5L), any(RecurrenceCommand.class)))
+                .thenReturn(new RecurringBudgetView(5L, List.of(1, 2), true, List.of()));
 
         assertThat(mvc.put().uri("/api/categories/{id}/recurrence", 5)
                 .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
                 .hasStatusOk()
                 .bodyJson().extractingPath("$.active").isEqualTo(true);
-        verify(recurringBudgetService).upsert(eq(5L), any(RecurringBudgetRequest.class));
+        verify(upsertRecurrence).upsert(eq(5L), any(RecurrenceCommand.class));
     }
 
     @ParameterizedTest(name = "invalid RecurringBudgetRequest → 400: {0}")
@@ -83,7 +86,7 @@ class RecurringBudgetControllerMvcTest {
         assertThat(mvc.put().uri("/api/categories/{id}/recurrence", 5)
                 .contentType(MediaType.APPLICATION_JSON).content(body))
                 .hasStatus(HttpStatus.BAD_REQUEST);
-        verify(recurringBudgetService, never()).upsert(any(), any());
+        verify(upsertRecurrence, never()).upsert(any(Long.class), any());
     }
 
     @Test
@@ -96,6 +99,6 @@ class RecurringBudgetControllerMvcTest {
     @Test
     void delete_returns204AndDelegates() {
         assertThat(mvc.delete().uri("/api/categories/{id}/recurrence", 5)).hasStatus(HttpStatus.NO_CONTENT);
-        verify(recurringBudgetService).delete(5L);
+        verify(deleteRecurrence).delete(5L);
     }
 }

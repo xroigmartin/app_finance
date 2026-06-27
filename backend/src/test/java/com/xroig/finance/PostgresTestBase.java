@@ -40,5 +40,11 @@ public abstract class PostgresTestBase {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // Each distinct @DataJpaTest slice caches its own context (and Hikari pool) for the
+        // whole run; with the default pool size the growing number of slices exhausts the
+        // container's max_connections ("too many clients already"). A tiny pool is plenty for
+        // the single-connection, transaction-per-method repository tests and keeps the total
+        // bounded as more contexts are added.
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "2");
     }
 }

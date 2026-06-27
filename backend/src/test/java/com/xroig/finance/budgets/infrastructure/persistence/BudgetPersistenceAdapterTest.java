@@ -27,7 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@link BudgetQueryAdapter} assembling the nested {@link BudgetView}. Accounts and
  * categories are seeded through the legacy repositories, which map the same tables.
  */
-@Import({BudgetPersistenceAdapter.class, BudgetJpaMapper.class, BudgetQueryAdapter.class})
+@Import({BudgetPersistenceAdapter.class, BudgetJpaMapper.class, BudgetQueryAdapter.class,
+        RecurringBudgetPersistenceAdapter.class, RecurringBudgetJpaMapper.class})
 class BudgetPersistenceAdapterTest extends PostgresTestBase {
 
     @Autowired private BudgetPersistenceAdapter adapter;

@@ -2,9 +2,9 @@ package com.xroig.finance.categories.infrastructure.persistence;
 
 import com.xroig.finance.accounts.domain.AccountId;
 import com.xroig.finance.categories.domain.CategoryId;
+import com.xroig.finance.budgets.infrastructure.persistence.RecurringBudgetJpaRepository;
 import com.xroig.finance.repository.BudgetRepository;
 import com.xroig.finance.repository.CategoryRuleRepository;
-import com.xroig.finance.repository.RecurringBudgetRepository;
 import com.xroig.finance.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +22,7 @@ class CategoryReferencesAdapterTest {
     @Mock private TransactionRepository transactions;
     @Mock private BudgetRepository budgets;
     @Mock private CategoryRuleRepository rules;
-    @Mock private RecurringBudgetRepository recurrences;
+    @Mock private RecurringBudgetJpaRepository recurrences;
     @InjectMocks private CategoryReferencesAdapter adapter;
 
     @Test
