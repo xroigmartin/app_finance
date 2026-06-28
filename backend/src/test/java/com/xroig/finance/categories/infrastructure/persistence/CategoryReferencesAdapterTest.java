@@ -2,10 +2,10 @@ package com.xroig.finance.categories.infrastructure.persistence;
 
 import com.xroig.finance.accounts.domain.AccountId;
 import com.xroig.finance.categories.domain.CategoryId;
+import com.xroig.finance.budgets.infrastructure.persistence.BudgetJpaRepository;
 import com.xroig.finance.budgets.infrastructure.persistence.RecurringBudgetJpaRepository;
 import com.xroig.finance.categorization.infrastructure.persistence.CategoryRuleJpaRepository;
-import com.xroig.finance.repository.BudgetRepository;
-import com.xroig.finance.repository.TransactionRepository;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -19,8 +19,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CategoryReferencesAdapterTest {
 
-    @Mock private TransactionRepository transactions;
-    @Mock private BudgetRepository budgets;
+    @Mock private TransactionJpaRepository transactions;
+    @Mock private BudgetJpaRepository budgets;
     @Mock private CategoryRuleJpaRepository rules;
     @Mock private RecurringBudgetJpaRepository recurrences;
     @InjectMocks private CategoryReferencesAdapter adapter;

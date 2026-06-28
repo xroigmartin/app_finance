@@ -3,10 +3,10 @@ package com.xroig.finance.categorization.infrastructure.persistence;
 import com.xroig.finance.PostgresTestBase;
 import com.xroig.finance.categories.domain.CategoryId;
 import com.xroig.finance.categorization.domain.RuleCategoryCatalog.RuleCategory;
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Category;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.CategoryRepository;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
 import com.xroig.finance.shared.domain.TransactionType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,13 +25,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RuleCategoryCatalogAdapterTest extends PostgresTestBase {
 
     @Autowired private RuleCategoryCatalogAdapter adapter;
-    @Autowired private AccountRepository accountRepository;
-    @Autowired private CategoryRepository categoryRepository;
+    @Autowired private AccountJpaRepository accountRepository;
+    @Autowired private CategoryJpaRepository categoryRepository;
 
     @Test
     void find_accountBoundCategory_reportsTypeAndAccount() {
-        Account account = account("Corriente");
-        Category cat = category("Supermercado", TransactionType.EXPENSE, account);
+        AccountJpaEntity account = account("Corriente");
+        CategoryJpaEntity cat = category("Supermercado", TransactionType.EXPENSE, account);
 
         assertThat(adapter.find(new CategoryId(cat.getId()))).hasValueSatisfying((RuleCategory rc) -> {
             assertThat(rc.type()).isEqualTo(TransactionType.EXPENSE);
@@ -42,7 +42,7 @@ class RuleCategoryCatalogAdapterTest extends PostgresTestBase {
 
     @Test
     void find_globalCategory_reportsGlobal() {
-        Category cat = category("Suministros", TransactionType.EXPENSE, null);
+        CategoryJpaEntity cat = category("Suministros", TransactionType.EXPENSE, null);
 
         assertThat(adapter.find(new CategoryId(cat.getId()))).hasValueSatisfying(rc -> {
             assertThat(rc.isGlobal()).isTrue();
@@ -57,8 +57,8 @@ class RuleCategoryCatalogAdapterTest extends PostgresTestBase {
 
     @Test
     void fallbackFor_matchesByTypeAndName_caseInsensitive() {
-        Category otrosGastos = category("Otros gastos", TransactionType.EXPENSE, null);
-        Category otrosIngresos = category("Otros ingresos", TransactionType.INCOME, null);
+        CategoryJpaEntity otrosGastos = category("Otros gastos", TransactionType.EXPENSE, null);
+        CategoryJpaEntity otrosIngresos = category("Otros ingresos", TransactionType.INCOME, null);
 
         assertThat(adapter.fallbackFor(TransactionType.EXPENSE))
                 .hasValue(new CategoryId(otrosGastos.getId()));
@@ -71,16 +71,16 @@ class RuleCategoryCatalogAdapterTest extends PostgresTestBase {
         assertThat(adapter.fallbackFor(TransactionType.EXPENSE)).isEmpty();
     }
 
-    private Account account(String name) {
-        Account a = new Account();
+    private AccountJpaEntity account(String name) {
+        AccountJpaEntity a = new AccountJpaEntity();
         a.setName(name);
         a.setType("Banco");
         a.setInitialBalance(BigDecimal.ZERO);
         return accountRepository.save(a);
     }
 
-    private Category category(String name, TransactionType type, Account account) {
-        Category c = new Category();
+    private CategoryJpaEntity category(String name, TransactionType type, AccountJpaEntity account) {
+        CategoryJpaEntity c = new CategoryJpaEntity();
         c.setName(name);
         c.setType(type);
         c.setColor("#000000");

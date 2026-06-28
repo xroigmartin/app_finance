@@ -1,10 +1,12 @@
-package com.xroig.finance.repository;
+package com.xroig.finance.shared.web;
 
 import com.xroig.finance.PostgresTestBase;
-import com.xroig.finance.controller.GlobalExceptionHandler;
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Budget;
-import com.xroig.finance.model.Category;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.budgets.infrastructure.persistence.BudgetJpaEntity;
+import com.xroig.finance.budgets.infrastructure.persistence.BudgetJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
 import com.xroig.finance.shared.domain.TransactionType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,14 +21,13 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 /**
- * Level-2 tests for the UNIQUE constraints that feed {@link GlobalExceptionHandler}
- * (stage T3), against real PostgreSQL. The E3e unit test already checks the
- * handler's message mapping, but it does so with <b>fabricated</b> cause messages;
- * it cannot prove that the markers it keys on (e.g. {@code ux_categories_name_scope})
- * are the constraints' <b>real</b> Postgres names. Here we provoke each violation
- * on the live schema and run the resulting {@link DataIntegrityViolationException}
- * through the actual handler, so a rename in a migration that broke the mapping
- * would fail this test.
+ * Level-2 tests for the UNIQUE constraints that feed {@link DataIntegrityExceptionHandler}
+ * against real PostgreSQL. The handler's unit test already checks the message mapping, but
+ * it does so with <b>fabricated</b> cause messages; it cannot prove that the markers it
+ * keys on (e.g. {@code ux_categories_name_scope}) are the constraints' <b>real</b> Postgres
+ * names. Here we provoke each violation on the live schema and run the resulting
+ * {@link DataIntegrityViolationException} through the actual handler, so a rename in a
+ * migration that broke the mapping would fail this test.
  *
  * <p>The "no viola" cases pin the partial shape of those constraints — the
  * {@code coalesce(account_id, 0)} / {@code coalesce(parent_id, 0)} scoping of the
@@ -35,17 +36,17 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
  */
 class ConstraintViolationsTest extends PostgresTestBase {
 
-    @Autowired private AccountRepository accountRepository;
-    @Autowired private CategoryRepository categoryRepository;
-    @Autowired private BudgetRepository budgetRepository;
+    @Autowired private AccountJpaRepository accountRepository;
+    @Autowired private CategoryJpaRepository categoryRepository;
+    @Autowired private BudgetJpaRepository budgetRepository;
 
-    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    private final DataIntegrityExceptionHandler handler = new DataIntegrityExceptionHandler();
 
     // ---------- ux_categories_name_scope (name, coalesce(account), coalesce(parent)) ----------
 
     @Test
     void categoryName_duplicateInSameScope_maps409() {
-        Account corriente = account("Corriente");
+        AccountJpaEntity corriente = account("Corriente");
         category("Comida", corriente, null);
 
         ProblemDetail pd = violationHandledBy(() -> category("Comida", corriente, null));
@@ -56,10 +57,10 @@ class ConstraintViolationsTest extends PostgresTestBase {
 
     @Test
     void categoryName_sameNameDifferentAccountOrParent_isAllowed() {
-        Account a = account("Cuenta A");
-        Account b = account("Cuenta B");
-        Category padre = category("Hogar", a, null);
-        Category otroPadre = category("Casa", a, null);
+        AccountJpaEntity a = account("Cuenta A");
+        AccountJpaEntity b = account("Cuenta B");
+        CategoryJpaEntity padre = category("Hogar", a, null);
+        CategoryJpaEntity otroPadre = category("Casa", a, null);
         category("Comida", a, null);
 
         // Same name on a different account: different coalesce(account_id) → allowed.
@@ -75,8 +76,8 @@ class ConstraintViolationsTest extends PostgresTestBase {
 
     @Test
     void budgetPeriod_duplicateForSameAccountCategoryPeriod_maps409() {
-        Account corriente = account("Corriente");
-        Category comida = category("Comida", corriente, null);
+        AccountJpaEntity corriente = account("Corriente");
+        CategoryJpaEntity comida = category("Comida", corriente, null);
         budget(corriente, comida, 2024, 3, "100");
 
         ProblemDetail pd = violationHandledBy(() -> budget(corriente, comida, 2024, 3, "150"));
@@ -87,8 +88,8 @@ class ConstraintViolationsTest extends PostgresTestBase {
 
     @Test
     void budgetPeriod_differentMonthSameCategory_isAllowed() {
-        Account corriente = account("Corriente");
-        Category comida = category("Comida", corriente, null);
+        AccountJpaEntity corriente = account("Corriente");
+        CategoryJpaEntity comida = category("Comida", corriente, null);
         budget(corriente, comida, 2024, 3, "100");
 
         assertThatCode(() -> budget(corriente, comida, 2024, 4, "100"))
@@ -108,16 +109,16 @@ class ConstraintViolationsTest extends PostgresTestBase {
         return handler.handleDataIntegrityViolation(ex);
     }
 
-    private Account account(String name) {
-        Account a = new Account();
+    private AccountJpaEntity account(String name) {
+        AccountJpaEntity a = new AccountJpaEntity();
         a.setName(name);
         a.setType("CORRIENTE");
         a.setInitialBalance(BigDecimal.ZERO);
         return accountRepository.saveAndFlush(a);
     }
 
-    private Category category(String name, Account account, Category parent) {
-        Category c = new Category();
+    private CategoryJpaEntity category(String name, AccountJpaEntity account, CategoryJpaEntity parent) {
+        CategoryJpaEntity c = new CategoryJpaEntity();
         c.setName(name);
         c.setType(TransactionType.EXPENSE);
         c.setColor("#" + name.toLowerCase());
@@ -126,8 +127,8 @@ class ConstraintViolationsTest extends PostgresTestBase {
         return categoryRepository.saveAndFlush(c);
     }
 
-    private Budget budget(Account account, Category category, int year, int month, String amount) {
-        Budget b = new Budget();
+    private BudgetJpaEntity budget(AccountJpaEntity account, CategoryJpaEntity category, int year, int month, String amount) {
+        BudgetJpaEntity b = new BudgetJpaEntity();
         b.setAccount(account);
         b.setCategory(category);
         b.setYear(year);

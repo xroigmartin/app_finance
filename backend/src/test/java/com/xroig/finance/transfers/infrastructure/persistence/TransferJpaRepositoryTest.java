@@ -1,8 +1,8 @@
-package com.xroig.finance.repository;
+package com.xroig.finance.transfers.infrastructure.persistence;
 
 import com.xroig.finance.PostgresTestBase;
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Transfer;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,23 +14,22 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Level-2 tests for {@link TransferRepository} against real PostgreSQL (stage T4,
- * repository query coverage): the optional-account filter of {@code search} —
- * which must match a transfer when the account is either side of it — and the
- * directional {@code totalInUntil}/{@code totalOutUntil} sums that the dashboard
- * uses to fold transfers into an account's balance.
+ * Level-2 tests for {@link TransferJpaRepository} against real PostgreSQL: the
+ * optional-account filter of {@code search} — which must match a transfer when the
+ * account is either side of it — and the directional {@code totalInUntil}/
+ * {@code totalOutUntil} sums the reporting context folds into an account's balance.
  */
-class TransferRepositoryTest extends PostgresTestBase {
+class TransferJpaRepositoryTest extends PostgresTestBase {
 
-    @Autowired private TransferRepository transferRepository;
-    @Autowired private AccountRepository accountRepository;
+    @Autowired private TransferJpaRepository transferRepository;
+    @Autowired private AccountJpaRepository accountRepository;
 
     private static final LocalDate JAN = LocalDate.of(2024, 1, 10);
     private static final LocalDate FEB = LocalDate.of(2024, 2, 10);
     private static final LocalDate MAR = LocalDate.of(2024, 3, 10);
 
-    private Account corriente;
-    private Account ahorro;
+    private AccountJpaEntity corriente;
+    private AccountJpaEntity ahorro;
 
     @BeforeEach
     void setUp() {
@@ -40,28 +39,28 @@ class TransferRepositoryTest extends PostgresTestBase {
 
     @Test
     void search_withoutAccount_returnsRangeOrderedByDateThenIdDesc() {
-        Transfer jan = transfer(corriente, ahorro, "100", JAN);
-        Transfer febA = transfer(corriente, ahorro, "200", FEB);
-        Transfer febB = transfer(corriente, ahorro, "300", FEB);
+        TransferJpaEntity jan = transfer(corriente, ahorro, "100", JAN);
+        TransferJpaEntity febA = transfer(corriente, ahorro, "200", FEB);
+        TransferJpaEntity febB = transfer(corriente, ahorro, "300", FEB);
         transfer(corriente, ahorro, "999", LocalDate.of(2024, 4, 1)); // out of range
 
-        List<Transfer> result = transferRepository.search(JAN, MAR, null);
+        List<TransferJpaEntity> result = transferRepository.search(JAN, MAR, null);
 
         // Two Feb rows first (later id first on the same date), then the Jan one.
-        assertThat(result).extracting(Transfer::getId)
+        assertThat(result).extracting(TransferJpaEntity::getId)
                 .containsExactly(febB.getId(), febA.getId(), jan.getId());
     }
 
     @Test
     void search_byAccount_matchesEitherSideOfTheTransfer() {
-        Account tercera = account("Tercera");
+        AccountJpaEntity tercera = account("Tercera");
         transfer(corriente, ahorro, "100", JAN); // ahorro is the destination
         transfer(ahorro, tercera, "50", FEB);     // ahorro is the source
         transfer(corriente, tercera, "70", FEB);  // ahorro on neither side
 
-        List<Transfer> result = transferRepository.search(JAN, MAR, ahorro.getId());
+        List<TransferJpaEntity> result = transferRepository.search(JAN, MAR, ahorro.getId());
 
-        assertThat(result).extracting(Transfer::getAmount)
+        assertThat(result).extracting(TransferJpaEntity::getAmount)
                 .usingElementComparator(BigDecimal::compareTo)
                 .containsExactlyInAnyOrder(new BigDecimal("100"), new BigDecimal("50"));
     }
@@ -82,18 +81,28 @@ class TransferRepositoryTest extends PostgresTestBase {
         assertThat(transferRepository.totalInUntil(corriente.getId(), MAR)).isEqualByComparingTo("0");
     }
 
+    @Test
+    void existsByFromOrToAccount_seesEitherSide() {
+        AccountJpaEntity sinUso = account("Sin uso");
+        transfer(corriente, ahorro, "100", JAN);
+
+        assertThat(transferRepository.existsByFromAccountIdOrToAccountId(corriente.getId(), corriente.getId())).isTrue();
+        assertThat(transferRepository.existsByFromAccountIdOrToAccountId(ahorro.getId(), ahorro.getId())).isTrue();
+        assertThat(transferRepository.existsByFromAccountIdOrToAccountId(sinUso.getId(), sinUso.getId())).isFalse();
+    }
+
     // ---- helpers ----
 
-    private Account account(String name) {
-        Account a = new Account();
+    private AccountJpaEntity account(String name) {
+        AccountJpaEntity a = new AccountJpaEntity();
         a.setName(name);
         a.setType("CORRIENTE");
         a.setInitialBalance(BigDecimal.ZERO);
         return accountRepository.save(a);
     }
 
-    private Transfer transfer(Account from, Account to, String amount, LocalDate date) {
-        Transfer t = new Transfer();
+    private TransferJpaEntity transfer(AccountJpaEntity from, AccountJpaEntity to, String amount, LocalDate date) {
+        TransferJpaEntity t = new TransferJpaEntity();
         t.setFromAccount(from);
         t.setToAccount(to);
         t.setAmount(new BigDecimal(amount));

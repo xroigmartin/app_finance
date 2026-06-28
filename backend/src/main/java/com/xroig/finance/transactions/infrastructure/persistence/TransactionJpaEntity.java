@@ -59,7 +59,7 @@ public class TransactionJpaEntity {
     @JoinColumn(name = "refund_of_id")
     private TransactionJpaEntity refundOf;
 
-    protected TransactionJpaEntity() {
+    public TransactionJpaEntity() {
     }
 
     public Long getId() {

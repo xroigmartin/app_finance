@@ -3,12 +3,12 @@ package com.xroig.finance.categorization.infrastructure.persistence;
 import com.xroig.finance.PostgresTestBase;
 import com.xroig.finance.categories.domain.CategoryId;
 import com.xroig.finance.categorization.domain.TransactionRecategorizer.RecategorizationCandidate;
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Category;
-import com.xroig.finance.model.Transaction;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.CategoryRepository;
-import com.xroig.finance.repository.TransactionRepository;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
 import com.xroig.finance.shared.domain.TransactionType;
 import com.xroig.finance.transactions.domain.TransactionId;
 import org.junit.jupiter.api.Test;
@@ -32,15 +32,15 @@ class TransactionRecategorizerAdapterTest extends PostgresTestBase {
     private static final LocalDate D = LocalDate.of(2024, 1, 10);
 
     @Autowired private TransactionRecategorizerAdapter adapter;
-    @Autowired private AccountRepository accountRepository;
-    @Autowired private CategoryRepository categoryRepository;
-    @Autowired private TransactionRepository transactionRepository;
+    @Autowired private AccountJpaRepository accountRepository;
+    @Autowired private CategoryJpaRepository categoryRepository;
+    @Autowired private TransactionJpaRepository transactionRepository;
 
     @Test
     void candidatesIn_listsMovementsWithDescriptionAndAccount() {
-        Account account = account("Corriente");
-        Category fallback = category("Otros gastos", null);
-        Transaction t = expense(account, fallback, "Compra MERCADONA");
+        AccountJpaEntity account = account("Corriente");
+        CategoryJpaEntity fallback = category("Otros gastos", null);
+        TransactionJpaEntity t = expense(account, fallback, "Compra MERCADONA");
 
         List<RecategorizationCandidate> candidates = adapter.candidatesIn(new CategoryId(fallback.getId()));
 
@@ -53,11 +53,11 @@ class TransactionRecategorizerAdapterTest extends PostgresTestBase {
 
     @Test
     void reassign_movesOnlyTheSelectedMovements() {
-        Account account = account("Corriente");
-        Category fallback = category("Otros gastos", null);
-        Category target = category("Supermercado", null);
-        Transaction moved = expense(account, fallback, "MERCADONA");
-        Transaction kept = expense(account, fallback, "Farmacia");
+        AccountJpaEntity account = account("Corriente");
+        CategoryJpaEntity fallback = category("Otros gastos", null);
+        CategoryJpaEntity target = category("Supermercado", null);
+        TransactionJpaEntity moved = expense(account, fallback, "MERCADONA");
+        TransactionJpaEntity kept = expense(account, fallback, "Farmacia");
 
         adapter.reassign(List.of(new TransactionId(moved.getId())), new CategoryId(target.getId()));
 
@@ -77,16 +77,16 @@ class TransactionRecategorizerAdapterTest extends PostgresTestBase {
         assertThat(transactionRepository.count()).isZero();
     }
 
-    private Account account(String name) {
-        Account a = new Account();
+    private AccountJpaEntity account(String name) {
+        AccountJpaEntity a = new AccountJpaEntity();
         a.setName(name);
         a.setType("Banco");
         a.setInitialBalance(BigDecimal.ZERO);
         return accountRepository.save(a);
     }
 
-    private Category category(String name, Account account) {
-        Category c = new Category();
+    private CategoryJpaEntity category(String name, AccountJpaEntity account) {
+        CategoryJpaEntity c = new CategoryJpaEntity();
         c.setName(name);
         c.setType(TransactionType.EXPENSE);
         c.setColor("#000000");
@@ -94,8 +94,8 @@ class TransactionRecategorizerAdapterTest extends PostgresTestBase {
         return categoryRepository.save(c);
     }
 
-    private Transaction expense(Account account, Category category, String description) {
-        Transaction t = new Transaction();
+    private TransactionJpaEntity expense(AccountJpaEntity account, CategoryJpaEntity category, String description) {
+        TransactionJpaEntity t = new TransactionJpaEntity();
         t.setType(TransactionType.EXPENSE);
         t.setAmount(new BigDecimal("10"));
         t.setAccount(account);

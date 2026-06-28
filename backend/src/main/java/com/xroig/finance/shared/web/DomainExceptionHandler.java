@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * domain. Each subtype of {@link DomainException} carries a user-facing Spanish
  * message that becomes the {@code detail}.
  *
- * <p>Lives alongside the legacy {@code controller.GlobalExceptionHandler} (which
- * still maps {@code DataIntegrityViolationException}); the two handle disjoint
- * exception types and coexist until every domain is migrated.
+ * <p>Sibling of {@link DataIntegrityExceptionHandler}, which maps the last-resort
+ * {@code DataIntegrityViolationException} from the database; the two handle
+ * disjoint exception types.
  */
 @RestControllerAdvice
 public class DomainExceptionHandler {

@@ -1,8 +1,8 @@
 package com.xroig.finance.reporting.infrastructure.persistence;
 
-import com.xroig.finance.model.Budget;
+import com.xroig.finance.budgets.infrastructure.persistence.BudgetJpaEntity;
+import com.xroig.finance.budgets.infrastructure.persistence.BudgetJpaRepository;
 import com.xroig.finance.reporting.application.BudgetCatalogQuery;
-import com.xroig.finance.repository.BudgetRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -14,15 +14,15 @@ import java.util.List;
 @Component
 class BudgetCatalogQueryAdapter implements BudgetCatalogQuery {
 
-    private final BudgetRepository budgets;
+    private final BudgetJpaRepository budgets;
 
-    BudgetCatalogQueryAdapter(BudgetRepository budgets) {
+    BudgetCatalogQueryAdapter(BudgetJpaRepository budgets) {
         this.budgets = budgets;
     }
 
     @Override
     public List<ReportBudget> forMonth(int year, int month, Long accountId) {
-        List<Budget> rows = accountId != null
+        List<BudgetJpaEntity> rows = accountId != null
                 ? budgets.findByAccountIdAndYearAndMonth(accountId, year, month)
                 : budgets.findByYearAndMonth(year, month);
         return rows.stream()

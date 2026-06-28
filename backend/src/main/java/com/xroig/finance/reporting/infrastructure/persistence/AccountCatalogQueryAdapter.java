@@ -1,7 +1,7 @@
 package com.xroig.finance.reporting.infrastructure.persistence;
 
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
 import com.xroig.finance.reporting.application.AccountCatalogQuery;
-import com.xroig.finance.repository.AccountRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -10,9 +10,9 @@ import java.util.List;
 @Component
 class AccountCatalogQueryAdapter implements AccountCatalogQuery {
 
-    private final AccountRepository accounts;
+    private final AccountJpaRepository accounts;
 
-    AccountCatalogQueryAdapter(AccountRepository accounts) {
+    AccountCatalogQueryAdapter(AccountJpaRepository accounts) {
         this.accounts = accounts;
     }
 

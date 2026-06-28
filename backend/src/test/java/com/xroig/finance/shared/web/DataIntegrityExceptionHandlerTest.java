@@ -1,4 +1,4 @@
-package com.xroig.finance.controller;
+package com.xroig.finance.shared.web;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -8,13 +8,13 @@ import org.springframework.http.ProblemDetail;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link GlobalExceptionHandler} (stage E3e): each known unique
+ * Unit tests for {@link DataIntegrityExceptionHandler}: each known unique
  * constraint maps to its Spanish message with a 409, and anything else (or a
  * null cause message) falls back to the generic integrity message.
  */
-class GlobalExceptionHandlerTest {
+class DataIntegrityExceptionHandlerTest {
 
-    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    private final DataIntegrityExceptionHandler handler = new DataIntegrityExceptionHandler();
 
     /** Builds the exception with a most-specific cause carrying {@code causeMessage}. */
     private ProblemDetail handle(String causeMessage) {

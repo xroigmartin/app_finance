@@ -6,10 +6,10 @@ import com.xroig.finance.budgets.domain.MonthsMask;
 import com.xroig.finance.budgets.domain.RecurrenceAmount;
 import com.xroig.finance.budgets.domain.RecurringBudget;
 import com.xroig.finance.categories.domain.CategoryId;
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Category;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.CategoryRepository;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
 import com.xroig.finance.shared.domain.Money;
 import com.xroig.finance.shared.domain.TransactionType;
 import jakarta.persistence.EntityManager;
@@ -33,19 +33,19 @@ class RecurringBudgetQueryAdapterTest extends PostgresTestBase {
 
     @Autowired private RecurringBudgetQueryAdapter queryAdapter;
     @Autowired private RecurringBudgetPersistenceAdapter persistenceAdapter;
-    @Autowired private CategoryRepository categoryRepository;
-    @Autowired private AccountRepository accountRepository;
+    @Autowired private CategoryJpaRepository categoryRepository;
+    @Autowired private AccountJpaRepository accountRepository;
     @Autowired private EntityManager em;
 
     @Test
     void find_isEmptyWhenTheCategoryHasNoRecurrence() {
-        Category c = category("Sin recurrencia", account("Corriente"));
+        CategoryJpaEntity c = category("Sin recurrencia", account("Corriente"));
         assertThat(queryAdapter.find(new CategoryId(c.getId()))).isEmpty();
     }
 
     @Test
     void find_assemblesTheViewWithSortedMonthsAndAmountsCarryingIds() {
-        Category comunidad = category("Comunidad", account("Corriente"));
+        CategoryJpaEntity comunidad = category("Comunidad", account("Corriente"));
         persistenceAdapter.save(RecurringBudget.create(new CategoryId(comunidad.getId()),
                 MonthsMask.ofMonths(List.of(12, 1)), true,
                 List.of(amount("120", "2024-06"), amount("100", "2024-01"))));
@@ -69,16 +69,16 @@ class RecurringBudgetQueryAdapterTest extends PostgresTestBase {
         return new RecurrenceAmount(Money.of(value), YearMonth.parse(yearMonth));
     }
 
-    private Account account(String name) {
-        Account a = new Account();
+    private AccountJpaEntity account(String name) {
+        AccountJpaEntity a = new AccountJpaEntity();
         a.setName(name);
         a.setType("CORRIENTE");
         a.setInitialBalance(BigDecimal.ZERO);
         return accountRepository.save(a);
     }
 
-    private Category category(String name, Account account) {
-        Category c = new Category();
+    private CategoryJpaEntity category(String name, AccountJpaEntity account) {
+        CategoryJpaEntity c = new CategoryJpaEntity();
         c.setName(name);
         c.setType(TransactionType.EXPENSE);
         c.setColor("#000000");

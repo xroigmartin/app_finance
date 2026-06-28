@@ -52,7 +52,7 @@ public class CategoryJpaEntity {
     @JoinColumn(name = "parent_id")
     private CategoryJpaEntity parent;
 
-    protected CategoryJpaEntity() {
+    public CategoryJpaEntity() {
     }
 
     public Long getId() {

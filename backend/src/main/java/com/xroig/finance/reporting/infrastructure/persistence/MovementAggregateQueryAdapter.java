@@ -1,21 +1,21 @@
 package com.xroig.finance.reporting.infrastructure.persistence;
 
 import com.xroig.finance.reporting.application.MovementAggregateQuery;
-import com.xroig.finance.repository.TransactionRepository;
 import com.xroig.finance.shared.domain.TransactionType;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Resolves {@link MovementAggregateQuery} with the movement aggregation queries. */
+/** Resolves {@link MovementAggregateQuery} with the transactions context's aggregation queries. */
 @Component
 class MovementAggregateQueryAdapter implements MovementAggregateQuery {
 
-    private final TransactionRepository transactions;
+    private final TransactionJpaRepository transactions;
 
-    MovementAggregateQueryAdapter(TransactionRepository transactions) {
+    MovementAggregateQueryAdapter(TransactionJpaRepository transactions) {
         this.transactions = transactions;
     }
 

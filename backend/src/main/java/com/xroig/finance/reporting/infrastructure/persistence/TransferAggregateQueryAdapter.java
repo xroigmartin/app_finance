@@ -1,19 +1,19 @@
 package com.xroig.finance.reporting.infrastructure.persistence;
 
 import com.xroig.finance.reporting.application.TransferAggregateQuery;
-import com.xroig.finance.repository.TransferRepository;
+import com.xroig.finance.transfers.infrastructure.persistence.TransferJpaRepository;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/** Resolves {@link TransferAggregateQuery} with the transfer in/out totals. */
+/** Resolves {@link TransferAggregateQuery} with the transfers context's in/out totals. */
 @Component
 class TransferAggregateQueryAdapter implements TransferAggregateQuery {
 
-    private final TransferRepository transfers;
+    private final TransferJpaRepository transfers;
 
-    TransferAggregateQueryAdapter(TransferRepository transfers) {
+    TransferAggregateQueryAdapter(TransferJpaRepository transfers) {
         this.transfers = transfers;
     }
 

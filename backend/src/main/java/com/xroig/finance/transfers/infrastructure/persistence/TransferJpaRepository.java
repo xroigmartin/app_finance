@@ -4,13 +4,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 /**
  * Spring Data repository over {@link TransferJpaEntity}; an implementation detail of the
- * adapters. The aggregation queries used by the (not-yet-migrated) dashboard and the
- * account deletion guard remain on the legacy {@code repository.TransferRepository}.
+ * adapters. Besides the read {@code search}, carries the account deletion guard and the
+ * directional in/out totals the reporting context folds into an account's balance.
  */
 public interface TransferJpaRepository extends JpaRepository<TransferJpaEntity, Long> {
 
@@ -23,4 +24,13 @@ public interface TransferJpaRepository extends JpaRepository<TransferJpaEntity, 
     List<TransferJpaEntity> search(@Param("from") LocalDate from,
                                    @Param("to") LocalDate to,
                                    @Param("accountId") Long accountId);
+
+    /** True if the account is either side of any transfer (account deletion guard). */
+    boolean existsByFromAccountIdOrToAccountId(Long fromAccountId, Long toAccountId);
+
+    @Query("select coalesce(sum(t.amount), 0) from TransferJpaEntity t where t.toAccount.id = :accountId and t.date <= :until")
+    BigDecimal totalInUntil(@Param("accountId") Long accountId, @Param("until") LocalDate until);
+
+    @Query("select coalesce(sum(t.amount), 0) from TransferJpaEntity t where t.fromAccount.id = :accountId and t.date <= :until")
+    BigDecimal totalOutUntil(@Param("accountId") Long accountId, @Param("until") LocalDate until);
 }

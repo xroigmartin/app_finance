@@ -13,7 +13,7 @@ import com.xroig.finance.budgets.domain.RecurringBudget;
 import com.xroig.finance.budgets.domain.RecurringBudgetRepository;
 import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
 import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
-import com.xroig.finance.repository.TransactionRepository;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
 import com.xroig.finance.shared.domain.TransactionType;
 import org.springframework.stereotype.Component;
 
@@ -42,8 +42,8 @@ import java.util.Optional;
  *
  * <p>The recurrence-planned figures come from the budgets context's own
  * {@link RecurringBudgetRepository} (the active recurrences as aggregates, reusing their
- * planned-amount behavior); real-movement sums still use the legacy {@code TransactionRepository}
- * until the reporting context migrates.
+ * planned-amount behavior); real-movement sums come from the transactions context's
+ * {@link TransactionJpaRepository}.
  */
 @Component
 public class BudgetQueryAdapter implements BudgetQueryPort {
@@ -51,10 +51,10 @@ public class BudgetQueryAdapter implements BudgetQueryPort {
     private final BudgetJpaRepository budgets;
     private final CategoryJpaRepository categories;
     private final RecurringBudgetRepository recurrences;
-    private final TransactionRepository transactions;
+    private final TransactionJpaRepository transactions;
 
     public BudgetQueryAdapter(BudgetJpaRepository budgets, CategoryJpaRepository categories,
-                              RecurringBudgetRepository recurrences, TransactionRepository transactions) {
+                              RecurringBudgetRepository recurrences, TransactionJpaRepository transactions) {
         this.budgets = budgets;
         this.categories = categories;
         this.recurrences = recurrences;

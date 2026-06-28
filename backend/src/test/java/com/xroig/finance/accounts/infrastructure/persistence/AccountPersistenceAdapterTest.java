@@ -3,15 +3,14 @@ package com.xroig.finance.accounts.infrastructure.persistence;
 import com.xroig.finance.PostgresTestBase;
 import com.xroig.finance.accounts.domain.Account;
 import com.xroig.finance.accounts.domain.AccountId;
-import com.xroig.finance.model.Category;
-import com.xroig.finance.model.Transaction;
-import com.xroig.finance.shared.domain.TransactionType;
-import com.xroig.finance.model.Transfer;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.CategoryRepository;
-import com.xroig.finance.repository.TransactionRepository;
-import com.xroig.finance.repository.TransferRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
 import com.xroig.finance.shared.domain.Money;
+import com.xroig.finance.shared.domain.TransactionType;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaEntity;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
+import com.xroig.finance.transfers.infrastructure.persistence.TransferJpaEntity;
+import com.xroig.finance.transfers.infrastructure.persistence.TransferJpaRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -33,10 +32,9 @@ class AccountPersistenceAdapterTest extends PostgresTestBase {
     @Autowired private AccountPersistenceAdapter adapter;
     @Autowired private AccountUsageAdapter usage;
     @Autowired private AccountJpaRepository jpa;
-    @Autowired private AccountRepository legacyAccounts;
-    @Autowired private CategoryRepository categoryRepository;
-    @Autowired private TransactionRepository transactionRepository;
-    @Autowired private TransferRepository transferRepository;
+    @Autowired private CategoryJpaRepository categoryRepository;
+    @Autowired private TransactionJpaRepository transactionRepository;
+    @Autowired private TransferJpaRepository transferRepository;
 
     @Test
     void save_assignsIdentityAndMapsBackToDomain() {
@@ -106,18 +104,18 @@ class AccountPersistenceAdapterTest extends PostgresTestBase {
         assertThat(usage.hasTransfers(unrelated)).isFalse();
     }
 
-    // ---- helpers: build legacy rows the usage guard queries ----
+    // ---- helpers: build the movement/transfer rows the usage guard queries ----
 
     private void persistExpense(AccountId accountId, String amount) {
-        com.xroig.finance.model.Account account = legacyAccount(accountId);
-        Category category = new Category();
+        AccountJpaEntity account = accountRef(accountId);
+        CategoryJpaEntity category = new CategoryJpaEntity();
         category.setName("Gastos-" + accountId.value());
         category.setType(TransactionType.EXPENSE);
         category.setColor("#000000");
         category.setAccount(account);
         category = categoryRepository.save(category);
 
-        Transaction tx = new Transaction();
+        TransactionJpaEntity tx = new TransactionJpaEntity();
         tx.setType(TransactionType.EXPENSE);
         tx.setAmount(new BigDecimal(amount));
         tx.setAccount(account);
@@ -127,16 +125,16 @@ class AccountPersistenceAdapterTest extends PostgresTestBase {
     }
 
     private void persistTransfer(AccountId from, AccountId to, String amount) {
-        Transfer transfer = new Transfer();
+        TransferJpaEntity transfer = new TransferJpaEntity();
         transfer.setAmount(new BigDecimal(amount));
-        transfer.setFromAccount(legacyAccount(from));
-        transfer.setToAccount(legacyAccount(to));
+        transfer.setFromAccount(accountRef(from));
+        transfer.setToAccount(accountRef(to));
         transfer.setDate(LocalDate.of(2024, 1, 15));
         transferRepository.save(transfer);
     }
 
-    /** The managed legacy entity for the same row the adapter persisted (FK reference). */
-    private com.xroig.finance.model.Account legacyAccount(AccountId id) {
-        return legacyAccounts.findById(id.value()).orElseThrow();
+    /** The managed entity for the same row the adapter persisted (FK reference). */
+    private AccountJpaEntity accountRef(AccountId id) {
+        return jpa.findById(id.value()).orElseThrow();
     }
 }

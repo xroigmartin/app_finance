@@ -1,4 +1,4 @@
-package com.xroig.finance.controller;
+package com.xroig.finance.shared.web;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -9,12 +9,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.Locale;
 
 /**
- * Turns low-level persistence failures into clear HTTP responses. Without this,
- * a unique-constraint violation bubbles up as a bare {@code 500} with no detail,
- * which the UI cannot tell apart from any other server error.
+ * Web adapter that turns low-level persistence failures into clear HTTP responses
+ * ({@code application/problem+json}). Without this, a unique-constraint violation
+ * bubbles up as a bare {@code 500} with no detail, which the UI cannot tell apart
+ * from any other server error.
+ *
+ * <p>It is a last-resort safety net: most conflicts are pre-checked by the
+ * application services and surface as {@link com.xroig.finance.shared.domain.ConflictException}
+ * via {@link DomainExceptionHandler}. The cases that are only guarded by a database
+ * constraint (e.g. category name uniqueness per scope) land here instead.
  */
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class DataIntegrityExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {

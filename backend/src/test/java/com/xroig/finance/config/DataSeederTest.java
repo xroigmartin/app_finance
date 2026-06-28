@@ -1,10 +1,10 @@
 package com.xroig.finance.config;
 
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Category;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.CategoryRepository;
-import com.xroig.finance.repository.TransactionRepository;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -50,27 +50,27 @@ class DataSeederTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    @Autowired private AccountRepository accounts;
-    @Autowired private CategoryRepository categories;
-    @Autowired private TransactionRepository transactions;
+    @Autowired private AccountJpaRepository accounts;
+    @Autowired private CategoryJpaRepository categories;
+    @Autowired private TransactionJpaRepository transactions;
     @Autowired private CommandLineRunner seed; // the DataSeeder bean
 
     @Test
     void seedsDefaultGlobalCategoriesOnStartup() {
         assertThat(categories.findAll())
                 .filteredOn(c -> c.getParent() == null && c.getAccount() == null)
-                .extracting(Category::getName)
+                .extracting(CategoryJpaEntity::getName)
                 .contains("Nómina", "Otros ingresos", "Vivienda", "Alimentación",
                         "Transporte", "Ocio", "Salud", "Suscripciones", "Otros gastos");
     }
 
     @Test
     void seedsDemoAccountsAndAnAccountScopedCategory() {
-        List<Account> all = accounts.findAll();
-        assertThat(all).extracting(Account::getName)
+        List<AccountJpaEntity> all = accounts.findAll();
+        assertThat(all).extracting(AccountJpaEntity::getName)
                 .contains("Cuenta corriente", "Ahorro");
 
-        Account main = all.stream().filter(a -> a.getName().equals("Cuenta corriente"))
+        AccountJpaEntity main = all.stream().filter(a -> a.getName().equals("Cuenta corriente"))
                 .findFirst().orElseThrow();
         // "Luz" is seeded bound to the main account, to showcase per-account scope.
         assertThat(categories.findAll())

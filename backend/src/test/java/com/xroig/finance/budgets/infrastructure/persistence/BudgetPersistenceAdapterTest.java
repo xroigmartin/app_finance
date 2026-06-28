@@ -5,10 +5,10 @@ import com.xroig.finance.accounts.domain.AccountId;
 import com.xroig.finance.budgets.application.BudgetView;
 import com.xroig.finance.budgets.domain.Budget;
 import com.xroig.finance.categories.domain.CategoryId;
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Category;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.CategoryRepository;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
 import com.xroig.finance.shared.domain.Money;
 import com.xroig.finance.shared.domain.TransactionType;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * round-trip through {@link BudgetJpaMapper} (pure aggregate, account/category by id),
  * the {@code existsAt}/{@code findByYearMonth} command queries and the read-side
  * {@link BudgetQueryAdapter} assembling the nested {@link BudgetView}. Accounts and
- * categories are seeded through the legacy repositories, which map the same tables.
+ * categories are seeded through their contexts' JPA repositories.
  */
 @Import({BudgetPersistenceAdapter.class, BudgetJpaMapper.class, BudgetQueryAdapter.class,
         RecurringBudgetPersistenceAdapter.class, RecurringBudgetJpaMapper.class})
@@ -33,15 +33,15 @@ class BudgetPersistenceAdapterTest extends PostgresTestBase {
 
     @Autowired private BudgetPersistenceAdapter adapter;
     @Autowired private BudgetQueryAdapter queries;
-    @Autowired private AccountRepository accountRepository;
-    @Autowired private CategoryRepository categoryRepository;
+    @Autowired private AccountJpaRepository accountRepository;
+    @Autowired private CategoryJpaRepository categoryRepository;
 
     private AccountId account;
     private CategoryId comida;
     private CategoryId ocio;
 
     private void seed() {
-        Account corriente = new Account();
+        AccountJpaEntity corriente = new AccountJpaEntity();
         corriente.setName("Corriente");
         corriente.setType("Banco");
         corriente.setInitialBalance(new BigDecimal("100"));
@@ -51,8 +51,8 @@ class BudgetPersistenceAdapterTest extends PostgresTestBase {
         ocio = new CategoryId(saveCategory("Ocio", corriente).getId());
     }
 
-    private Category saveCategory(String name, Account owner) {
-        Category c = new Category();
+    private CategoryJpaEntity saveCategory(String name, AccountJpaEntity owner) {
+        CategoryJpaEntity c = new CategoryJpaEntity();
         c.setName(name);
         c.setType(TransactionType.EXPENSE);
         c.setColor("#abcdef");

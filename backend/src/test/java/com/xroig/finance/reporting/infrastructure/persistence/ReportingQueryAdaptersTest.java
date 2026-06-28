@@ -1,15 +1,15 @@
 package com.xroig.finance.reporting.infrastructure.persistence;
 
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Category;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.budgets.infrastructure.persistence.BudgetJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
 import com.xroig.finance.reporting.application.AccountCatalogQuery.ReportAccount;
 import com.xroig.finance.reporting.application.BudgetCatalogQuery.ReportBudget;
 import com.xroig.finance.reporting.application.MovementAggregateQuery.CategoryShare;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.BudgetRepository;
-import com.xroig.finance.repository.TransactionRepository;
-import com.xroig.finance.repository.TransferRepository;
 import com.xroig.finance.shared.domain.TransactionType;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
+import com.xroig.finance.transfers.infrastructure.persistence.TransferJpaRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -24,22 +24,20 @@ import static com.xroig.finance.Fixtures.budget;
 import static com.xroig.finance.Fixtures.category;
 import static com.xroig.finance.Fixtures.eur;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for the reporting query adapters: each delegates to the legacy aggregation
+ * Unit tests for the reporting query adapters: each delegates to its context's aggregation
  * query and maps the result onto the reporting outbound-port types. Pure Mockito.
  */
 @ExtendWith(MockitoExtension.class)
 class ReportingQueryAdaptersTest {
 
-    @Mock private TransactionRepository transactions;
-    @Mock private TransferRepository transfers;
-    @Mock private AccountRepository accounts;
-    @Mock private BudgetRepository budgets;
+    @Mock private TransactionJpaRepository transactions;
+    @Mock private TransferJpaRepository transfers;
+    @Mock private AccountJpaRepository accounts;
+    @Mock private BudgetJpaRepository budgets;
 
     private static final LocalDate FROM = LocalDate.of(2024, 3, 1);
     private static final LocalDate TO = LocalDate.of(2024, 3, 31);
@@ -86,8 +84,8 @@ class ReportingQueryAdaptersTest {
 
     @Test
     void budgetCatalog_scopedToAccountFlattensFields() {
-        Account corriente = account(1, "Corriente", eur("1000"));
-        Category comida = category(10, "Comida", TransactionType.EXPENSE, corriente);
+        AccountJpaEntity corriente = account(1, "Corriente", eur("1000"));
+        CategoryJpaEntity comida = category(10, "Comida", TransactionType.EXPENSE, corriente);
         when(budgets.findByAccountIdAndYearAndMonth(1L, 2024, 3))
                 .thenReturn(List.of(budget(500L, corriente, comida, 2024, 3, eur("200"))));
 
@@ -105,8 +103,8 @@ class ReportingQueryAdaptersTest {
 
     @Test
     void budgetCatalog_aggregateScopeQueriesAllAccounts() {
-        Account corriente = account(1, "Corriente", eur("1000"));
-        Category comida = category(10, "Comida", TransactionType.EXPENSE, corriente);
+        AccountJpaEntity corriente = account(1, "Corriente", eur("1000"));
+        CategoryJpaEntity comida = category(10, "Comida", TransactionType.EXPENSE, corriente);
         when(budgets.findByYearAndMonth(2024, 3))
                 .thenReturn(List.of(budget(500L, corriente, comida, 2024, 3, eur("200"))));
 

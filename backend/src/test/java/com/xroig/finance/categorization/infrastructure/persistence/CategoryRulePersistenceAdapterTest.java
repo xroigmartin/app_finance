@@ -4,10 +4,10 @@ import com.xroig.finance.PostgresTestBase;
 import com.xroig.finance.categories.domain.CategoryId;
 import com.xroig.finance.categorization.application.CategoryRuleView;
 import com.xroig.finance.categorization.domain.CategoryRule;
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Category;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.CategoryRepository;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
 import com.xroig.finance.shared.domain.TransactionType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,8 +28,8 @@ class CategoryRulePersistenceAdapterTest extends PostgresTestBase {
 
     @Autowired private CategoryRulePersistenceAdapter adapter;
     @Autowired private CategoryRuleQueryAdapter queries;
-    @Autowired private AccountRepository accountRepository;
-    @Autowired private CategoryRepository categoryRepository;
+    @Autowired private AccountJpaRepository accountRepository;
+    @Autowired private CategoryJpaRepository categoryRepository;
 
     @Test
     void save_roundTripsThroughTheMapper() {
@@ -62,7 +62,7 @@ class CategoryRulePersistenceAdapterTest extends PostgresTestBase {
 
     @Test
     void delete_removesTheRow_andExistsByCategoryReflectsIt() {
-        Category cat = category("Supermercado", null);
+        CategoryJpaEntity cat = category("Supermercado", null);
         CategoryId catId = new CategoryId(cat.getId());
         CategoryRule saved = adapter.save(CategoryRule.create("lidl", catId));
 
@@ -77,8 +77,8 @@ class CategoryRulePersistenceAdapterTest extends PostgresTestBase {
 
     @Test
     void queryAdapter_assemblesNestedAccountBoundCategory() {
-        Account account = account("Corriente");
-        Category cat = category("Supermercado", account);
+        AccountJpaEntity account = account("Corriente");
+        CategoryJpaEntity cat = category("Supermercado", account);
         CategoryRule saved = adapter.save(CategoryRule.create("lidl", new CategoryId(cat.getId())));
 
         assertThat(queries.findById(saved.id())).hasValueSatisfying(v -> {
@@ -99,16 +99,16 @@ class CategoryRulePersistenceAdapterTest extends PostgresTestBase {
         assertThat(queries.findAll()).extracting(CategoryRuleView::pattern).contains("lidl");
     }
 
-    private Account account(String name) {
-        Account a = new Account();
+    private AccountJpaEntity account(String name) {
+        AccountJpaEntity a = new AccountJpaEntity();
         a.setName(name);
         a.setType("Banco");
         a.setInitialBalance(BigDecimal.ZERO);
         return accountRepository.save(a);
     }
 
-    private Category category(String name, Account account) {
-        Category c = new Category();
+    private CategoryJpaEntity category(String name, AccountJpaEntity account) {
+        CategoryJpaEntity c = new CategoryJpaEntity();
         c.setName(name);
         c.setType(TransactionType.EXPENSE);
         c.setColor("#000000");

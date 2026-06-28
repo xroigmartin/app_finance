@@ -3,27 +3,25 @@ package com.xroig.finance.categories.infrastructure.persistence;
 import com.xroig.finance.accounts.domain.AccountId;
 import com.xroig.finance.categories.domain.CategoryId;
 import com.xroig.finance.categories.domain.CategoryReferences;
+import com.xroig.finance.budgets.infrastructure.persistence.BudgetJpaRepository;
 import com.xroig.finance.budgets.infrastructure.persistence.RecurringBudgetJpaRepository;
 import com.xroig.finance.categorization.infrastructure.persistence.CategoryRuleJpaRepository;
-import com.xroig.finance.repository.BudgetRepository;
-import com.xroig.finance.repository.TransactionRepository;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapter for {@link CategoryReferences}: resolves the cross-aggregate guards against
- * the legacy movement/budget stores plus the migrated budgets context's recurrence store
- * and the categorization context's rule store. When the remaining contexts migrate it
- * will point at their own ports instead.
+ * Adapter for {@link CategoryReferences}: resolves the cross-aggregate guards against the
+ * movements, budgets, recurrences and rules stores of their migrated contexts.
  */
 @Component
 public class CategoryReferencesAdapter implements CategoryReferences {
 
-    private final TransactionRepository transactions;
-    private final BudgetRepository budgets;
+    private final TransactionJpaRepository transactions;
+    private final BudgetJpaRepository budgets;
     private final CategoryRuleJpaRepository rules;
     private final RecurringBudgetJpaRepository recurrences;
 
-    public CategoryReferencesAdapter(TransactionRepository transactions, BudgetRepository budgets,
+    public CategoryReferencesAdapter(TransactionJpaRepository transactions, BudgetJpaRepository budgets,
                                      CategoryRuleJpaRepository rules, RecurringBudgetJpaRepository recurrences) {
         this.transactions = transactions;
         this.budgets = budgets;
