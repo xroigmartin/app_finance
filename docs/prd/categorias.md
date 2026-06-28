@@ -112,7 +112,7 @@ Tabla `categories` (migraciones `V1__init.sql`, `V3__categories_per_account.sql`
 
 | ID | Regla |
 |---|---|
-| RN-21 | En el primer arranque se siembran categorías **globales** por defecto (`DataSeeder.seedCategories`): ingresos `Nómina`, `Otros ingresos`; gastos `Vivienda`, `Alimentación`, `Transporte`, `Ocio`, `Salud`, `Suscripciones`, `Otros gastos`. Esta siembra es independiente de los datos demo. |
+| RN-21 | En el primer arranque, con la base de datos vacía, se siembran categorías **globales** por defecto (`DataSeeder.seedCategories`): ingresos `Nómina`, `Otros ingresos`; gastos `Vivienda`, `Alimentación`, `Transporte`, `Ocio`, `Salud`, `Suscripciones`, `Otros gastos`. Es lo único que se siembra (no hay cuentas ni movimientos de ejemplo). |
 | RN-22 | `Otros gastos` / `Otros ingresos` son la categoría de respaldo para la auto-categorización en importación (ver PRD Reglas de categorización). |
 
 ## 6. API

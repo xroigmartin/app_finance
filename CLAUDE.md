@@ -22,10 +22,9 @@ This is a **local git repository with no remote** (the user manages the remote, 
 
 ```bash
 ./app.sh start|stop|restart|status [db|backend|frontend]   # manage all services (logs/PIDs in .run/)
-./app.sh start --demo   # wipe DB, seed demo data; the next stop removes the Docker volume
 ```
 
-`./app.sh start` disables demo seeding (`FINANCE_SEED_DEMO=false`); only `--demo` enables it.
+On first boot against an empty DB the app seeds the **default global categories** only (no demo accounts/movements).
 
 Manual equivalents:
 
@@ -57,7 +56,7 @@ Cross-cutting pieces:
 - `reporting` — dashboard, **read-only/CQRS**: `ReportingService` keeps the aggregation maths and reads raw figures through outbound query ports (`/api/dashboard/{summary,monthly,monthly-balance,income-by-category,expenses-by-category,by-account,budgets}`).
 - `imports` — CSV/Excel (`.xls`/`.xlsx`) bank-export import via Apache POI + commons-csv. `ImportFileParser` is an **anti-corruption layer** (`ImportFileReader`) translating bank rows to the `ImportRow` VO; the `ImportService` use case **reuses** the Transactions/Transfers/Categories use cases via bridge adapters. Deliberately tolerant: detects the header row after bank preambles, accepts `dd/MM/yyyy` or ISO dates, `1.234,56` or `1234.56` amounts, `,` or `;` separators, accent-insensitive headers; a "Fecha de operación: …" inside the "Más datos" column overrides the date column. Unknown categories are auto-created; accounts must already exist; per-row errors are reported back, valid rows imported.
 - `categorization` — `CategoryRule` aggregate (pattern alternatives separated by `|`, case/accent-insensitive via the `PatternMatcher` domain service) auto-categorizes imported transactions lacking a category column; fallback "Otros gastos"/"Otros ingresos".
-- `config/DataSeeder` — startup bootstrap (the one class outside the layered packages): creates default categories always, plus demo accounts/12 months of movements unless disabled via the `finance.seed-demo` property (defaults to the `FINANCE_SEED_DEMO` env var, then `true`). It drives the contexts' persistence adapters/repositories.
+- `config/DataSeeder` — startup bootstrap (the one class outside the layered packages): on first boot against an empty DB it seeds the default global categories (only) by driving the categories context's `CreateCategory` use case; idempotent via the context's "is it empty?" read.
 
 The direction of dependencies (domain ← application ← infrastructure; web never touches persistence) is fenced by **ArchUnit** (`architecture/ArchitectureTest`, archunit-junit5 1.4.2 — older versions silently fail to parse Java 25 bytecode); the single module does not enforce it at compile time.
 

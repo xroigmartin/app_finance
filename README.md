@@ -53,11 +53,10 @@ Abrir <http://localhost:4200>.
 | `FINANCE_DB_NAME` | `finance` | Nombre de la base de datos |
 | `FINANCE_DB_USER` | `finance` | Usuario |
 | `FINANCE_DB_PASSWORD` | `finance` | Contraseña |
-| `FINANCE_SEED_DEMO` | `true` | Sembrar datos de demostración la primera vez (cuentas y 12 meses de movimientos). Las categorías por defecto se crean siempre en el primer arranque. También configurable como propiedad `finance.seed-demo` (en `application.properties` o con `mvn spring-boot:run -Dspring-boot.run.arguments=--finance.seed-demo=false`). |
 
 El esquema lo crea Flyway (`V1__init.sql`); Hibernate solo lo valida (`ddl-auto=validate`). Para cambios de esquema, añade un nuevo script `V2__...sql` en `backend/src/main/resources/db/migration`.
 
-Con `./app.sh` (recomendado): `./app.sh start` arranca todo **sin** datos de demostración; `./app.sh start --demo` vacía la base de datos, arranca con los datos demo y elimina el volumen de Docker al hacer `./app.sh stop`. Arrancando a mano, el seed se controla con `FINANCE_SEED_DEMO` o `finance.seed-demo` (por defecto `true`).
+En el primer arranque, con la base de datos vacía, se siembran las **categorías por defecto** (`Nómina`, `Vivienda`, `Alimentación`…) para que la app sea usable de inmediato; no se siembran cuentas ni movimientos de ejemplo. `./app.sh start` arranca todos los servicios.
 
 ## API
 
