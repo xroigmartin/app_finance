@@ -8,6 +8,4 @@ frontend/.vscode/
 .run/
 app.sh
 .claude/settings.local.json
-
-# Informes Flex reales de IBKR en la raíz (datos personales, nunca commitear)
-/*.xml
+docs/investment
