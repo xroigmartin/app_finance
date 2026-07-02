@@ -12,6 +12,18 @@ Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular
 
 Per-domain PRDs live in `docs/prd/` (index and template in `docs/README.md`), written in Spanish. A change "affects a domain" when it touches its data model, business rules, API endpoints, or UI. Concretely: when you finish a code change, identify which domain(s) under `docs/prd/` it touches, and edit the matching PRD(s) — bump "Última actualización", and adjust the relevant sections (model, rules, API, UI, validations). If no PRD exists for the affected domain, create one following the existing template.
 
+## Development methodology — TDD (mandatory)
+
+**Rule: all development is done with TDD (Test-Driven Development), with each phase explicitly executed — never write production code without a failing test first.** For every behavior/milestone:
+
+1. **Red** — write the test(s) that specify the behavior, run them, and confirm they fail for the expected reason (compilation failure of a not-yet-existing class counts as red).
+2. **Green** — write the minimum production code needed to make those tests pass; run the tests and confirm they pass.
+3. **Refactor** — with tests green, clean up code and tests (naming, duplication, design); re-run the tests to confirm they stay green.
+
+Work in small red-green-refactor cycles (one behavior/invariant at a time), following the existing test taxonomy: domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence tests on Testcontainers, `@WebMvcTest` contract tests, ArchUnit for boundaries.
+
+**Commit at the end of every milestone**: when a cycle (or a small coherent group of cycles that forms a milestone, e.g. an aggregate with its invariants, a use case, an adapter) is complete — tests green, refactor done, PRD updated — create a commit before moving on. Never batch several milestones into one commit, and never commit with failing tests.
+
 ## Git workflow — commit every change
 
 This is a **local git repository with no remote** (the user manages the remote, if any). The user has asked that **every change we make be committed**: when you finish a logical unit of work (code + its PRD update), create a commit for it. Group related edits into one coherent commit with a clear Spanish message. Do not push (there is no remote). Commit messages are in Spanish, matching the project's language.
