@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.12 |
+| Versión | 0.13 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -85,6 +85,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | `counter_amount` | `numeric`, nullable | Solo `FX_TRADE`: pierna **entrante** (positiva) de la conversión, en `counter_currency`. |
 | `counter_currency` | `varchar(3)`, nullable | Solo `FX_TRADE`. |
 | `fee` / `tax` | `numeric` | Comisión y retención asociadas a la operación. |
+| `fee_currency` / `tax_currency` | `varchar(3)`, nullable | Divisa propia de la comisión/retención **cuando difiere** de `currency`; nulo = la divisa del apunte (caso común). En las FX de IBKR el apunte va en la divisa de proceeds (p. ej. USD) y la comisión en EUR. |
 | `fx_rate_to_base` | `numeric`, nullable | **Snapshot del tipo de cambio aplicado en el apunte** (`fxRateToBase` del Flex, tipo divisa del apunte → divisa base). Nulo en apuntes manuales (fallback: tabla `exchange_rate`, RN-7). |
 | `description` | `varchar` | |
 | `external_id` | `varchar` | Id de operación del Flex (`tradeID`/`transactionID`), único por cartera → idempotencia del import. |
@@ -120,7 +121,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | ID | Regla |
 |---|---|
 | RN-1 | **Aislamiento de contextos**: ninguna operación de inversión crea, modifica ni afecta a movimientos, transferencias, categorías, presupuestos ni dashboard domésticos. El traspaso de fondos se registra de forma independiente en cada lado: gasto/ingreso (categoría del usuario, p. ej. "Inversión") en la cuenta doméstica, y `DEPOSIT`/`WITHDRAWAL` en la cartera. Sin enlace automático. |
-| RN-2 | El **efectivo de la cartera se calcula por divisa**: `Σ DEPOSIT − Σ WITHDRAWAL − Σ compras + Σ ventas + Σ dividendos + Σ intereses − Σ comisiones − Σ retenciones − Σ piernas salientes de FX_TRADE en esa divisa + Σ piernas entrantes de FX_TRADE en esa divisa`. Una conversión de divisa mueve dos saldos a la vez y **no** es un flujo externo de la cartera. |
+| RN-2 | El **efectivo de la cartera se calcula por divisa**: `Σ DEPOSIT − Σ WITHDRAWAL − Σ compras + Σ ventas + Σ dividendos + Σ intereses − Σ comisiones − Σ retenciones − Σ piernas salientes de FX_TRADE en esa divisa + Σ piernas entrantes de FX_TRADE en esa divisa`. Cada comisión/retención descuenta del saldo de **su** divisa (`fee_currency`/`tax_currency` si están informadas; la del apunte si no). Una conversión de divisa mueve dos saldos a la vez y **no** es un flujo externo de la cartera. |
 | RN-3 | Las **posiciones se calculan** por instrumento: cantidad = Σ compras − Σ ventas (ajustada por splits); coste medio por método de coste promedio. |
 | RN-4 | **Venta sin posición suficiente — regla dual**: en alta/edición **manual** es una validación dura de dominio (no se puede vender más cantidad de la que hay en posición a la fecha de la operación → `400`). En **import** la fila se importa igual y se reporta como ***warning*** en el resumen ("posición negativa: falta histórico anterior") — un Flex parcial (p. ej. 2025 sin haber importado 2024) no debe fallar. La UI de posiciones marca en rojo las cantidades negativas. |
 | RN-5 | Un instrumento con operaciones no se puede eliminar; una cartera con operaciones no se puede eliminar (409, como cuentas/categorías). |
@@ -185,6 +186,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 ## 9. Casos límite y notas
 
 - **Conversiones de divisa (`FX_TRADE`)**: concepto de dominio genérico e independiente del broker — pierna saliente + pierna entrante + coste, sin flujo externo. En el Flex de IBKR llegan como órdenes `assetCategory="CASH"` (símbolo del par, p. ej. `EUR.USD`; los signos de `quantity`/`proceeds` identifican cada pierna); esa traducción es responsabilidad exclusiva del ACL `FlexReportParser`. Incluye las micro-conversiones automáticas de IBKR (residuos de pocos céntimos), que se importan igual. Un futuro broker que reporte la conversión de otra forma (p. ej. dos líneas débito/crédito) la traducirá al mismo `FX_TRADE` en su propio parser. El P&L por efectivo en divisa no se calcula aparte: emerge al valorar el efectivo al tipo del día (RN-7b).
+- **Comisión/retención en divisa distinta del apunte**: `ibCommissionCurrency` puede diferir de `currency` — ocurre en todas las conversiones FX (apunte en la divisa de proceeds, comisión en EUR). El parser rellena `fee_currency`/`tax_currency` solo cuando difieren de la divisa del apunte; RN-2 descuenta cada importe del saldo de su divisa.
 - **Splits**: ajustan cantidad y coste medio sin generar flujo de caja.
 - **Dividendo con retención en origen**: el Flex los trae como apuntes separados (dividendo + withholding tax); se importan como `DIVIDEND` + `TAX` vinculados al mismo instrumento y fecha.
 - **Ventas parciales**: P&L realizado por coste promedio en el momento de la venta.
