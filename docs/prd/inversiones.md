@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.2 |
+| Versión | 0.3 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -163,7 +163,14 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"):
 - **Dividendo con retención en origen**: el Flex los trae como apuntes separados (dividendo + withholding tax); se importan como `DIVIDEND` + `TAX` vinculados al mismo instrumento y fecha.
 - **Ventas parciales**: P&L realizado por coste promedio en el momento de la venta.
 - **Cartera sin cotizaciones recientes**: la valoración queda "a fecha de último import"; la UI muestra la fecha de valoración.
-- El Flex Query debe configurarse en IBKR incluyendo las secciones *Trades*, *Cash Transactions*, *Open Positions* y *Conversion Rates*.
+- **Configuración validada del Flex Query** (Activity Flex Query, formato **XML**, fechas ISO `yyyy-MM-dd`, verificada contra un informe real de la cuenta el 2026-07-02):
+  - *Account Information*: solo `accountId` y `currency` (sin datos personales).
+  - *Trades*: nivel **Orders** únicamente (las filas `SYMBOL_SUMMARY`/`ASSET_SUMMARY`, si aparecen, se ignoran filtrando `levelOfDetail="ORDER"`).
+  - *Cash Transactions*: nivel **Detail** (tipos Dividends, Withholding Tax, Deposits/Withdrawals; incluir Broker Interest si la cuenta genera intereses).
+  - *Open Positions* (`markPrice` a fecha del informe → fuente de cotizaciones en v1), *Securities (Financial Instrument Information)*, *Corporate Actions*, *Transaction Taxes* (FTT itemizada; en la fila de la orden `taxes` viene a 0) y *Conversion Rates*.
+  - Secciones vacías o no marcadas (`Transfers`, `ComplexPositions`, `FxPositions`…) se ignoran.
+- **Identificadores para la idempotencia** (`external_id`): a nivel ORDER `tradeID`/`transactionID` vienen vacíos → usar **`ibOrderID`** en operaciones, **`transactionID`** en apuntes de efectivo y **`tradeId`** en `TransactionTax`. El vínculo de una FTT con su orden se resuelve por instrumento+fecha (su `tradeId` apunta al nivel ejecución, que no se importa).
+- Un informe Flex cubre como máximo 365 días: la carga inicial del histórico se hace con un informe por año, importados en orden; la idempotencia hace inocuos los solapamientos.
 
 ## 10. Backlog / mejoras futuras
 
@@ -179,7 +186,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"):
 |---|---|---|
 | Método de coste | Coste promedio. | FIFO sería el fiscalmente correcto en España; evaluar al abordar el informe fiscal. |
 | Serie de valoración dispersa | TWR/XIRR sobre las cotizaciones disponibles (fechas de import). | Se refina solo al integrar la API de precios. |
-| Formato Flex | Se decidirá CSV o XML al implementar el parser (el XML es más rico y estable). | Confirmar con un informe real del usuario. |
+| ~~Formato Flex~~ | **Resuelto (2026-07-02): XML.** Atributos con nombre estable e independientes de las columnas marcadas; validado contra informes reales de la cuenta (ver §9). | — |
 
 ## 12. Fases de implementación
 
