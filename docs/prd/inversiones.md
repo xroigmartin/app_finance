@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.1 |
+| Versión | 0.2 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -183,11 +183,58 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"):
 
 ## 12. Fases de implementación
 
-1. **F1 — Modelo + import Flex + posiciones/valoración**: dominio, migraciones, `FlexReportParser` (ACL), pantalla básica de cartera.
-2. **F2 — Dividendos, intereses y comisiones**: agregados de rentas y pestaña de dividendos.
-3. **F3 — Multidivisa**: `exchange_rate` + conversión a EUR en la capa de lectura.
-4. **F4 — TWR/XIRR**: `PerformanceCalculator` de dominio + endpoint/vista de rentabilidad.
-5. **F5 (backlog)** — Flex Web Service + API externa de cotizaciones.
+Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en ciclos red-green-refactor y se cierra con **un commit** (tests en verde + PRD actualizado). Un hito no empieza hasta que el anterior está commiteado.
+
+### F1 — Modelo + import Flex + posiciones/valoración
+
+| Hito | Contenido | Tests |
+|---|---|---|
+| H1.1 | Value objects del contexto: `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity`. | Unitarios de dominio. |
+| H1.2 | Agregado `Security` + `PriceQuote` (invariantes: divisa ISO, identidad ISIN+divisa, unicidad de cotización por fecha, upsert). | Unitarios de dominio. |
+| H1.3 | Agregados `Portfolio` e `InvestmentTransaction` (tipos de operación, invariantes de importes/cantidades, `external_id`). | Unitarios de dominio. |
+| H1.4 | Servicio de dominio `PositionCalculator`: posiciones, coste medio, P&L latente/realizado, efectivo por divisa (RN-2/RN-3/RN-4, venta sin posición). | Unitarios de dominio. |
+| H1.5 | Puertos de salida + `PortfolioService`/`SecurityService` (casos de uso CRUD, guardas de borrado RN-5). | Aplicación con puertos mockeados. |
+| H1.6 | Migración `V6__investments.sql` (tablas §3 salvo `exchange_rate`) + entidades/mappers/adaptadores JPA. | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades. |
+| H1.7 | Read-side CQRS: `InvestmentQueryPort`, `PositionView`, `PortfolioSummaryView` + query adapter (valoración con última cotización, RN-6). | `@DataJpaTest` del adapter. |
+| H1.8 | Web: `PortfolioController`/`SecurityController` + DTOs; endpoints CRUD y `GET /positions`; el contexto entra en ArchUnit. | `@WebMvcTest` + `ArchitectureTest`. |
+| H1.9 | `FlexReportParser` (ACL): secciones *Trades* y *Open Positions* → `ImportRow`s del contexto; fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
+| H1.10 | Caso de uso `ImportFlexReport`: idempotencia por `external_id` (RF-4), alta automática de `Security`, upsert de cotizaciones (RN-9), errores por fila; endpoint `POST /portfolios/{id}/import`. | Aplicación mockeada + `@WebMvcTest`. |
+| H1.11 | Frontend: página `pages/investments` (resumen + tabla de posiciones), diálogo de import Flex, ruta lazy y entrada en el menú. | Build + revisión manual. |
+
+### F2 — Dividendos, intereses y comisiones
+
+| Hito | Contenido | Tests |
+|---|---|---|
+| H2.1 | Dominio: `DIVIDEND`/`INTEREST`/`FEE`/`TAX` en el cálculo de efectivo y agregados de rentas por periodo/instrumento (RF-7). | Unitarios de dominio. |
+| H2.2 | Parser de la sección *Cash Transactions* del Flex (dividendo + retención vinculados, §9). | Unitarios con fixtures. |
+| H2.3 | `IncomeView` + query adapter + endpoint `GET /portfolios/{id}/income`. | `@DataJpaTest` + `@WebMvcTest`. |
+| H2.4 | Alta/edición manual de operaciones (RF-2): casos de uso + endpoints + formulario en la UI. | Aplicación + `@WebMvcTest`. |
+| H2.5 | Frontend: pestañas de operaciones y dividendos. | Build + revisión manual. |
+
+### F3 — Multidivisa
+
+| Hito | Contenido | Tests |
+|---|---|---|
+| H3.1 | Agregado `ExchangeRate` + servicio de conversión de dominio (último tipo ≤ fecha, RN-7). | Unitarios de dominio. |
+| H3.2 | Migración `V7__exchange_rates.sql` + persistencia + parser de *Conversion Rates* (upsert RN-9). | `@DataJpaTest` + fixtures. |
+| H3.3 | Conversión a EUR/divisa base en la capa de lectura (posiciones, resumen, rentas; RF-9) + efectivo por divisa en la UI. | `@DataJpaTest` del adapter + `@WebMvcTest`. |
+
+### F4 — Rentabilidad TWR/XIRR
+
+| Hito | Contenido | Tests |
+|---|---|---|
+| H4.1 | `PerformanceCalculator` — XIRR: Newton-Raphson con fallback de bisección sobre flujos externos + valor actual (RN-8). | Unitarios de dominio (casos conocidos, convergencia, extremos). |
+| H4.2 | `PerformanceCalculator` — TWR: encadenado por subperiodos delimitados por `DEPOSIT`/`WITHDRAWAL` sobre la serie de valoraciones. | Unitarios de dominio. |
+| H4.3 | `PerformanceView` + query adapter + endpoint `GET /portfolios/{id}/performance` (por posición y total). | `@DataJpaTest` + `@WebMvcTest`. |
+| H4.4 | Frontend: TWR/XIRR en el resumen y por posición; gráfico de evolución del valor (Chart.js). | Build + revisión manual. |
+
+### F5 — Automatización (backlog)
+
+| Hito | Contenido |
+|---|---|
+| H5.1 | Adaptador externo de `PriceProviderPort` (API de cotizaciones) + acción de refresco de precios. |
+| H5.2 | Flex Web Service: descarga del informe con token IBKR (mismo caso de uso `ImportFlexReport`). |
+| H5.3 | Modo híbrido: precios del Flex al importar + refresco bajo demanda/programado. |
 
 ## 13. Referencias de código
 
