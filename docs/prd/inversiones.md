@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.9 |
+| Versión | 0.10 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -230,20 +230,21 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 | H1.6 | Migración `V6__investments.sql` (crea el **esquema `investments`** + tablas §3 salvo `exchange_rate`) + entidades/mappers/adaptadores JPA (`@Table(schema = "investments")`). | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades, esquema separado. |
 | H1.7 | Read-side CQRS: `InvestmentQueryPort`, `PositionView`, `PortfolioSummaryView` + query adapter (valoración con última cotización, RN-6). | `@DataJpaTest` del adapter. |
 | H1.8 | Web: `PortfolioController`/`SecurityController` + DTOs; endpoints CRUD y `GET /positions`; el contexto entra en ArchUnit. | `@WebMvcTest` + `ArchitectureTest`. |
-| H1.9 | `FlexReportParser` (ACL): secciones *Trades* y *Open Positions* → `ImportRow`s del contexto; fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
-| H1.10 | Caso de uso `ImportFlexReport`: idempotencia por `external_id` (RF-4), alta automática de `Security`, upsert de cotizaciones (RN-9), errores por fila; endpoint `POST /portfolios/{id}/import`. | Aplicación mockeada + `@WebMvcTest`. |
+| H1.9 | `FlexReportParser` (ACL): secciones *Trades* (órdenes de valores y conversiones `FX_TRADE`), *Open Positions* y ***Cash Transactions* completa** (depósitos, retiradas, dividendos y retenciones — el par dividendo+retención llega como apuntes separados, §9); fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
+| H1.10 | Caso de uso `ImportFlexReport`: idempotencia por `external_id` (RF-4), alta automática de `Security`, upsert de cotizaciones (RN-9), errores por fila; endpoint `POST /portfolios/{id}/import`. Con esto el efectivo (RN-2) y el capital aportado son exactos desde el primer import. | Aplicación mockeada + `@WebMvcTest`. |
 | H1.11 | Frontend: página `pages/investments` (KPIs, donut de asignación, evolución valor vs aportado, P&L por posición, tabla de posiciones), diálogo de import Flex, ruta lazy y entrada en el menú. | Build + revisión manual. |
 | H1.12 | Tarjeta de patrimonio en el dashboard doméstico (valor total + fecha de valoración, leyendo la API de `investments`); actualización del PRD Dashboard. | Build + revisión manual. |
 
-### F2 — Dividendos, intereses y comisiones
+### F2 — Vistas de rentas y alta manual
+
+El parseo e importación de dividendos/retenciones ya quedó en F1 (H1.9); esta fase añade su lectura y la operativa manual.
 
 | Hito | Contenido | Tests |
 |---|---|---|
-| H2.1 | Dominio: `DIVIDEND`/`INTEREST`/`FEE`/`TAX` en el cálculo de efectivo y agregados de rentas por periodo/instrumento (RF-7). | Unitarios de dominio. |
-| H2.2 | Parser de la sección *Cash Transactions* del Flex (dividendo + retención vinculados, §9). | Unitarios con fixtures. |
-| H2.3 | `IncomeView` + query adapter + endpoint `GET /portfolios/{id}/income`. | `@DataJpaTest` + `@WebMvcTest`. |
-| H2.4 | Alta/edición manual de operaciones (RF-2): casos de uso + endpoints + formulario en la UI. | Aplicación + `@WebMvcTest`. |
-| H2.5 | Frontend: pestañas de operaciones y dividendos + gráfico de dividendos (mensual apilado por instrumento, selector de año) y KPI de dividendos del año. | Build + revisión manual. |
+| H2.1 | Dominio: agregados de rentas por periodo/instrumento (RF-7) sobre los apuntes ya importados. | Unitarios de dominio. |
+| H2.2 | `IncomeView` + query adapter + endpoint `GET /portfolios/{id}/income`. | `@DataJpaTest` + `@WebMvcTest`. |
+| H2.3 | Alta/edición manual de operaciones (RF-2): casos de uso + endpoints + formulario en la UI. | Aplicación + `@WebMvcTest`. |
+| H2.4 | Frontend: pestañas de operaciones y dividendos + gráfico de dividendos (mensual apilado por instrumento, selector de año) y KPI de dividendos del año. | Build + revisión manual. |
 
 ### F3 — Multidivisa
 
