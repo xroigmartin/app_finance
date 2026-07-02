@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.19 |
+| Versión | 0.20 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -53,6 +53,8 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | `name` | `varchar NOT NULL` | |
 | `currency` | `varchar(3) NOT NULL` | Divisa de cotización (ISO 4217). |
 | `type` | `varchar` | Acción / ETF / fondo / otro. |
+| `exchange` | `varchar`, nullable | Mercado de cotización (`listingExchange` del Flex: AEB, SBF, NASDAQ, LSE, BVME…). **Metadato**, no parte de la identidad en v1. Llave para la API de precios externa (backlog). |
+| `figi` | `varchar`, nullable | Identificador Bloomberg (FIGI), **único por cotización** (más fino que ISIN). Metadato para la API de precios externa (backlog). |
 
 **`price_quote`** — serie de cierres por instrumento
 
@@ -189,6 +191,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 
 - **Conversiones de divisa (`FX_TRADE`)**: concepto de dominio genérico e independiente del broker — pierna saliente + pierna entrante + coste, sin flujo externo. En el Flex de IBKR llegan como órdenes `assetCategory="CASH"` (símbolo del par, p. ej. `EUR.USD`; los signos de `quantity`/`proceeds` identifican cada pierna); esa traducción es responsabilidad exclusiva del ACL `FlexReportParser`. Incluye las micro-conversiones automáticas de IBKR (residuos de pocos céntimos), que se importan igual. Un futuro broker que reporte la conversión de otra forma (p. ej. dos líneas débito/crédito) la traducirá al mismo `FX_TRADE` en su propio parser. El P&L por efectivo en divisa no se calcula aparte: emerge al valorar el efectivo al tipo del día (RN-7b).
 - **Comisión/retención en divisa distinta del apunte**: `ibCommissionCurrency` puede diferir de `currency` — ocurre en todas las conversiones FX (apunte en la divisa de proceeds, comisión en EUR). El parser rellena `fee_currency`/`tax_currency` solo cuando difieren de la divisa del apunte; RN-2 descuenta cada importe del saldo de su divisa.
+- **Instrumento cotizado en varias divisas / mercados (cross-listing)**: la identidad de `security` es **ISIN + divisa de cotización** (única por par). Un valor cross-listed (mismo ISIN en dos mercados) aparecería como **dos securities** y la posición se mostraría partida en dos filas; no ocurre en la cartera actual (ningún ISIN repetido en dos divisas). Caso límite conocido, sin maquinaria de consolidación en v1. Matiz importante: la **divisa no distingue mercados de la misma moneda** (Euronext París y Ámsterdam cotizan ambos en EUR) — para eso está el `exchange` (`listingExchange` del Flex) y el `figi` (único por cotización), que se capturan como metadatos del `security` desde v1 aunque no se usen hasta la API de precios. Cuando llegue esa API (backlog F4/F5) el `exchange`/`figi` será la llave de consulta del precio (como en Portfolio Performance, que pide el mercado al registrar por ISIN) y se **revisará si la identidad debe pasar a ISIN + exchange** para separar cross-listings de la misma divisa.
 - **Splits**: se modelan como **delta de cantidad a coste 0** (RN-3), no como ratio. En el Flex llegan en *Corporate Actions* con `type="FS"` (forward split) / `type="RS"` (reverse split) y `quantity` = delta de títulos (p. ej. el 10:1 de NVDA: `quantity="18"`, de 2 a 20 títulos); el ratio "10 FOR 1" solo vive como texto libre en `description` y **no** se parsea. La fila `levelOfDetail="SUMMARY"` (con `accountId="-"`) se ignora; el parser consume solo `levelOfDetail="DETAIL"` (igual que en *Trades*) y usa su `transactionID` como `external_id`. Tipos de acción corporativa distintos de FS/RS → fila reportada como error, como cualquier fila no soportada. Ajustan cantidad y coste medio sin generar flujo de caja.
 - **Dividendo con retención en origen**: el Flex los trae como apuntes separados (dividendo + withholding tax); se importan como `DIVIDEND` + `TAX` vinculados al mismo instrumento y fecha.
 - **Ventas parciales**: P&L realizado por coste promedio en el momento de la venta.
@@ -200,7 +203,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
   - *Cash Transactions*: nivel **Detail** (tipos Dividends, Withholding Tax, Deposits/Withdrawals; incluir Broker Interest si la cuenta genera intereses).
   - *Corporate Actions*: nivel **Detail** únicamente (la fila `levelOfDetail="SUMMARY"` con `accountId="-"` duplica el apunte y se ignora); solo `type` FS/RS (split directo/inverso), el resto → error de fila.
   - *Transaction Taxes* (FTT): el parser consume **solo** `TransactionTax` con `levelOfDetail="ORDER_SUMMARY"` e **ignora** `TransactionTaxDetail` (`ORDER_DETAIL`). Motivo: la FTT cambia de forma entre ejercicios — 2024 trae solo `TransactionTax`; 2025 trae `TransactionTax` (`ORDER_SUMMARY`) **más** `TransactionTaxDetail` (`ORDER_DETAIL`) duplicando la misma tasa con el mismo `tradeId` (p. ej. −0.203 GBP en ambos niveles). `ORDER_SUMMARY` es el único nivel presente en **ambos** años, así que consumirlo da un parser uniforme sin ramas por ejercicio y sin doble conteo. Nota: no hay una regla global "siempre summary" o "siempre detail" — cada sección fija su nivel (Trades→`ORDER`, Corporate Actions→`DETAIL`, FTT→`ORDER_SUMMARY`). **Decisión provisional del formato actual**, revisable al refinar la configuración del Flex Query cuando la app tenga su primera versión.
-  - *Open Positions* (`markPrice` a fecha del informe → fuente de cotizaciones en v1), *Securities (Financial Instrument Information)*, *Corporate Actions*, *Transaction Taxes* (FTT itemizada; en la fila de la orden `taxes` viene a 0; solo nivel `ORDER_SUMMARY`, ver detalle más abajo) y *Conversion Rates* (el parser filtra y persiste solo los pares con divisas presentes en la cartera, **normalizados a una sola dirección** divisa→EUR — IBKR exporta ambas direcciones de muchos pares irrelevantes; la inversa se obtiene aritméticamente. Volumen resultante: ~365 filas/año por divisa extranjera en cartera).
+  - *Open Positions* (`markPrice` a fecha del informe → fuente de cotizaciones en v1; `listingExchange`/`figi` → metadatos del `security`), *Securities (Financial Instrument Information)*, *Corporate Actions*, *Transaction Taxes* (FTT itemizada; en la fila de la orden `taxes` viene a 0; solo nivel `ORDER_SUMMARY`, ver detalle más abajo) y *Conversion Rates* (el parser filtra y persiste solo los pares con divisas presentes en la cartera, **normalizados a una sola dirección** divisa→EUR — IBKR exporta ambas direcciones de muchos pares irrelevantes; la inversa se obtiene aritméticamente. Volumen resultante: ~365 filas/año por divisa extranjera en cartera).
   - Secciones vacías o no marcadas (`Transfers`, `ComplexPositions`, `FxPositions`…) se ignoran.
 - **Identificadores para la idempotencia** (`external_id`): a nivel ORDER `tradeID`/`transactionID` vienen vacíos → usar **`ibOrderID`** en operaciones, **`transactionID`** en apuntes de efectivo y en acciones corporativas, y **`tradeId`** en `TransactionTax`. Como son secuencias de numeración independientes de IBKR (podrían colisionar entre sí), el `external_id` se **prefija por origen**: `ORD-`/`CT-`/`FTT-`/`CA-` (RN-10). El vínculo de una FTT con su orden se resuelve por instrumento+fecha (su `tradeId` apunta al nivel ejecución, que no se importa).
 - Un informe Flex cubre como máximo 365 días: la carga inicial del histórico se hace con un informe por año, importados en orden; la idempotencia hace inocuos los solapamientos. Si falta histórico anterior (import parcial), las ventas sin posición entran con *warning* y la posición puede quedar negativa hasta importar el año que falta (RN-4); nada queda a medias ni bloqueado.
@@ -208,7 +211,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 ## 10. Backlog / mejoras futuras
 
 - **Flex Web Service**: descarga automática del informe con token IBKR (mismo puerto de entrada que el import manual).
-- **API externa de cotizaciones** (híbrido): adaptador de `PriceProviderPort` (Yahoo Finance u otro) + botón de refresco.
+- **API externa de cotizaciones** (híbrido): adaptador de `PriceProviderPort` (Yahoo Finance u otro) + botón de refresco. Usará `exchange`/`figi` del `security` como llave de consulta; revisar entonces si la identidad pasa a ISIN + exchange (cross-listings de misma divisa, §9).
 - Benchmarks (comparar TWR contra un índice).
 - Clasificación de activos por dimensiones (región, sector) al estilo Portfolio Performance.
 - Informe fiscal de plusvalías.
@@ -231,7 +234,7 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 | Hito | Contenido | Tests |
 |---|---|---|
 | H1.1 | Value objects del contexto: `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity` (**decimal** — fracciones de acción y residuos FX; escalas y redondeo de §3). | Unitarios de dominio. |
-| H1.2 | Agregados `Security` + `PriceQuote` + `ExchangeRate` (invariantes: divisa ISO, identidad ISIN+divisa, unicidad de cotización y de tipo de cambio por fecha, upsert) + servicio de conversión de dominio (último tipo ≤ fecha, RN-7). | Unitarios de dominio. |
+| H1.2 | Agregados `Security` (con metadatos `exchange`/`figi`, §9) + `PriceQuote` + `ExchangeRate` (invariantes: divisa ISO, identidad ISIN+divisa, unicidad de cotización y de tipo de cambio por fecha, upsert) + servicio de conversión de dominio (último tipo ≤ fecha, RN-7). | Unitarios de dominio. |
 | H1.3 | Agregados `Portfolio` e `InvestmentTransaction` (tipos de operación, invariantes de importes/cantidades, `external_id`). | Unitarios de dominio. |
 | H1.4 | Servicio de dominio `PositionCalculator`: posiciones, coste medio, P&L latente/realizado, efectivo por divisa (RN-2/RN-3/RN-4, venta sin posición). | Unitarios de dominio. |
 | H1.5 | Puertos de salida + `PortfolioService`/`SecurityService` (casos de uso CRUD, guardas de borrado RN-5). | Aplicación con puertos mockeados. |
