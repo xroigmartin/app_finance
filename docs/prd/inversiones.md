@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.6 |
+| Versión | 0.7 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -83,6 +83,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | `amount` | `numeric NOT NULL` | Importe total con signo, en `currency`. |
 | `currency` | `varchar(3) NOT NULL` | |
 | `fee` / `tax` | `numeric` | Comisión y retención asociadas a la operación. |
+| `fx_rate_to_base` | `numeric`, nullable | **Snapshot del tipo de cambio aplicado en el apunte** (`fxRateToBase` del Flex, tipo divisa del apunte → divisa base). Nulo en apuntes manuales (fallback: tabla `exchange_rate`, RN-7). |
 | `description` | `varchar` | |
 | `external_id` | `varchar` | Id de operación del Flex (`tradeID`/`transactionID`), único por cartera → idempotencia del import. |
 
@@ -122,7 +123,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | RN-4 | No se puede vender más cantidad de la que hay en posición a la fecha de la operación (validación de dominio). |
 | RN-5 | Un instrumento con operaciones no se puede eliminar; una cartera con operaciones no se puede eliminar (409, como cuentas/categorías). |
 | RN-6 | La valoración usa la **última cotización disponible** ≤ fecha de valoración; si un instrumento no tiene cotización, su posición se muestra a coste con aviso. |
-| RN-7 | La conversión de divisa usa el **último tipo de cambio disponible** ≤ fecha; se aplica solo en la capa de lectura (los datos se almacenan siempre en su divisa original). |
+| RN-7 | **Doble mecanismo de conversión de divisa**, siempre en la capa de lectura (los datos se almacenan en su divisa original): (a) los importes **fijados en el pasado** (coste de adquisición, P&L realizado, dividendos cobrados) se convierten con el **snapshot** `fx_rate_to_base` del propio apunte — inmutables ante reimportaciones y cuadran con la liquidación real de IBKR; (b) la **valoración a una fecha** (valor de mercado, evolución, pesos) usa el último tipo ≤ fecha de la tabla `exchange_rate`, que también es el fallback para apuntes sin snapshot (manuales). El P&L latente incorpora así automáticamente el efecto divisa. |
 | RN-8 | **TWR**: rentabilidad encadenada por subperiodos delimitados por flujos externos (`DEPOSIT`/`WITHDRAWAL`), calculada sobre la serie de valoraciones disponible. **XIRR**: TIR de los flujos externos + valor actual (Newton-Raphson con fallback de bisección). Con cotizaciones solo en fechas de import, ambas son aproximaciones sobre esos puntos; mejorarán al llegar la API de precios. |
 | RN-9 | Cotizaciones y tipos de cambio del Flex hacen *upsert*: un valor más reciente para la misma fecha sobrescribe (clave natural: `security`+fecha y fecha+par de divisas). Nunca generan filas duplicadas. |
 | RN-10 | **Idempotencia de la importación** (doble defensa): (a) el caso de uso omite toda fila cuyo `external_id` ya exista en la cartera y la reporta como "duplicada" en el resumen (no es error: reimportar el mismo informe o periodos solapados es un uso esperado); (b) la BD lo garantiza físicamente con `UNIQUE (portfolio_id, external_id)` en `investments.investment_transaction`. `external_id` = `ibOrderID` (operaciones), `transactionID` (efectivo), `tradeId` (tasas FTT). Límite conocido: los apuntes manuales (sin `external_id`) no son deduplicables frente a un import posterior (ver §9). |
@@ -189,7 +190,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
   - *Account Information*: solo `accountId` y `currency` (sin datos personales).
   - *Trades*: nivel **Orders** únicamente (las filas `SYMBOL_SUMMARY`/`ASSET_SUMMARY`, si aparecen, se ignoran filtrando `levelOfDetail="ORDER"`).
   - *Cash Transactions*: nivel **Detail** (tipos Dividends, Withholding Tax, Deposits/Withdrawals; incluir Broker Interest si la cuenta genera intereses).
-  - *Open Positions* (`markPrice` a fecha del informe → fuente de cotizaciones en v1), *Securities (Financial Instrument Information)*, *Corporate Actions*, *Transaction Taxes* (FTT itemizada; en la fila de la orden `taxes` viene a 0) y *Conversion Rates*.
+  - *Open Positions* (`markPrice` a fecha del informe → fuente de cotizaciones en v1), *Securities (Financial Instrument Information)*, *Corporate Actions*, *Transaction Taxes* (FTT itemizada; en la fila de la orden `taxes` viene a 0) y *Conversion Rates* (el parser filtra y persiste solo los pares con divisas presentes en la cartera o EUR; IBKR exporta muchos pares irrelevantes).
   - Secciones vacías o no marcadas (`Transfers`, `ComplexPositions`, `FxPositions`…) se ignoran.
 - **Identificadores para la idempotencia** (`external_id`): a nivel ORDER `tradeID`/`transactionID` vienen vacíos → usar **`ibOrderID`** en operaciones, **`transactionID`** en apuntes de efectivo y **`tradeId`** en `TransactionTax`. El vínculo de una FTT con su orden se resuelve por instrumento+fecha (su `tradeId` apunta al nivel ejecución, que no se importa).
 - Un informe Flex cubre como máximo 365 días: la carga inicial del histórico se hace con un informe por año, importados en orden; la idempotencia hace inocuos los solapamientos.
@@ -247,7 +248,7 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 |---|---|---|
 | H3.1 | Agregado `ExchangeRate` + servicio de conversión de dominio (último tipo ≤ fecha, RN-7). | Unitarios de dominio. |
 | H3.2 | Migración `V7__exchange_rates.sql` + persistencia + parser de *Conversion Rates* (upsert RN-9). | `@DataJpaTest` + fixtures. |
-| H3.3 | Conversión a EUR/divisa base en la capa de lectura (posiciones, resumen, rentas; RF-9) + efectivo por divisa en la UI. | `@DataJpaTest` del adapter + `@WebMvcTest`. |
+| H3.3 | Conversión a EUR/divisa base en la capa de lectura según el doble mecanismo de RN-7 (snapshot `fx_rate_to_base` para importes fijados; tabla `exchange_rate` para valoración y fallback) + efectivo por divisa en la UI. | `@DataJpaTest` del adapter + `@WebMvcTest`. |
 
 ### F4 — Rentabilidad TWR/XIRR
 
