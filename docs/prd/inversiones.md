@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.17 |
+| Versión | 0.18 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -113,7 +113,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | RF-4 | El import es idempotente: una operación ya importada (`external_id`) no se duplica. |
 | RF-5 | El usuario ve las posiciones actuales de la cartera: títulos, coste medio, valor de mercado, P&L latente y % del total. |
 | RF-6 | El usuario ve el efectivo de la cartera por divisa. |
-| RF-7 | El usuario ve los dividendos e intereses cobrados y las comisiones/retenciones pagadas, agregados por periodo y por instrumento. |
+| RF-7 | El usuario ve los dividendos e intereses cobrados (en **bruto**, con el neto disponible en el detalle) y las comisiones/retenciones pagadas, agregados por periodo y por instrumento. |
 | RF-8 | El usuario ve la rentabilidad TWR y XIRR por posición y por cartera. |
 | RF-9 | Toda la valoración agregada se muestra convertida a EUR (o a la divisa base de la cartera), usando el último tipo de cambio disponible. |
 | RF-10 | El dashboard doméstico muestra una tarjeta informativa de patrimonio con el valor total de la cartera y su fecha de valoración (solo lectura de la API de `investments`; sin mezclar agregados domésticos). |
@@ -156,13 +156,13 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 - Capital aportado neto (Σ aportaciones − Σ retiradas).
 - P&L latente (€ y %).
 - Efectivo disponible (por divisa).
-- Dividendos cobrados en el año en curso.
+- Dividendos cobrados en el año en curso — en **bruto** (antes de retención en origen), con el neto en el tooltip/detalle (criterio Portfolio Performance).
 - TWR y XIRR del total (desde F3).
 
 **Gráficos:**
 1. **Evolución: valor vs capital aportado** (línea) — la serie de aportado es exacta y escalonada (fechas de `DEPOSIT`/`WITHDRAWAL`); la de valor solo tiene puntos en fechas con cotización (imports). Al llegar la API de precios (F4) la misma vista gana la curva diaria sin rediseño.
 2. **Asignación de la cartera** (donut) — peso % de cada posición, con el efectivo como una porción más.
-3. **Dividendos por periodo** (barras) — vista por defecto: **mensual del año seleccionado**, apiladas por instrumento, con selector de año (y opción "todo" anual).
+3. **Dividendos por periodo** (barras) — importes en **bruto**, con el neto (tras retención) en el tooltip; vista por defecto: **mensual del año seleccionado**, apiladas por instrumento, con selector de año (y opción "todo" anual).
 4. **P&L por posición** (barras horizontales divergentes) — ganancia/pérdida latente en € por instrumento, ordenadas de mejor a peor, verde/rojo.
 5. **Rentabilidad por posición** (barras horizontales, %) — TWR/XIRR por instrumento (desde F3).
 
@@ -250,7 +250,7 @@ El parseo e importación de dividendos/retenciones ya quedó en F1 (H1.9); esta 
 | Hito | Contenido | Tests |
 |---|---|---|
 | H2.1 | Dominio: agregados de rentas por periodo/instrumento (RF-7) sobre los apuntes ya importados. | Unitarios de dominio. |
-| H2.2 | `IncomeView` + query adapter + endpoint `GET /portfolios/{id}/income` (importes convertidos con el snapshot `fx_rate_to_base`, RN-7a). | `@DataJpaTest` + `@WebMvcTest`. |
+| H2.2 | `IncomeView` + query adapter + endpoint `GET /portfolios/{id}/income` (dividendos en bruto y neto —tras restar la retención vinculada por instrumento+fecha—; importes convertidos con el snapshot `fx_rate_to_base`, RN-7a). | `@DataJpaTest` + `@WebMvcTest`. |
 | H2.3 | Alta/edición manual de operaciones (RF-2): casos de uso + endpoints + formulario en la UI. | Aplicación + `@WebMvcTest`. |
 | H2.4 | Frontend: pestañas de operaciones y dividendos + gráfico de dividendos (mensual apilado por instrumento, selector de año) y KPI de dividendos del año. | Build + revisión manual. |
 
