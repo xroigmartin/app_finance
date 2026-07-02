@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.18 |
+| Versión | 0.19 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -116,7 +116,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | RF-7 | El usuario ve los dividendos e intereses cobrados (en **bruto**, con el neto disponible en el detalle) y las comisiones/retenciones pagadas, agregados por periodo y por instrumento. |
 | RF-8 | El usuario ve la rentabilidad TWR y XIRR por posición y por cartera. |
 | RF-9 | Toda la valoración agregada se muestra convertida a EUR (o a la divisa base de la cartera), usando el último tipo de cambio disponible. |
-| RF-10 | El dashboard doméstico muestra una tarjeta informativa de patrimonio con el valor total de la cartera y su fecha de valoración (solo lectura de la API de `investments`; sin mezclar agregados domésticos). |
+| RF-10 | El dashboard doméstico muestra una tarjeta informativa de patrimonio con el valor total de la cartera y su fecha de valoración (solo lectura de la API de `investments`; sin mezclar agregados domésticos). **Comportamiento degradado**: sin carteras o sin valor que mostrar, la tarjeta se **oculta**; si la API de `investments` falla, la tarjeta se muestra con **"—"** y no rompe el resto del dashboard. |
 
 ## 5. Reglas de negocio
 
@@ -172,7 +172,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 
 **Botón Importar Flex**: reutiliza el patrón del diálogo de import existente (`components/import-dialog.ts`) adaptado al Flex.
 
-**Tarjeta de patrimonio en el dashboard doméstico**: única presencia de la inversión fuera de su página — una tarjeta informativa con el valor total de la cartera (y fecha de valoración), leyendo el resumen del contexto `investments` vía su API. No mezcla agregados: los ingresos/gastos/saldos domésticos no incorporan nada de inversión (RN-1 intacta a nivel de datos). Al implementarla se actualizará también el PRD Dashboard.
+**Tarjeta de patrimonio en el dashboard doméstico**: única presencia de la inversión fuera de su página — una tarjeta informativa con el valor total de la cartera (y fecha de valoración), leyendo el resumen del contexto `investments` vía su API. No mezcla agregados: los ingresos/gastos/saldos domésticos no incorporan nada de inversión (RN-1 intacta a nivel de datos). Degradación (RF-10): se **oculta** si no hay carteras o no hay valor que mostrar; ante error de la API muestra **"—"** sin tumbar el dashboard doméstico. Al implementarla se actualizará también el PRD Dashboard.
 
 ## 8. Validaciones y errores
 
