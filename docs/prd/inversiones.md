@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.13 |
+| Versión | 0.14 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -41,6 +41,8 @@ Es un **bounded context autocontenido** (`investments`), deliberadamente aislado
 
 Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo importe monetario del contexto usa un value object propio **con divisa** (p. ej. `CurrencyMoney(amount, currency)`); el `Money` del kernel compartido (EUR implícito) **no se toca**.
 
+**Precisión decimal fijada** (los informes reales traen fracciones de acción — compras de `2.303` títulos — y residuos FX de 8 decimales): cantidades, precios y tipos de cambio `numeric(19,8)`; importes monetarios `numeric(19,4)`. En Java todo es `BigDecimal` (los VOs fijan escala y redondeo). El frontend **no calcula, solo formatea**: recibe los agregados ya computados por la capa de lectura como números JSON (`number` de TypeScript, suficiente para visualización) y los muestra con los pipes de Angular; si alguna vista necesitara aritmética en cliente, ese campo pasaría a string + librería decimal.
+
 **`security`** — instrumento (acción, ETF, fondo…)
 
 | Campo | Tipo | Notas |
@@ -59,7 +61,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | `id` | `bigint` PK | |
 | `security_id` | FK → `security` | |
 | `quote_date` | `date` | Única por (`security_id`, `quote_date`). |
-| `price` | `numeric` | En la divisa del instrumento. Se alimenta del Flex al importar. |
+| `price` | `numeric(19,8)` | En la divisa del instrumento. Se alimenta del Flex al importar. |
 
 **`portfolio`** — cartera
 
@@ -78,15 +80,15 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | `security_id` | FK → `security`, nullable | Nulo en operaciones puras de efectivo (aportación, retirada, interés, conversión de divisa). |
 | `type` | `varchar NOT NULL` | `BUY`, `SELL`, `DIVIDEND`, `INTEREST`, `FEE`, `TAX`, `SPLIT`, `DEPOSIT`, `WITHDRAWAL`, `FX_TRADE`. |
 | `trade_date` | `date NOT NULL` | |
-| `quantity` | `numeric` | Títulos (nulo si no aplica). |
-| `price` | `numeric` | Precio unitario en la divisa del instrumento. |
-| `amount` | `numeric NOT NULL` | Importe total con signo, en `currency`. En `FX_TRADE`: la pierna **saliente** (negativa). |
+| `quantity` | `numeric(19,8)` | Títulos (nulo si no aplica); admite fracciones de acción. |
+| `price` | `numeric(19,8)` | Precio unitario en la divisa del instrumento. |
+| `amount` | `numeric(19,4) NOT NULL` | Importe total con signo, en `currency`. En `FX_TRADE`: la pierna **saliente** (negativa). |
 | `currency` | `varchar(3) NOT NULL` | |
-| `counter_amount` | `numeric`, nullable | Solo `FX_TRADE`: pierna **entrante** (positiva) de la conversión, en `counter_currency`. |
+| `counter_amount` | `numeric(19,4)`, nullable | Solo `FX_TRADE`: pierna **entrante** (positiva) de la conversión, en `counter_currency`. |
 | `counter_currency` | `varchar(3)`, nullable | Solo `FX_TRADE`. |
-| `fee` / `tax` | `numeric` | Comisión y retención asociadas a la operación. |
+| `fee` / `tax` | `numeric(19,4)` | Comisión y retención asociadas a la operación. |
 | `fee_currency` / `tax_currency` | `varchar(3)`, nullable | Divisa propia de la comisión/retención **cuando difiere** de `currency`; nulo = la divisa del apunte (caso común). En las FX de IBKR el apunte va en la divisa de proceeds (p. ej. USD) y la comisión en EUR. |
-| `fx_rate_to_base` | `numeric`, nullable | **Snapshot del tipo de cambio aplicado en el apunte** (`fxRateToBase` del Flex, tipo divisa del apunte → divisa base). Nulo en apuntes manuales (fallback: tabla `exchange_rate`, RN-7). |
+| `fx_rate_to_base` | `numeric(19,8)`, nullable | **Snapshot del tipo de cambio aplicado en el apunte** (`fxRateToBase` del Flex, tipo divisa del apunte → divisa base). Nulo en apuntes manuales (fallback: tabla `exchange_rate`, RN-7). |
 | `description` | `varchar` | |
 | `external_id` | `varchar` | Id de operación del Flex (`tradeID`/`transactionID`), único por cartera → idempotencia del import. |
 
@@ -97,7 +99,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | `id` | `bigint` PK | |
 | `rate_date` | `date` | Único por (`rate_date`, `from_currency`, `to_currency`). |
 | `from_currency` / `to_currency` | `varchar(3)` | |
-| `rate` | `numeric` | |
+| `rate` | `numeric(19,8)` | |
 
 **Nada materializado**: posiciones, coste medio, efectivo de la cartera y valoración se calculan siempre a partir de `investment_transaction` + `price_quote` + `exchange_rate`.
 
@@ -123,7 +125,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | RN-1 | **Aislamiento de contextos**: ninguna operación de inversión crea, modifica ni afecta a movimientos, transferencias, categorías, presupuestos ni dashboard domésticos. El traspaso de fondos se registra de forma independiente en cada lado: gasto/ingreso (categoría del usuario, p. ej. "Inversión") en la cuenta doméstica, y `DEPOSIT`/`WITHDRAWAL` en la cartera. Sin enlace automático. |
 | RN-2 | El **efectivo de la cartera se calcula por divisa**: `Σ DEPOSIT − Σ WITHDRAWAL − Σ compras + Σ ventas + Σ dividendos + Σ intereses − Σ comisiones − Σ retenciones − Σ piernas salientes de FX_TRADE en esa divisa + Σ piernas entrantes de FX_TRADE en esa divisa`. Cada comisión/retención descuenta del saldo de **su** divisa (`fee_currency`/`tax_currency` si están informadas; la del apunte si no). Una conversión de divisa mueve dos saldos a la vez y **no** es un flujo externo de la cartera. |
 | RN-3 | Las **posiciones se calculan** por instrumento: cantidad = Σ compras − Σ ventas (ajustada por splits); coste medio por método de coste promedio. |
-| RN-4 | **Venta sin posición suficiente — regla dual**: en alta/edición **manual** es una validación dura de dominio (no se puede vender más cantidad de la que hay en posición a la fecha de la operación → `400`). En **import** la fila se importa igual y se reporta como ***warning*** en el resumen ("posición negativa: falta histórico anterior") — un Flex parcial (p. ej. 2025 sin haber importado 2024) no debe fallar. La UI de posiciones marca en rojo las cantidades negativas. |
+| RN-4 | **Venta sin posición suficiente — regla dual**: en alta/edición **manual** es una validación dura de dominio (no se puede vender más cantidad de la que hay en posición a la fecha de la operación → `400`). En **import** la fila se importa igual y se reporta como ***warning*** en el resumen ("posición negativa: falta histórico anterior") — un Flex parcial (p. ej. 2025 sin haber importado 2024) no debe fallar. La UI de posiciones marca en rojo las cantidades negativas. La comparación de cantidades usa la **tolerancia de la precisión** (`numeric(19,8)`), no igualdad estricta: tras compras fraccionadas o splits, cerrar una posición puede dejar residuos de 1e-8 que no deben bloquear la venta. |
 | RN-5 | Un instrumento con operaciones no se puede eliminar; una cartera con operaciones no se puede eliminar (409, como cuentas/categorías). |
 | RN-6 | La valoración usa la **última cotización disponible** ≤ fecha de valoración; si un instrumento no tiene cotización, su posición se muestra a coste con aviso. |
 | RN-7 | **Doble mecanismo de conversión de divisa**, siempre en la capa de lectura (los datos se almacenan en su divisa original): (a) los importes **fijados en el pasado** (coste de adquisición, P&L realizado, dividendos cobrados) se convierten con el **snapshot** `fx_rate_to_base` del propio apunte — inmutables ante reimportaciones y cuadran con la liquidación real de IBKR; (b) la **valoración a una fecha** (valor de mercado, evolución, pesos) usa el último tipo ≤ fecha de la tabla `exchange_rate`, que también es el fallback para apuntes sin snapshot (manuales). El P&L latente incorpora así automáticamente el efecto divisa. |
@@ -225,7 +227,7 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 
 | Hito | Contenido | Tests |
 |---|---|---|
-| H1.1 | Value objects del contexto: `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity`. | Unitarios de dominio. |
+| H1.1 | Value objects del contexto: `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity` (**decimal** — fracciones de acción y residuos FX; escalas y redondeo de §3). | Unitarios de dominio. |
 | H1.2 | Agregados `Security` + `PriceQuote` + `ExchangeRate` (invariantes: divisa ISO, identidad ISIN+divisa, unicidad de cotización y de tipo de cambio por fecha, upsert) + servicio de conversión de dominio (último tipo ≤ fecha, RN-7). | Unitarios de dominio. |
 | H1.3 | Agregados `Portfolio` e `InvestmentTransaction` (tipos de operación, invariantes de importes/cantidades, `external_id`). | Unitarios de dominio. |
 | H1.4 | Servicio de dominio `PositionCalculator`: posiciones, coste medio, P&L latente/realizado, efectivo por divisa (RN-2/RN-3/RN-4, venta sin posición). | Unitarios de dominio. |
