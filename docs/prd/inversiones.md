@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.5 |
+| Versión | 0.6 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -110,6 +110,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | RF-7 | El usuario ve los dividendos e intereses cobrados y las comisiones/retenciones pagadas, agregados por periodo y por instrumento. |
 | RF-8 | El usuario ve la rentabilidad TWR y XIRR por posición y por cartera. |
 | RF-9 | Toda la valoración agregada se muestra convertida a EUR (o a la divisa base de la cartera), usando el último tipo de cambio disponible. |
+| RF-10 | El dashboard doméstico muestra una tarjeta informativa de patrimonio con el valor total de la cartera y su fecha de valoración (solo lectura de la API de `investments`; sin mezclar agregados domésticos). |
 
 ## 5. Reglas de negocio
 
@@ -142,13 +143,30 @@ Base: `/api/investments`.
 
 ## 7. UI/UX (diseño)
 
-Nueva página lazy `pages/investments` en el menú lateral ("Inversión"):
+Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los gráficos usan Chart.js directamente y se integran con `ThemeService` (colores/rejilla y redibujado al cambiar de tema), como el dashboard doméstico.
 
-- **Resumen de cartera**: valor total en EUR, efectivo por divisa, P&L latente, TWR/XIRR del total, gráfico de asignación (Chart.js donut) y de evolución de valor.
-- **Tabla de posiciones**: instrumento, títulos, coste medio, precio, valor, P&L (€ y %), peso. |
-- **Pestaña de operaciones**: listado filtrable + formulario de alta manual.
-- **Pestaña de dividendos**: cobros por año/instrumento.
-- **Botón Importar Flex**: reutiliza el patrón del diálogo de import existente (`components/import-dialog.ts`) adaptado al Flex.
+**Cabecera de KPIs (tarjetas):**
+- Valor total de la cartera en EUR, con la **fecha de valoración** visible (RN-6: última cotización disponible).
+- Capital aportado neto (Σ aportaciones − Σ retiradas).
+- P&L latente (€ y %).
+- Efectivo disponible (por divisa).
+- Dividendos cobrados en el año en curso.
+- TWR y XIRR del total (desde F4).
+
+**Gráficos:**
+1. **Evolución: valor vs capital aportado** (línea) — la serie de aportado es exacta y escalonada (fechas de `DEPOSIT`/`WITHDRAWAL`); la de valor solo tiene puntos en fechas con cotización (imports). Al llegar la API de precios (F5) la misma vista gana la curva diaria sin rediseño.
+2. **Asignación de la cartera** (donut) — peso % de cada posición, con el efectivo como una porción más.
+3. **Dividendos por periodo** (barras) — vista por defecto: **mensual del año seleccionado**, apiladas por instrumento, con selector de año (y opción "todo" anual).
+4. **P&L por posición** (barras horizontales divergentes) — ganancia/pérdida latente en € por instrumento, ordenadas de mejor a peor, verde/rojo.
+5. **Rentabilidad por posición** (barras horizontales, %) — TWR/XIRR por instrumento (desde F4).
+
+**Tabla de posiciones**: instrumento, títulos, coste medio, precio, valor, P&L (€ y %), peso.
+
+**Pestañas**: operaciones (listado filtrable + alta manual) y dividendos (cobros por año/instrumento).
+
+**Botón Importar Flex**: reutiliza el patrón del diálogo de import existente (`components/import-dialog.ts`) adaptado al Flex.
+
+**Tarjeta de patrimonio en el dashboard doméstico**: única presencia de la inversión fuera de su página — una tarjeta informativa con el valor total de la cartera (y fecha de valoración), leyendo el resumen del contexto `investments` vía su API. No mezcla agregados: los ingresos/gastos/saldos domésticos no incorporan nada de inversión (RN-1 intacta a nivel de datos). Al implementarla se actualizará también el PRD Dashboard.
 
 ## 8. Validaciones y errores
 
@@ -210,7 +228,8 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 | H1.8 | Web: `PortfolioController`/`SecurityController` + DTOs; endpoints CRUD y `GET /positions`; el contexto entra en ArchUnit. | `@WebMvcTest` + `ArchitectureTest`. |
 | H1.9 | `FlexReportParser` (ACL): secciones *Trades* y *Open Positions* → `ImportRow`s del contexto; fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
 | H1.10 | Caso de uso `ImportFlexReport`: idempotencia por `external_id` (RF-4), alta automática de `Security`, upsert de cotizaciones (RN-9), errores por fila; endpoint `POST /portfolios/{id}/import`. | Aplicación mockeada + `@WebMvcTest`. |
-| H1.11 | Frontend: página `pages/investments` (resumen + tabla de posiciones), diálogo de import Flex, ruta lazy y entrada en el menú. | Build + revisión manual. |
+| H1.11 | Frontend: página `pages/investments` (KPIs, donut de asignación, evolución valor vs aportado, P&L por posición, tabla de posiciones), diálogo de import Flex, ruta lazy y entrada en el menú. | Build + revisión manual. |
+| H1.12 | Tarjeta de patrimonio en el dashboard doméstico (valor total + fecha de valoración, leyendo la API de `investments`); actualización del PRD Dashboard. | Build + revisión manual. |
 
 ### F2 — Dividendos, intereses y comisiones
 
@@ -220,7 +239,7 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 | H2.2 | Parser de la sección *Cash Transactions* del Flex (dividendo + retención vinculados, §9). | Unitarios con fixtures. |
 | H2.3 | `IncomeView` + query adapter + endpoint `GET /portfolios/{id}/income`. | `@DataJpaTest` + `@WebMvcTest`. |
 | H2.4 | Alta/edición manual de operaciones (RF-2): casos de uso + endpoints + formulario en la UI. | Aplicación + `@WebMvcTest`. |
-| H2.5 | Frontend: pestañas de operaciones y dividendos. | Build + revisión manual. |
+| H2.5 | Frontend: pestañas de operaciones y dividendos + gráfico de dividendos (mensual apilado por instrumento, selector de año) y KPI de dividendos del año. | Build + revisión manual. |
 
 ### F3 — Multidivisa
 
