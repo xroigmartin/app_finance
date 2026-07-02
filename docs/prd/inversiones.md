@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.10 |
+| Versión | 0.11 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -154,14 +154,14 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 - P&L latente (€ y %).
 - Efectivo disponible (por divisa).
 - Dividendos cobrados en el año en curso.
-- TWR y XIRR del total (desde F4).
+- TWR y XIRR del total (desde F3).
 
 **Gráficos:**
-1. **Evolución: valor vs capital aportado** (línea) — la serie de aportado es exacta y escalonada (fechas de `DEPOSIT`/`WITHDRAWAL`); la de valor solo tiene puntos en fechas con cotización (imports). Al llegar la API de precios (F5) la misma vista gana la curva diaria sin rediseño.
+1. **Evolución: valor vs capital aportado** (línea) — la serie de aportado es exacta y escalonada (fechas de `DEPOSIT`/`WITHDRAWAL`); la de valor solo tiene puntos en fechas con cotización (imports). Al llegar la API de precios (F4) la misma vista gana la curva diaria sin rediseño.
 2. **Asignación de la cartera** (donut) — peso % de cada posición, con el efectivo como una porción más.
 3. **Dividendos por periodo** (barras) — vista por defecto: **mensual del año seleccionado**, apiladas por instrumento, con selector de año (y opción "todo" anual).
 4. **P&L por posición** (barras horizontales divergentes) — ganancia/pérdida latente en € por instrumento, ordenadas de mejor a peor, verde/rojo.
-5. **Rentabilidad por posición** (barras horizontales, %) — TWR/XIRR por instrumento (desde F4).
+5. **Rentabilidad por posición** (barras horizontales, %) — TWR/XIRR por instrumento (desde F3).
 
 **Tabla de posiciones**: instrumento, títulos, coste medio, precio, valor, P&L (€ y %), peso.
 
@@ -218,20 +218,20 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 
 Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en ciclos red-green-refactor y se cierra con **un commit** (tests en verde + PRD actualizado). Un hito no empieza hasta que el anterior está commiteado.
 
-### F1 — Modelo + import Flex + posiciones/valoración
+### F1 — Modelo + import Flex + posiciones/valoración multidivisa
 
 | Hito | Contenido | Tests |
 |---|---|---|
 | H1.1 | Value objects del contexto: `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity`. | Unitarios de dominio. |
-| H1.2 | Agregado `Security` + `PriceQuote` (invariantes: divisa ISO, identidad ISIN+divisa, unicidad de cotización por fecha, upsert). | Unitarios de dominio. |
+| H1.2 | Agregados `Security` + `PriceQuote` + `ExchangeRate` (invariantes: divisa ISO, identidad ISIN+divisa, unicidad de cotización y de tipo de cambio por fecha, upsert) + servicio de conversión de dominio (último tipo ≤ fecha, RN-7). | Unitarios de dominio. |
 | H1.3 | Agregados `Portfolio` e `InvestmentTransaction` (tipos de operación, invariantes de importes/cantidades, `external_id`). | Unitarios de dominio. |
 | H1.4 | Servicio de dominio `PositionCalculator`: posiciones, coste medio, P&L latente/realizado, efectivo por divisa (RN-2/RN-3/RN-4, venta sin posición). | Unitarios de dominio. |
 | H1.5 | Puertos de salida + `PortfolioService`/`SecurityService` (casos de uso CRUD, guardas de borrado RN-5). | Aplicación con puertos mockeados. |
-| H1.6 | Migración `V6__investments.sql` (crea el **esquema `investments`** + tablas §3 salvo `exchange_rate`) + entidades/mappers/adaptadores JPA (`@Table(schema = "investments")`). | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades, esquema separado. |
-| H1.7 | Read-side CQRS: `InvestmentQueryPort`, `PositionView`, `PortfolioSummaryView` + query adapter (valoración con última cotización, RN-6). | `@DataJpaTest` del adapter. |
+| H1.6 | Migración `V6__investments.sql` (crea el **esquema `investments`** + **todas** las tablas §3, incluida `exchange_rate`) + entidades/mappers/adaptadores JPA (`@Table(schema = "investments")`). | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades, esquema separado. |
+| H1.7 | Read-side CQRS: `InvestmentQueryPort`, `PositionView`, `PortfolioSummaryView` + query adapter (valoración con última cotización, RN-6, **convertida a divisa base** con el doble mecanismo RN-7). | `@DataJpaTest` del adapter. |
 | H1.8 | Web: `PortfolioController`/`SecurityController` + DTOs; endpoints CRUD y `GET /positions`; el contexto entra en ArchUnit. | `@WebMvcTest` + `ArchitectureTest`. |
-| H1.9 | `FlexReportParser` (ACL): secciones *Trades* (órdenes de valores y conversiones `FX_TRADE`), *Open Positions* y ***Cash Transactions* completa** (depósitos, retiradas, dividendos y retenciones — el par dividendo+retención llega como apuntes separados, §9); fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
-| H1.10 | Caso de uso `ImportFlexReport`: idempotencia por `external_id` (RF-4), alta automática de `Security`, upsert de cotizaciones (RN-9), errores por fila; endpoint `POST /portfolios/{id}/import`. Con esto el efectivo (RN-2) y el capital aportado son exactos desde el primer import. | Aplicación mockeada + `@WebMvcTest`. |
+| H1.9 | `FlexReportParser` (ACL): secciones *Trades* (órdenes de valores y conversiones `FX_TRADE`), *Open Positions* y ***Cash Transactions* completa** (depósitos, retiradas, dividendos y retenciones — el par dividendo+retención llega como apuntes separados, §9) y ***Conversion Rates*** (solo pares con divisas de la cartera, normalizados divisa→EUR, §9); fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
+| H1.10 | Caso de uso `ImportFlexReport`: idempotencia por `external_id` (RF-4), alta automática de `Security`, upsert de cotizaciones y tipos de cambio (RN-9), errores por fila; endpoint `POST /portfolios/{id}/import`. Con esto el efectivo (RN-2) y el capital aportado son exactos desde el primer import. | Aplicación mockeada + `@WebMvcTest`. |
 | H1.11 | Frontend: página `pages/investments` (KPIs, donut de asignación, evolución valor vs aportado, P&L por posición, tabla de posiciones), diálogo de import Flex, ruta lazy y entrada en el menú. | Build + revisión manual. |
 | H1.12 | Tarjeta de patrimonio en el dashboard doméstico (valor total + fecha de valoración, leyendo la API de `investments`); actualización del PRD Dashboard. | Build + revisión manual. |
 
@@ -242,34 +242,28 @@ El parseo e importación de dividendos/retenciones ya quedó en F1 (H1.9); esta 
 | Hito | Contenido | Tests |
 |---|---|---|
 | H2.1 | Dominio: agregados de rentas por periodo/instrumento (RF-7) sobre los apuntes ya importados. | Unitarios de dominio. |
-| H2.2 | `IncomeView` + query adapter + endpoint `GET /portfolios/{id}/income`. | `@DataJpaTest` + `@WebMvcTest`. |
+| H2.2 | `IncomeView` + query adapter + endpoint `GET /portfolios/{id}/income` (importes convertidos con el snapshot `fx_rate_to_base`, RN-7a). | `@DataJpaTest` + `@WebMvcTest`. |
 | H2.3 | Alta/edición manual de operaciones (RF-2): casos de uso + endpoints + formulario en la UI. | Aplicación + `@WebMvcTest`. |
 | H2.4 | Frontend: pestañas de operaciones y dividendos + gráfico de dividendos (mensual apilado por instrumento, selector de año) y KPI de dividendos del año. | Build + revisión manual. |
 
-### F3 — Multidivisa
+### F3 — Rentabilidad TWR/XIRR
+
+La multidivisa ya no es una fase: `exchange_rate`, el parser de *Conversion Rates* y la conversión a divisa base quedaron absorbidos por F1 (H1.2, H1.6, H1.7, H1.9), y las vistas de rentas de F2 convierten con los snapshots (RN-7a).
 
 | Hito | Contenido | Tests |
 |---|---|---|
-| H3.1 | Agregado `ExchangeRate` + servicio de conversión de dominio (último tipo ≤ fecha, RN-7). | Unitarios de dominio. |
-| H3.2 | Migración `V7__exchange_rates.sql` + persistencia + parser de *Conversion Rates* (upsert RN-9). | `@DataJpaTest` + fixtures. |
-| H3.3 | Conversión a EUR/divisa base en la capa de lectura según el doble mecanismo de RN-7 (snapshot `fx_rate_to_base` para importes fijados; tabla `exchange_rate` para valoración y fallback) + efectivo por divisa en la UI. | `@DataJpaTest` del adapter + `@WebMvcTest`. |
+| H3.1 | `PerformanceCalculator` — XIRR: Newton-Raphson con fallback de bisección sobre flujos externos + valor actual (RN-8). | Unitarios de dominio (casos conocidos, convergencia, extremos). |
+| H3.2 | `PerformanceCalculator` — TWR: encadenado por subperiodos delimitados por `DEPOSIT`/`WITHDRAWAL` sobre la serie de valoraciones. | Unitarios de dominio. |
+| H3.3 | `PerformanceView` + query adapter + endpoint `GET /portfolios/{id}/performance` (por posición y total). | `@DataJpaTest` + `@WebMvcTest`. |
+| H3.4 | Frontend: TWR/XIRR en el resumen y por posición; gráfico de evolución del valor (Chart.js). | Build + revisión manual. |
 
-### F4 — Rentabilidad TWR/XIRR
-
-| Hito | Contenido | Tests |
-|---|---|---|
-| H4.1 | `PerformanceCalculator` — XIRR: Newton-Raphson con fallback de bisección sobre flujos externos + valor actual (RN-8). | Unitarios de dominio (casos conocidos, convergencia, extremos). |
-| H4.2 | `PerformanceCalculator` — TWR: encadenado por subperiodos delimitados por `DEPOSIT`/`WITHDRAWAL` sobre la serie de valoraciones. | Unitarios de dominio. |
-| H4.3 | `PerformanceView` + query adapter + endpoint `GET /portfolios/{id}/performance` (por posición y total). | `@DataJpaTest` + `@WebMvcTest`. |
-| H4.4 | Frontend: TWR/XIRR en el resumen y por posición; gráfico de evolución del valor (Chart.js). | Build + revisión manual. |
-
-### F5 — Automatización (backlog)
+### F4 — Automatización (backlog)
 
 | Hito | Contenido |
 |---|---|
-| H5.1 | Adaptador externo de `PriceProviderPort` (API de cotizaciones) + acción de refresco de precios. |
-| H5.2 | Flex Web Service: descarga del informe con token IBKR (mismo caso de uso `ImportFlexReport`). |
-| H5.3 | Modo híbrido: precios del Flex al importar + refresco bajo demanda/programado. |
+| H4.1 | Adaptador externo de `PriceProviderPort` (API de cotizaciones) + acción de refresco de precios. |
+| H4.2 | Flex Web Service: descarga del informe con token IBKR (mismo caso de uso `ImportFlexReport`). |
+| H4.3 | Modo híbrido: precios del Flex al importar + refresco bajo demanda/programado. |
 
 ## 13. Referencias de código
 
