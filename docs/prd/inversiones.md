@@ -1,0 +1,199 @@
+# PRD — Inversiones
+
+| Campo | Valor |
+|---|---|
+| Estado | Diseño aprobado (pendiente de implementación) |
+| Versión | 0.1 |
+| Última actualización | 2026-07-02 |
+| Dominio | Inversiones (`investments`) |
+| Responsable | Equipo Mis Finanzas |
+
+> Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento del módulo de inversión (modelo, API, reglas de negocio o UI). Ver `docs/README.md`.
+
+---
+
+## 1. Propósito
+
+Módulo de **seguimiento de cartera de inversión** inspirado en Portfolio Performance: registrar las operaciones de una cartera de bolsa (actualmente en Interactive Brokers), calcular posiciones, valoración, dividendos y rentabilidad (TWR/XIRR), y visualizarlo en un dashboard propio.
+
+Es un **bounded context autocontenido** (`investments`), deliberadamente aislado de la economía doméstica: las compra-ventas, dividendos, intereses y comisiones viven y se reflejan **solo** dentro de este módulo. La única relación con el resto de la app es conceptual: el traspaso de fondos entre una cuenta doméstica y la cartera se registra de forma **independiente en cada lado** (ver RN-1).
+
+## 2. Objetivos y no-objetivos
+
+**Objetivos**
+- Registrar carteras y sus operaciones: compra, venta, dividendo, interés, comisión, retención, split, aportación y retirada de efectivo.
+- Importar las operaciones desde informes **Flex Query** de Interactive Brokers (CSV/XML), reutilizando el patrón ACL del contexto `imports`.
+- Calcular posiciones (títulos, coste medio, P&L latente/realizado) y el efectivo de la cartera — siempre **computados, nunca almacenados**.
+- Valorar la cartera con las cotizaciones de cierre incluidas en el propio Flex (sin dependencias online en v1).
+- Soporte **multidivisa** interno al contexto, con conversión a EUR solo en la capa de lectura.
+- Métricas de rentabilidad **TWR** (ponderada por tiempo) y **XIRR** (ponderada por dinero), por posición y por cartera.
+- Dashboard de inversión: valoración, P&L, dividendos cobrados, asignación de activos, rentabilidad.
+
+**No-objetivos (fuera de alcance de este PRD)**
+- Integración contable con la economía doméstica: las operaciones de inversión **no** generan movimientos en `transactions`/`transfers` ni afectan a ingresos/gastos, presupuestos o dashboard domésticos.
+- Descarga automática del Flex vía **Flex Web Service** (token IBKR) → backlog.
+- Cotizaciones desde APIs externas (Yahoo Finance u otras) → backlog; el puerto `PriceProviderPort` queda definido desde v1 para que sea solo un adaptador nuevo.
+- Órdenes/operativa real contra el broker, fiscalidad (informes de plusvalías), derivados.
+
+## 3. Modelo de datos (diseño)
+
+Nuevas tablas vía migraciones Flyway `V6+`. Todo importe monetario del contexto usa un value object propio **con divisa** (p. ej. `CurrencyMoney(amount, currency)`); el `Money` del kernel compartido (EUR implícito) **no se toca**.
+
+**`security`** — instrumento (acción, ETF, fondo…)
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | `bigint` PK | |
+| `isin` | `varchar` | Identidad de negocio junto a la divisa de cotización (única por par). |
+| `ticker` | `varchar` | Símbolo (p. ej. `VWCE`). |
+| `name` | `varchar NOT NULL` | |
+| `currency` | `varchar(3) NOT NULL` | Divisa de cotización (ISO 4217). |
+| `type` | `varchar` | Acción / ETF / fondo / otro. |
+
+**`price_quote`** — serie de cierres por instrumento
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | `bigint` PK | |
+| `security_id` | FK → `security` | |
+| `quote_date` | `date` | Única por (`security_id`, `quote_date`). |
+| `price` | `numeric` | En la divisa del instrumento. Se alimenta del Flex al importar. |
+
+**`portfolio`** — cartera
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | `bigint` PK | |
+| `name` | `varchar NOT NULL` | P. ej. "Interactive Brokers". |
+| `base_currency` | `varchar(3) NOT NULL` | Divisa base de la cartera (EUR por defecto). |
+
+**`investment_transaction`** — operación de la cartera
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | `bigint` PK | |
+| `portfolio_id` | FK → `portfolio` | |
+| `security_id` | FK → `security`, nullable | Nulo en operaciones puras de efectivo (aportación, retirada, interés). |
+| `type` | `varchar NOT NULL` | `BUY`, `SELL`, `DIVIDEND`, `INTEREST`, `FEE`, `TAX`, `SPLIT`, `DEPOSIT`, `WITHDRAWAL`. |
+| `trade_date` | `date NOT NULL` | |
+| `quantity` | `numeric` | Títulos (nulo si no aplica). |
+| `price` | `numeric` | Precio unitario en la divisa del instrumento. |
+| `amount` | `numeric NOT NULL` | Importe total con signo, en `currency`. |
+| `currency` | `varchar(3) NOT NULL` | |
+| `fee` / `tax` | `numeric` | Comisión y retención asociadas a la operación. |
+| `description` | `varchar` | |
+| `external_id` | `varchar` | Id de operación del Flex (`tradeID`/`transactionID`), único por cartera → idempotencia del import. |
+
+**`exchange_rate`** — tipos de cambio (del propio Flex)
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | `bigint` PK | |
+| `rate_date` | `date` | Único por (`rate_date`, `from_currency`, `to_currency`). |
+| `from_currency` / `to_currency` | `varchar(3)` | |
+| `rate` | `numeric` | |
+
+**Nada materializado**: posiciones, coste medio, efectivo de la cartera y valoración se calculan siempre a partir de `investment_transaction` + `price_quote` + `exchange_rate`.
+
+## 4. Requisitos funcionales
+
+| ID | Requisito |
+|---|---|
+| RF-1 | El usuario puede crear, listar, editar y eliminar carteras. |
+| RF-2 | El usuario puede registrar manualmente operaciones de cualquier tipo (§3) en una cartera. |
+| RF-3 | El usuario puede importar un informe Flex Query de IBKR (CSV/XML) sobre una cartera: operaciones, dividendos, comisiones, posiciones abiertas (→ cotizaciones) y tipos de cambio. |
+| RF-4 | El import es idempotente: una operación ya importada (`external_id`) no se duplica. |
+| RF-5 | El usuario ve las posiciones actuales de la cartera: títulos, coste medio, valor de mercado, P&L latente y % del total. |
+| RF-6 | El usuario ve el efectivo de la cartera por divisa. |
+| RF-7 | El usuario ve los dividendos e intereses cobrados y las comisiones/retenciones pagadas, agregados por periodo y por instrumento. |
+| RF-8 | El usuario ve la rentabilidad TWR y XIRR por posición y por cartera. |
+| RF-9 | Toda la valoración agregada se muestra convertida a EUR (o a la divisa base de la cartera), usando el último tipo de cambio disponible. |
+
+## 5. Reglas de negocio
+
+| ID | Regla |
+|---|---|
+| RN-1 | **Aislamiento de contextos**: ninguna operación de inversión crea, modifica ni afecta a movimientos, transferencias, categorías, presupuestos ni dashboard domésticos. El traspaso de fondos se registra de forma independiente en cada lado: gasto/ingreso (categoría del usuario, p. ej. "Inversión") en la cuenta doméstica, y `DEPOSIT`/`WITHDRAWAL` en la cartera. Sin enlace automático. |
+| RN-2 | El **efectivo de la cartera se calcula**: `Σ DEPOSIT − Σ WITHDRAWAL − Σ compras + Σ ventas + Σ dividendos + Σ intereses − Σ comisiones − Σ retenciones`, por divisa. |
+| RN-3 | Las **posiciones se calculan** por instrumento: cantidad = Σ compras − Σ ventas (ajustada por splits); coste medio por método de coste promedio. |
+| RN-4 | No se puede vender más cantidad de la que hay en posición a la fecha de la operación (validación de dominio). |
+| RN-5 | Un instrumento con operaciones no se puede eliminar; una cartera con operaciones no se puede eliminar (409, como cuentas/categorías). |
+| RN-6 | La valoración usa la **última cotización disponible** ≤ fecha de valoración; si un instrumento no tiene cotización, su posición se muestra a coste con aviso. |
+| RN-7 | La conversión de divisa usa el **último tipo de cambio disponible** ≤ fecha; se aplica solo en la capa de lectura (los datos se almacenan siempre en su divisa original). |
+| RN-8 | **TWR**: rentabilidad encadenada por subperiodos delimitados por flujos externos (`DEPOSIT`/`WITHDRAWAL`), calculada sobre la serie de valoraciones disponible. **XIRR**: TIR de los flujos externos + valor actual (Newton-Raphson con fallback de bisección). Con cotizaciones solo en fechas de import, ambas son aproximaciones sobre esos puntos; mejorarán al llegar la API de precios. |
+| RN-9 | Cotizaciones y tipos de cambio del Flex hacen *upsert*: un valor más reciente para la misma fecha sobrescribe. |
+
+## 6. API (diseño)
+
+Base: `/api/investments`.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET/POST` | `/portfolios` · `PUT/DELETE /portfolios/{id}` | CRUD de carteras. |
+| `GET` | `/portfolios/{id}/positions` | Posiciones actuales (view CQRS). |
+| `GET/POST` | `/portfolios/{id}/transactions` · `PUT/DELETE /transactions/{id}` | Operaciones (listado filtrable + alta/edición manual). |
+| `POST` | `/portfolios/{id}/import` | Import de Flex Query (multipart, como `/api/imports`); devuelve resumen filas ok/errores. |
+| `GET` | `/portfolios/{id}/performance` | TWR/XIRR por posición y total. |
+| `GET` | `/portfolios/{id}/income` | Dividendos/intereses/comisiones agregados. |
+| `GET/POST` | `/securities` · `PUT /securities/{id}` | Catálogo de instrumentos (alta automática en import). |
+
+## 7. UI/UX (diseño)
+
+Nueva página lazy `pages/investments` en el menú lateral ("Inversión"):
+
+- **Resumen de cartera**: valor total en EUR, efectivo por divisa, P&L latente, TWR/XIRR del total, gráfico de asignación (Chart.js donut) y de evolución de valor.
+- **Tabla de posiciones**: instrumento, títulos, coste medio, precio, valor, P&L (€ y %), peso. |
+- **Pestaña de operaciones**: listado filtrable + formulario de alta manual.
+- **Pestaña de dividendos**: cobros por año/instrumento.
+- **Botón Importar Flex**: reutiliza el patrón del diálogo de import existente (`components/import-dialog.ts`) adaptado al Flex.
+
+## 8. Validaciones y errores
+
+| Caso | Comportamiento |
+|---|---|
+| Venta sin posición suficiente | `400 ValidationException` de dominio. |
+| Operación con importe/cantidad no positivos donde aplica | `400`. |
+| Eliminar cartera o instrumento con operaciones | `409 ConflictException`. |
+| Import: fila ilegible o instrumento sin ISIN/símbolo | Fila reportada como error, el resto se importa (tolerante, como el import bancario). |
+| Import: operación duplicada (`external_id`) | Se omite y se reporta como duplicada. |
+
+## 9. Casos límite y notas
+
+- **Splits**: ajustan cantidad y coste medio sin generar flujo de caja.
+- **Dividendo con retención en origen**: el Flex los trae como apuntes separados (dividendo + withholding tax); se importan como `DIVIDEND` + `TAX` vinculados al mismo instrumento y fecha.
+- **Ventas parciales**: P&L realizado por coste promedio en el momento de la venta.
+- **Cartera sin cotizaciones recientes**: la valoración queda "a fecha de último import"; la UI muestra la fecha de valoración.
+- El Flex Query debe configurarse en IBKR incluyendo las secciones *Trades*, *Cash Transactions*, *Open Positions* y *Conversion Rates*.
+
+## 10. Backlog / mejoras futuras
+
+- **Flex Web Service**: descarga automática del informe con token IBKR (mismo puerto de entrada que el import manual).
+- **API externa de cotizaciones** (híbrido): adaptador de `PriceProviderPort` (Yahoo Finance u otro) + botón de refresco.
+- Benchmarks (comparar TWR contra un índice).
+- Clasificación de activos por dimensiones (región, sector) al estilo Portfolio Performance.
+- Informe fiscal de plusvalías.
+
+## 11. Decisiones pendientes / deuda técnica
+
+| Tema | Situación actual | Decisión pendiente / deuda |
+|---|---|---|
+| Método de coste | Coste promedio. | FIFO sería el fiscalmente correcto en España; evaluar al abordar el informe fiscal. |
+| Serie de valoración dispersa | TWR/XIRR sobre las cotizaciones disponibles (fechas de import). | Se refina solo al integrar la API de precios. |
+| Formato Flex | Se decidirá CSV o XML al implementar el parser (el XML es más rico y estable). | Confirmar con un informe real del usuario. |
+
+## 12. Fases de implementación
+
+1. **F1 — Modelo + import Flex + posiciones/valoración**: dominio, migraciones, `FlexReportParser` (ACL), pantalla básica de cartera.
+2. **F2 — Dividendos, intereses y comisiones**: agregados de rentas y pestaña de dividendos.
+3. **F3 — Multidivisa**: `exchange_rate` + conversión a EUR en la capa de lectura.
+4. **F4 — TWR/XIRR**: `PerformanceCalculator` de dominio + endpoint/vista de rentabilidad.
+5. **F5 (backlog)** — Flex Web Service + API externa de cotizaciones.
+
+## 13. Referencias de código
+
+Pendiente de implementación. Estructura prevista del contexto `investments` (idéntica al resto):
+
+- **Dominio**: agregados `Portfolio`, `Security`, `InvestmentTransaction`, `ExchangeRate`; VOs `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity`; servicios `PositionCalculator`, `PerformanceCalculator`; puertos de salida `PortfolioRepository`, `SecurityRepository`, `InvestmentTransactionRepository`, `ExchangeRateRepository`, `PriceProviderPort`.
+- **Aplicación**: casos de uso CRUD + `ImportFlexReport`; read-side CQRS `InvestmentQueryPort` + views (`PositionView`, `PerformanceView`, `IncomeView`).
+- **Infraestructura**: persistencia JPA (entities/mappers/adapters), web (`InvestmentController` y DTOs), y el ACL `FlexReportParser` en infraestructura de import.
+- **Frontend**: `pages/investments/`, modelos en `models.ts`, llamadas en `api.service.ts`.

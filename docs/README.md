@@ -18,6 +18,7 @@ Los PRD son de **creación y actualización obligatoria**. Cualquier cambio de c
 | Dashboard | [prd/dashboard.md](prd/dashboard.md) | ✅ Implementado |
 | Importación de extractos | [prd/importacion.md](prd/importacion.md) | ✅ Implementado |
 | Reglas de categorización | [prd/reglas-categorizacion.md](prd/reglas-categorizacion.md) | ✅ Implementado |
+| Inversiones | [prd/inversiones.md](prd/inversiones.md) | 📐 Diseño aprobado (pendiente de implementación) |
 
 ## Estructura de un PRD
 
