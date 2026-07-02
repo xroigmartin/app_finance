@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.3 |
+| Versión | 0.4 |
 | Última actualización | 2026-07-02 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -37,7 +37,9 @@ Es un **bounded context autocontenido** (`investments`), deliberadamente aislado
 
 ## 3. Modelo de datos (diseño)
 
-Nuevas tablas vía migraciones Flyway `V6+`. Todo importe monetario del contexto usa un value object propio **con divisa** (p. ej. `CurrencyMoney(amount, currency)`); el `Money` del kernel compartido (EUR implícito) **no se toca**.
+**Esquema PostgreSQL separado**: todas las tablas del módulo viven en el esquema **`investments`** (la economía doméstica sigue en `public`), de modo que el aislamiento del bounded context también es físico — ningún esquema se contamina con datos del otro ámbito y no existen foreign keys entre esquemas. La migración `V6` crea el esquema (`CREATE SCHEMA IF NOT EXISTS investments`) y Flyway lo gestiona desde el mismo histórico de migraciones; las entidades JPA del contexto declaran `@Table(schema = "investments")` y `ddl-auto=validate` valida contra él.
+
+Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo importe monetario del contexto usa un value object propio **con divisa** (p. ej. `CurrencyMoney(amount, currency)`); el `Money` del kernel compartido (EUR implícito) **no se toca**.
 
 **`security`** — instrumento (acción, ETF, fondo…)
 
@@ -201,7 +203,7 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 | H1.3 | Agregados `Portfolio` e `InvestmentTransaction` (tipos de operación, invariantes de importes/cantidades, `external_id`). | Unitarios de dominio. |
 | H1.4 | Servicio de dominio `PositionCalculator`: posiciones, coste medio, P&L latente/realizado, efectivo por divisa (RN-2/RN-3/RN-4, venta sin posición). | Unitarios de dominio. |
 | H1.5 | Puertos de salida + `PortfolioService`/`SecurityService` (casos de uso CRUD, guardas de borrado RN-5). | Aplicación con puertos mockeados. |
-| H1.6 | Migración `V6__investments.sql` (tablas §3 salvo `exchange_rate`) + entidades/mappers/adaptadores JPA. | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades. |
+| H1.6 | Migración `V6__investments.sql` (crea el **esquema `investments`** + tablas §3 salvo `exchange_rate`) + entidades/mappers/adaptadores JPA (`@Table(schema = "investments")`). | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades, esquema separado. |
 | H1.7 | Read-side CQRS: `InvestmentQueryPort`, `PositionView`, `PortfolioSummaryView` + query adapter (valoración con última cotización, RN-6). | `@DataJpaTest` del adapter. |
 | H1.8 | Web: `PortfolioController`/`SecurityController` + DTOs; endpoints CRUD y `GET /positions`; el contexto entra en ArchUnit. | `@WebMvcTest` + `ArchitectureTest`. |
 | H1.9 | `FlexReportParser` (ACL): secciones *Trades* y *Open Positions* → `ImportRow`s del contexto; fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
