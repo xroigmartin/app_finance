@@ -34,6 +34,15 @@ cd backend && mvn spring-boot:run     # API on :8080
 cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (proxy.conf.json)
 ```
 
+Full Docker stack (compose profile `app`, docs in `docs/despliegue-docker.md`):
+
+```bash
+docker compose --profile app up -d --build   # build images + run db/backend/frontend; UI on :80, restart: unless-stopped
+docker compose --profile app down            # stop the app (db volume persists; plain `docker compose up -d` still starts db only)
+```
+
+Backend and frontend images are multi-stage builds (`backend/Dockerfile`, `frontend/Dockerfile` + `frontend/nginx.conf`); nginx serves the Angular build and proxies `/api` to the backend, whose port is not published to the host. The backend healthcheck hits `/actuator/health` (actuator only exposes `health`).
+
 - Backend tests: `cd backend && mvn test` (single test: `mvn test -Dtest=ClassName#method`). The suite (domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence-adapter tests on real PostgreSQL via Testcontainers, `@WebMvcTest` contract tests, and an ArchUnit boundary test) is the migration's safety net; keep it green and coverage ≥ 99 %.
 - Frontend tests: `cd frontend && npm test` (Karma/Jasmine; only `app.spec.ts` exists).
 - Frontend build: `cd frontend && npm run build`.

@@ -19,6 +19,12 @@ Los PRD son de **creación y actualización obligatoria**. Cualquier cambio de c
 | Importación de extractos | [prd/importacion.md](prd/importacion.md) | ✅ Implementado |
 | Reglas de categorización | [prd/reglas-categorizacion.md](prd/reglas-categorizacion.md) | ✅ Implementado |
 
+## Documentación de infraestructura
+
+| Tema | Documento | Estado |
+|---|---|---|
+| Despliegue con Docker | [despliegue-docker.md](despliegue-docker.md) | ✅ Implementado |
+
 ## Estructura de un PRD
 
 Cada PRD sigue la misma plantilla (ver `prd/cuentas.md` como referencia):

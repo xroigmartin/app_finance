@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:17-alpine
     container_name: finance-db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: finance
       POSTGRES_USER: finance
@@ -15,6 +16,44 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Stack completo (profile "app"): docker compose --profile app up -d --build
+  backend:
+    build: ./backend
+    container_name: finance-backend
+    profiles: ["app"]
+    restart: unless-stopped
+    environment:
+      FINANCE_DB_HOST: db
+      FINANCE_DB_PORT: 5432
+      FINANCE_DB_NAME: finance
+      FINANCE_DB_USER: finance
+      FINANCE_DB_PASSWORD: finance
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  frontend:
+    build: ./frontend
+    container_name: finance-frontend
+    profiles: ["app"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   finance-data:
