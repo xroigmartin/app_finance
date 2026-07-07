@@ -1,0 +1,57 @@
+# Stack de desarrollo en contenedores, con el código fuente montado:
+#   docker compose -f docker-compose.dev.yml up -d
+# Comparte la BD (mismo servicio `db` y volumen finance-data) con docker-compose.yml.
+# El frontend recarga en caliente (ng serve); tras cambios en el backend:
+#   docker compose -f docker-compose.dev.yml restart backend-dev
+services:
+  db:
+    extends:
+      file: docker-compose.yml
+      service: db
+
+  backend-dev:
+    image: maven:3.9-eclipse-temurin-25
+    container_name: finance-backend-dev
+    working_dir: /app
+    command: mvn spring-boot:run
+    environment:
+      FINANCE_DB_HOST: db
+      FINANCE_DB_PORT: 5432
+      FINANCE_DB_NAME: finance
+      FINANCE_DB_USER: finance
+      FINANCE_DB_PASSWORD: finance
+    volumes:
+      - ./backend:/app
+      # Caché del repo Maven entre arranques; target/ en volumen para no dejar
+      # ficheros de root en el working copy del host
+      - finance-maven-repo:/root/.m2
+      - finance-backend-target:/app/target
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend-dev:
+    image: node:22-alpine
+    container_name: finance-frontend-dev
+    working_dir: /app
+    # npm ci solo si el volumen de node_modules está vacío: nunca reescribe package-lock.json
+    # (tras cambiar package.json: docker compose -f docker-compose.dev.yml exec frontend-dev npm ci)
+    command: sh -c "[ -x node_modules/.bin/ng ] || npm ci; npx ng serve --host 0.0.0.0 --poll 2000 --proxy-config proxy.conf.docker.json"
+    volumes:
+      - ./frontend:/app
+      # node_modules y la caché de Angular viven en volúmenes: no pisan los del host
+      - finance-node-modules:/app/node_modules
+      - finance-angular-cache:/app/.angular
+    ports:
+      - "4200:4200"
+    depends_on:
+      - backend-dev
+
+volumes:
+  finance-data:
+  finance-maven-repo:
+  finance-backend-target:
+  finance-node-modules:
+  finance-angular-cache:

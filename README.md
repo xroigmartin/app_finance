@@ -40,6 +40,14 @@ npx ng serve
 
 Abrir <http://localhost:4200>.
 
+### Desarrollo en contenedores (sin JDK/Node en el host)
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Levanta la misma BD (mismo volumen de datos) más el backend (`mvn spring-boot:run`, puerto 8080) y el frontend (`ng serve` con recarga en caliente, puerto 4200) en contenedores con el código fuente montado. Tras cambiar código del backend: `docker compose -f docker-compose.dev.yml restart backend-dev`. No es compatible con tener a la vez los servicios locales de `./app.sh` (mismos puertos). Detalles en [docs/despliegue-docker.md](docs/despliegue-docker.md).
+
 ## Funcionalidades
 
 - **Dashboard**: balance total, ingresos/gastos/ahorro del mes, evolución de 12 meses (barras), gastos por categoría del mes (donut), saldos por cuenta y últimos movimientos.

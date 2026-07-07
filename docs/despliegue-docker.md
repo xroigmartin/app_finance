@@ -1,7 +1,7 @@
 # Despliegue con Docker
 
 - **Estado:** ✅ Implementado
-- **Última actualización:** 2026-07-05
+- **Última actualización:** 2026-07-07
 - **Ámbito:** infraestructura (no es un dominio funcional; complementa a los PRD)
 
 ## Propósito
@@ -44,6 +44,31 @@ docker compose up -d                         # solo la BD (flujo de desarrollo, 
 
 La base de datos usa el mismo volumen `finance-data` en ambos modos: los datos son los mismos ejecutando en Docker o en desarrollo local.
 
+## Desarrollo en contenedores (`docker-compose.dev.yml`)
+
+Alternativa al flujo local (`./app.sh start`) para desarrollar **sin JDK ni Node instalados en el host**: los contenedores ejecutan las herramientas de desarrollo directamente sobre el código fuente montado (no hay build de imágenes propias).
+
+```bash
+docker compose -f docker-compose.dev.yml up -d                    # BD + backend dev (:8080) + frontend dev (:4200)
+docker compose -f docker-compose.dev.yml logs -f backend-dev      # logs
+docker compose -f docker-compose.dev.yml restart backend-dev      # recompilar tras cambios en el backend
+docker compose -f docker-compose.dev.yml rm -sf backend-dev frontend-dev   # parar solo la app (la BD sigue)
+```
+
+| Servicio | Imagen | Comando | Puerto host |
+|---|---|---|---|
+| `db` | `extends` del `db` de `docker-compose.yml` | — | 5432 |
+| `backend-dev` | `maven:3.9-eclipse-temurin-25` | `mvn spring-boot:run` | 8080 |
+| `frontend-dev` | `node:22-alpine` | `npm ci` (solo 1.ª vez) `+ ng serve --poll` | 4200 |
+
+- El servicio `db` es **el mismo** que en el compose principal (mismo contenedor `finance-db` y mismo volumen `finance-data`): los datos se comparten entre todos los modos.
+- El frontend usa `frontend/proxy.conf.docker.json` (target `http://backend-dev:8080`, la red interna de compose) en vez de `proxy.conf.json` (localhost). `ng serve` recarga en caliente al editar; `--poll 2000` garantiza que detecta cambios a través del bind mount.
+- El backend compila al arrancar; tras editar código hay que reiniciar `backend-dev` (no hay devtools).
+- Volúmenes con nombre para `~/.m2` (caché Maven entre arranques) y para `target/`, `node_modules/` y `.angular/`: los contenedores corren como root y así no dejan ficheros de root en el working copy del host.
+- `npm ci` se ejecuta solo si el volumen de `node_modules` está vacío y **nunca reescribe `package-lock.json`** (el npm del contenedor puede diferir del host y generaría ruido en git). Tras cambiar `package.json`: `docker compose -f docker-compose.dev.yml exec frontend-dev npm ci` (o borrar el volumen y volver a levantar).
+- **Conflictos de puertos**: usa 8080 y 4200, los mismos que el backend/frontend locales de `./app.sh` — no ejecutar ambos flujos a la vez. Sí puede convivir con el stack de producción (profile `app`, puerto 80): los nombres de servicio/contenedor son distintos.
+- Sin `restart` ni healthchecks: es un entorno de desarrollo efímero, no el despliegue «siempre activo».
+
 ## Variables de entorno
 
 El backend en compose recibe `FINANCE_DB_HOST=db` (y el resto de `FINANCE_DB_*` con los valores por defecto finance/finance/finance). Para cambiar credenciales, ajustar a la vez el servicio `db` (`POSTGRES_*`) y el `backend` (`FINANCE_DB_*`) en `docker-compose.yml`.
@@ -57,6 +82,7 @@ El backend en compose recibe `FINANCE_DB_HOST=db` (y el resto de `FINANCE_DB_*` 
 ## Referencias de código
 
 - `docker-compose.yml` — orquestación (profiles, healthchecks, restart).
+- `docker-compose.dev.yml` — stack de desarrollo (código montado, hot reload); `frontend/proxy.conf.docker.json` — proxy de `ng serve` hacia `backend-dev`.
 - `backend/Dockerfile`, `backend/.dockerignore`.
 - `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/.dockerignore`.
 - `backend/pom.xml` — `spring-boot-starter-actuator`; `backend/src/main/resources/application.properties` — expone solo `health`.

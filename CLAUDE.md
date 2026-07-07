@@ -43,6 +43,16 @@ docker compose --profile app down            # stop the app (db volume persists;
 
 Backend and frontend images are multi-stage builds (`backend/Dockerfile`, `frontend/Dockerfile` + `frontend/nginx.conf`); nginx serves the Angular build and proxies `/api` to the backend, whose port is not published to the host. The backend healthcheck hits `/actuator/health` (actuator only exposes `health`).
 
+Containerized dev stack (`docker-compose.dev.yml`; no JDK/Node needed on the host; uses the same ports 8080/4200 as `./app.sh`'s local services, so don't run both):
+
+```bash
+docker compose -f docker-compose.dev.yml up -d                   # db + mvn spring-boot:run (:8080) + ng serve hot reload (:4200), source bind-mounted
+docker compose -f docker-compose.dev.yml restart backend-dev     # recompile after backend changes (no devtools)
+docker compose -f docker-compose.dev.yml rm -sf backend-dev frontend-dev   # stop the dev app only (db keeps running)
+```
+
+The `db` service `extends` the one in `docker-compose.yml` (same container and `finance-data` volume in every mode). `ng serve` uses `frontend/proxy.conf.docker.json` (targets `backend-dev:8080`). Maven repo, `target/`, `node_modules/` and `.angular/` live in named volumes so the root-run containers never leave root-owned files in the host working copy.
+
 - Backend tests: `cd backend && mvn test` (single test: `mvn test -Dtest=ClassName#method`). The suite (domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence-adapter tests on real PostgreSQL via Testcontainers, `@WebMvcTest` contract tests, and an ArchUnit boundary test) is the migration's safety net; keep it green and coverage ≥ 99 %.
 - Frontend tests: `cd frontend && npm test` (Karma/Jasmine; only `app.spec.ts` exists).
 - Frontend build: `cd frontend && npm run build`.
