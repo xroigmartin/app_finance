@@ -1,7 +1,28 @@
 services:
+  # BD de desarrollo (sin profile): la usan ./app.sh y docker-compose.dev.yml.
+  # Datos propios (finance-data-dev), independientes de la BD de producción.
+  db-dev:
+    image: postgres:17-alpine
+    container_name: finance-db-dev
+    environment:
+      POSTGRES_DB: finance
+      POSTGRES_USER: finance
+      POSTGRES_PASSWORD: finance
+    ports:
+      - "5433:5432"
+    volumes:
+      - finance-data-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance -d finance"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # BD de producción (profile "app"): solo la usa el stack completo
   db:
     image: postgres:17-alpine
     container_name: finance-db
+    profiles: ["app"]
     restart: unless-stopped
     environment:
       POSTGRES_DB: finance
@@ -57,3 +78,4 @@ services:
 
 volumes:
   finance-data:
+  finance-data-dev:

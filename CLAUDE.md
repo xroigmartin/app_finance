@@ -29,8 +29,8 @@ On first boot against an empty DB the app seeds the **default global categories*
 Manual equivalents:
 
 ```bash
-docker compose up -d                  # PostgreSQL on :5432
-cd backend && mvn spring-boot:run     # API on :8080
+docker compose up -d                  # dev PostgreSQL (db-dev) on :5433, volume finance-data-dev
+cd backend && mvn spring-boot:run     # API on :8080 (defaults point at db-dev :5433)
 cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (proxy.conf.json)
 ```
 
@@ -38,8 +38,10 @@ Full Docker stack (compose profile `app`, docs in `docs/despliegue-docker.md`):
 
 ```bash
 docker compose --profile app up -d --build   # build images + run db/backend/frontend; UI on :80, restart: unless-stopped
-docker compose --profile app down            # stop the app (db volume persists; plain `docker compose up -d` still starts db only)
+docker compose --profile app down            # stop the app (volumes persist; plain `docker compose up -d` starts db-dev only)
 ```
+
+Production (`db`, :5432, volume `finance-data`) and development (`db-dev`, :5433, volume `finance-data-dev`) are **separate PostgreSQL instances with separate data**: local testing never touches production data, and a dev branch's Flyway migrations never alter the production schema. `./app.sh stop` runs `docker compose stop db-dev` (never `down`), so it cannot break the running production stack. Never run `docker compose down -v` (it would also remove the production volume); to reset the dev DB see below.
 
 Backend and frontend images are multi-stage builds (`backend/Dockerfile`, `frontend/Dockerfile` + `frontend/nginx.conf`); nginx serves the Angular build and proxies `/api` to the backend, whose port is not published to the host. The backend healthcheck hits `/actuator/health` (actuator only exposes `health`).
 
@@ -51,12 +53,12 @@ docker compose -f docker-compose.dev.yml restart backend-dev     # recompile aft
 docker compose -f docker-compose.dev.yml rm -sf backend-dev frontend-dev   # stop the dev app only (db keeps running)
 ```
 
-The `db` service `extends` the one in `docker-compose.yml` (same container and `finance-data` volume in every mode). `ng serve` uses `frontend/proxy.conf.docker.json` (targets `backend-dev:8080`). Maven repo, `target/`, `node_modules/` and `.angular/` live in named volumes so the root-run containers never leave root-owned files in the host working copy.
+The `db-dev` service `extends` the one in `docker-compose.yml` (same container and `finance-data-dev` volume as the `./app.sh` flow; independent from production). `ng serve` uses `frontend/proxy.conf.docker.json` (targets `backend-dev:8080`). Maven repo, `target/`, `node_modules/` and `.angular/` live in named volumes so the root-run containers never leave root-owned files in the host working copy.
 
 - Backend tests: `cd backend && mvn test` (single test: `mvn test -Dtest=ClassName#method`). The suite (domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence-adapter tests on real PostgreSQL via Testcontainers, `@WebMvcTest` contract tests, and an ArchUnit boundary test) is the migration's safety net; keep it green and coverage ≥ 99 %.
 - Frontend tests: `cd frontend && npm test` (Karma/Jasmine; only `app.spec.ts` exists).
 - Frontend build: `cd frontend && npm run build`.
-- Reset DB: `./app.sh stop && docker compose down -v`, then `./app.sh start` (seeds default categories only).
+- Reset dev DB: `./app.sh stop && docker compose rm -sf db-dev && docker volume rm app_finance_finance-data-dev`, then `./app.sh start` (seeds default categories only). Do NOT use `docker compose down -v` — it would also delete the production volume.
 
 ## Architecture
 
@@ -87,7 +89,7 @@ A leaf, account-bound category may declare a **recurrence** (`RecurringBudget` a
 
 ### Database
 
-Schema is owned by Flyway (`backend/src/main/resources/db/migration/`); Hibernate runs with `ddl-auto=validate`. Any schema change requires a new `V<n>__*.sql` migration — never edit existing migrations or rely on Hibernate to alter tables. Connection settings come from `FINANCE_DB_*` env vars (defaults match docker-compose: finance/finance/finance).
+Schema is owned by Flyway (`backend/src/main/resources/db/migration/`); Hibernate runs with `ddl-auto=validate`. Any schema change requires a new `V<n>__*.sql` migration — never edit existing migrations or rely on Hibernate to alter tables. Connection settings come from `FINANCE_DB_*` env vars (finance/finance/finance; default port 5433 = the dev DB `db-dev`, production compose injects 5432).
 
 ### Frontend (`frontend/src/app/`)
 

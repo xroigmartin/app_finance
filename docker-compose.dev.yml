@@ -1,13 +1,13 @@
 # Stack de desarrollo en contenedores, con el código fuente montado:
 #   docker compose -f docker-compose.dev.yml up -d
-# Comparte la BD (mismo servicio `db` y volumen finance-data) con docker-compose.yml.
+# Usa la BD de desarrollo (db-dev, volumen finance-data-dev), independiente de producción.
 # El frontend recarga en caliente (ng serve); tras cambios en el backend:
 #   docker compose -f docker-compose.dev.yml restart backend-dev
 services:
-  db:
+  db-dev:
     extends:
       file: docker-compose.yml
-      service: db
+      service: db-dev
 
   backend-dev:
     image: maven:3.9-eclipse-temurin-25
@@ -15,8 +15,8 @@ services:
     working_dir: /app
     command: mvn spring-boot:run
     environment:
-      FINANCE_DB_HOST: db
-      FINANCE_DB_PORT: 5432
+      FINANCE_DB_HOST: db-dev
+      FINANCE_DB_PORT: 5432 # puerto interno del contenedor (el 5433 es solo el mapeo al host)
       FINANCE_DB_NAME: finance
       FINANCE_DB_USER: finance
       FINANCE_DB_PASSWORD: finance
@@ -29,7 +29,7 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      db:
+      db-dev:
         condition: service_healthy
 
   frontend-dev:
@@ -50,7 +50,7 @@ services:
       - backend-dev
 
 volumes:
-  finance-data:
+  finance-data-dev:
   finance-maven-repo:
   finance-backend-target:
   finance-node-modules:

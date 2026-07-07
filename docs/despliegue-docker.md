@@ -19,13 +19,14 @@ navegador ──► :80  finance-frontend (nginx)
 
 | Servicio | Imagen | Puerto host | Profile | Healthcheck |
 |---|---|---|---|---|
-| `db` | `postgres:17-alpine` | 5432 | — (siempre) | `pg_isready` |
+| `db` | `postgres:17-alpine` | 5432 | `app` | `pg_isready` |
+| `db-dev` | `postgres:17-alpine` | 5433 | — (por defecto) | `pg_isready` |
 | `backend` | build de `backend/Dockerfile` | ninguno (solo red interna) | `app` | `curl /actuator/health` |
 | `frontend` | build de `frontend/Dockerfile` | **80** | `app` | `wget /` |
 
 - El backend **no publica puerto al host**: se accede siempre vía nginx (`http://localhost/api/...`). Así no choca con el backend de desarrollo en el 8080.
 - El frontend usa rutas relativas `/api`, por lo que nginx (`frontend/nginx.conf`) hace de reverse proxy hacia `backend:8080`. Además: fallback SPA a `index.html`, `client_max_body_size 20m` (importación de extractos CSV/Excel), gzip y cache larga para assets con hash.
-- Ambos servicios de la app están bajo el **profile `app`** para que el flujo de desarrollo (`./app.sh start`, que hace `docker compose up -d` para la BD) no los arranque.
+- Los tres servicios de producción (db, backend, frontend) están bajo el **profile `app`** para que el flujo de desarrollo (`./app.sh start`, que hace `docker compose up -d`) no los arranque: sin profile solo se levanta `db-dev`.
 
 ## Imágenes
 
@@ -38,11 +39,23 @@ navegador ──► :80  finance-frontend (nginx)
 docker compose --profile app up -d --build   # construir y levantar el stack completo
 docker compose --profile app ps              # estado (espera: 3 servicios healthy)
 docker compose --profile app logs -f backend # logs de un servicio
-docker compose --profile app down            # parar la app (la BD y su volumen persisten)
-docker compose up -d                         # solo la BD (flujo de desarrollo, como siempre)
+docker compose --profile app down            # parar la app (los volúmenes persisten)
+docker compose up -d                         # solo la BD de desarrollo db-dev (flujo de desarrollo)
 ```
 
-La base de datos usa el mismo volumen `finance-data` en ambos modos: los datos son los mismos ejecutando en Docker o en desarrollo local.
+## Bases de datos separadas: producción y desarrollo
+
+Producción (`db`, puerto 5432, volumen `finance-data`) y desarrollo (`db-dev`, puerto 5433, volumen `finance-data-dev`) son **instancias PostgreSQL independientes con datos propios**: las pruebas locales (`./app.sh` o `docker-compose.dev.yml`) nunca tocan los datos de producción, y una migración Flyway de una rama en desarrollo no altera el esquema de producción.
+
+- El backend apunta por defecto a la de desarrollo (`application.properties`: `FINANCE_DB_PORT:5433`); el compose de producción inyecta `FINANCE_DB_HOST=db`/`FINANCE_DB_PORT=5432` explícitamente.
+- `./app.sh stop` hace `docker compose stop db-dev` (nunca `down`): no elimina contenedores ni la red compartida con el stack de producción.
+- En el primer arranque `db-dev` está vacía y el backend siembra las categorías por defecto. Para clonar los datos de producción en desarrollo (con ambas BD arrancadas):
+
+```bash
+docker exec finance-db pg_dump -U finance --clean --if-exists finance | docker exec -i finance-db-dev psql -U finance finance
+```
+
+- Resetear la BD de desarrollo: `./app.sh stop && docker compose rm -sf db-dev && docker volume rm app_finance_finance-data-dev`. **No usar `docker compose down -v`**: borraría también el volumen de producción si su contenedor está parado.
 
 ## Desarrollo en contenedores (`docker-compose.dev.yml`)
 
@@ -57,11 +70,11 @@ docker compose -f docker-compose.dev.yml rm -sf backend-dev frontend-dev   # par
 
 | Servicio | Imagen | Comando | Puerto host |
 |---|---|---|---|
-| `db` | `extends` del `db` de `docker-compose.yml` | — | 5432 |
+| `db-dev` | `extends` del `db-dev` de `docker-compose.yml` | — | 5433 |
 | `backend-dev` | `maven:3.9-eclipse-temurin-25` | `mvn spring-boot:run` | 8080 |
 | `frontend-dev` | `node:22-alpine` | `npm ci` (solo 1.ª vez) `+ ng serve --poll` | 4200 |
 
-- El servicio `db` es **el mismo** que en el compose principal (mismo contenedor `finance-db` y mismo volumen `finance-data`): los datos se comparten entre todos los modos.
+- El servicio `db-dev` es **el mismo** que el del compose principal (mismo contenedor `finance-db-dev` y mismo volumen `finance-data-dev`): los datos de desarrollo se comparten entre este modo y el flujo local de `./app.sh`, pero son independientes de la BD de producción.
 - El frontend usa `frontend/proxy.conf.docker.json` (target `http://backend-dev:8080`, la red interna de compose) en vez de `proxy.conf.json` (localhost). `ng serve` recarga en caliente al editar; `--poll 2000` garantiza que detecta cambios a través del bind mount.
 - El backend compila al arrancar; tras editar código hay que reiniciar `backend-dev` (no hay devtools).
 - Volúmenes con nombre para `~/.m2` (caché Maven entre arranques) y para `target/`, `node_modules/` y `.angular/`: los contenedores corren como root y así no dejan ficheros de root en el working copy del host.
@@ -83,6 +96,7 @@ El backend en compose recibe `FINANCE_DB_HOST=db` (y el resto de `FINANCE_DB_*` 
 
 - `docker-compose.yml` — orquestación (profiles, healthchecks, restart).
 - `docker-compose.dev.yml` — stack de desarrollo (código montado, hot reload); `frontend/proxy.conf.docker.json` — proxy de `ng serve` hacia `backend-dev`.
+- `app.sh` — flujo de desarrollo local: arranca `db-dev` (`up -d --wait`) y la detiene con `stop` (nunca `down`, para no afectar al stack de producción).
 - `backend/Dockerfile`, `backend/.dockerignore`.
 - `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/.dockerignore`.
 - `backend/pom.xml` — `spring-boot-starter-actuator`; `backend/src/main/resources/application.properties` — expone solo `health`.

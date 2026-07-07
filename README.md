@@ -17,7 +17,7 @@ Construye las imágenes del backend y el frontend y levanta el stack completo: n
 
 ### Desarrollo (servicios en local)
 
-Base de datos (PostgreSQL 17 en Docker, puerto 5432):
+Base de datos **de desarrollo** (PostgreSQL 17 en Docker, servicio `db-dev`, puerto 5433, volumen `finance-data-dev`; datos independientes de la BD de producción):
 
 ```bash
 docker compose up -d
@@ -46,7 +46,7 @@ Abrir <http://localhost:4200>.
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-Levanta la misma BD (mismo volumen de datos) más el backend (`mvn spring-boot:run`, puerto 8080) y el frontend (`ng serve` con recarga en caliente, puerto 4200) en contenedores con el código fuente montado. Tras cambiar código del backend: `docker compose -f docker-compose.dev.yml restart backend-dev`. No es compatible con tener a la vez los servicios locales de `./app.sh` (mismos puertos). Detalles en [docs/despliegue-docker.md](docs/despliegue-docker.md).
+Levanta la BD de desarrollo (`db-dev`) más el backend (`mvn spring-boot:run`, puerto 8080) y el frontend (`ng serve` con recarga en caliente, puerto 4200) en contenedores con el código fuente montado. Tras cambiar código del backend: `docker compose -f docker-compose.dev.yml restart backend-dev`. No es compatible con tener a la vez los servicios locales de `./app.sh` (mismos puertos). Detalles en [docs/despliegue-docker.md](docs/despliegue-docker.md).
 
 ## Funcionalidades
 
@@ -67,7 +67,7 @@ Levanta la misma BD (mismo volumen de datos) más el backend (`mvn spring-boot:r
 | Variable | Por defecto | Descripción |
 |---|---|---|
 | `FINANCE_DB_HOST` | `localhost` | Host de PostgreSQL |
-| `FINANCE_DB_PORT` | `5432` | Puerto de PostgreSQL |
+| `FINANCE_DB_PORT` | `5433` | Puerto de PostgreSQL (por defecto, la BD de desarrollo `db-dev`; producción usa 5432 vía compose) |
 | `FINANCE_DB_NAME` | `finance` | Nombre de la base de datos |
 | `FINANCE_DB_USER` | `finance` | Usuario |
 | `FINANCE_DB_PASSWORD` | `finance` | Contraseña |
