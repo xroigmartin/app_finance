@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.23 |
+| Versión | 0.24 |
 | Última actualización | 2026-07-03 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -25,7 +25,7 @@ Es un **bounded context autocontenido** (`investments`), deliberadamente aislado
 - Importar las operaciones desde informes **Flex Query** de Interactive Brokers (CSV/XML), reutilizando el patrón ACL del contexto `imports`.
 - Calcular posiciones (títulos, coste medio, P&L latente/realizado) y el efectivo de la cartera — siempre **computados, nunca almacenados**.
 - Valorar la cartera con las cotizaciones de cierre incluidas en el propio Flex (sin dependencias online en v1).
-- Soporte **multidivisa** interno al contexto, con conversión a EUR solo en la capa de lectura.
+- Soporte **multidivisa** interno al contexto, con conversión a la divisa base de cada cartera (cualquier ISO 4217; EUR como **pivote** de tipos) solo en la capa de lectura.
 - Métricas de rentabilidad **TWR** (ponderada por tiempo) y **XIRR** (ponderada por dinero), por posición y por cartera.
 - Dashboard de inversión: valoración, P&L, dividendos cobrados, asignación de activos, rentabilidad.
 
@@ -71,7 +71,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 |---|---|---|
 | `id` | `bigint` PK | |
 | `name` | `varchar NOT NULL` | P. ej. "Interactive Brokers". |
-| `base_currency` | `varchar(3) NOT NULL` | Divisa base de la cartera (EUR por defecto). |
+| `base_currency` | `varchar(3) NOT NULL` | Divisa base de la cartera (EUR por defecto, **cualquier ISO 4217**). Debe coincidir con la divisa base de la **cuenta del broker** que la alimenta: los snapshots `fxRateToBase` del Flex apuntan a ella — el import lo valida (§8). |
 
 **`investment_transaction`** — operación de la cartera
 
@@ -94,7 +94,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | `description` | `varchar` | |
 | `external_id` | `varchar` | Id de operación del Flex **prefijado por origen** (`ORD-`/`CT-`/`FTT-`/`CA-`, RN-10), único por cartera → idempotencia del import. |
 
-**`exchange_rate`** — tipos de cambio (del propio Flex)
+**`exchange_rate`** — tipos de cambio (del propio Flex), normalizados **divisa→EUR** con EUR como **pivote**: cualquier par se deriva aritméticamente (`from→to = (from→EUR) ÷ (to→EUR)`), de modo que una cartera puede tener cualquier divisa base sin ampliar la tabla
 
 | Campo | Tipo | Notas |
 |---|---|---|
@@ -143,7 +143,7 @@ Coste asumido del convenio: la API expone los signos "contables" y la UI formate
 | RN-4 | **Venta sin posición suficiente — regla dual**: en alta/edición **manual** es una validación dura de dominio (no se puede vender más cantidad de la que hay en posición a la fecha de la operación → `400`). En **import** la fila se importa igual y se reporta como ***warning*** en el resumen ("posición negativa: falta histórico anterior") — un Flex parcial (p. ej. 2025 sin haber importado 2024) no debe fallar. La UI de posiciones marca en rojo las cantidades negativas. La comparación de cantidades usa la **tolerancia de la precisión** (`numeric(19,8)`), no igualdad estricta: tras compras fraccionadas o splits, cerrar una posición puede dejar residuos de 1e-8 que no deben bloquear la venta. |
 | RN-5 | Un instrumento con operaciones no se puede eliminar; una cartera con operaciones no se puede eliminar (409, como cuentas/categorías). |
 | RN-6 | La valoración usa la **última cotización disponible** ≤ fecha de valoración; si un instrumento no tiene cotización, su posición se muestra a coste con aviso. |
-| RN-7 | **Doble mecanismo de conversión de divisa**, siempre en la capa de lectura (los datos se almacenan en su divisa original): (a) los importes **fijados en el pasado** (coste de adquisición, P&L realizado, dividendos cobrados) se convierten con el **snapshot** `fx_rate_to_base` del propio apunte — inmutables ante reimportaciones y cuadran con la liquidación real de IBKR; (b) la **valoración a una fecha** (valor de mercado, evolución, pesos) usa el último tipo ≤ fecha de la tabla `exchange_rate`, que también es el fallback para apuntes sin snapshot (manuales). El P&L latente incorpora así automáticamente el efecto divisa. |
+| RN-7 | **Doble mecanismo de conversión de divisa**, siempre en la capa de lectura (los datos se almacenan en su divisa original): (a) los importes **fijados en el pasado** (coste de adquisición, P&L realizado, dividendos cobrados) se convierten con el **snapshot** `fx_rate_to_base` del propio apunte — inmutables ante reimportaciones y cuadran con la liquidación real de IBKR; (b) la **valoración a una fecha** (valor de mercado, evolución, pesos) usa el último tipo ≤ fecha de la tabla `exchange_rate`, que también es el fallback para apuntes sin snapshot (manuales). Los tipos se almacenan divisa→EUR y **EUR actúa de pivote**: cualquier par se deriva (`from→to = (from→EUR) ÷ (to→EUR)`), así la divisa base de la cartera puede ser cualquiera. Los snapshots (a) apuntan a la base de la cuenta del broker — por eso el import valida que coincida con la de la cartera (§8). El P&L latente incorpora así automáticamente el efecto divisa. |
 | RN-8 | **TWR**: rentabilidad encadenada por subperiodos delimitados por flujos externos (`DEPOSIT`/`WITHDRAWAL`), calculada sobre la serie de valoraciones disponible. **XIRR**: TIR de los flujos externos + valor actual (Newton-Raphson con fallback de bisección). Los `FX_TRADE` **no** son flujos externos: no delimitan subperiodos ni cuentan como cashflow (solo cambian la divisa del efectivo). Con cotizaciones solo en fechas de import, ambas son aproximaciones sobre esos puntos; mejorarán al llegar la API de precios. |
 | RN-9 | Cotizaciones y tipos de cambio del Flex hacen *upsert*: un valor más reciente para la misma fecha sobrescribe (clave natural: `security`+fecha y fecha+par de divisas). Nunca generan filas duplicadas. |
 | RN-10 | **Idempotencia de la importación** (doble defensa): (a) el caso de uso omite toda fila cuyo `external_id` ya exista en la cartera y la reporta como "duplicada" en el resumen (no es error: reimportar el mismo informe o periodos solapados es un uso esperado); (b) la BD lo garantiza físicamente con `UNIQUE (portfolio_id, external_id)` en `investments.investment_transaction`. `external_id` se construye **prefijado por origen** para aislar los espacios de numeración de IBKR (secuencias independientes que podrían colisionar numéricamente): `ORD-<ibOrderID>` (operaciones), `CT-<transactionID>` (efectivo), `FTT-<tradeId>` (tasas FTT → filas `TRADE_TAX`), `CA-<transactionID>` (acciones corporativas/splits). Límite conocido: los apuntes manuales (sin `external_id`) no son deduplicables frente a un import posterior (ver §9). |
@@ -158,7 +158,7 @@ Base: `/api/investments`.
 | `GET` | `/portfolios/{id}/positions` | Posiciones actuales (view CQRS). |
 | `GET` | `/portfolios/{id}/summary` | KPIs de cabecera: valor total, aportado neto, P&L latente, efectivo por divisa, dividendos del año, fecha de valoración. |
 | `GET` | `/portfolios/{id}/valuation-history` | Serie `{fecha, valor, aportado acumulado}` para el gráfico de evolución (§7). |
-| `GET` | `/summary` | Resumen global: patrimonio **agregado de todas las carteras** + desglose por cartera; fecha de valoración = la más antigua de las usadas. Consumido por la tarjeta RF-10. |
+| `GET` | `/summary` | Resumen global: patrimonio **agregado de todas las carteras** + desglose por cartera, **en EUR** (divisa de la app doméstica; cada cartera se convierte desde su base vía pivote si difiere); fecha de valoración = la más antigua de las usadas. Consumido por la tarjeta RF-10. |
 | `GET/POST` | `/portfolios/{id}/transactions` · `PUT/DELETE /transactions/{id}` | Operaciones (listado filtrable + alta/edición manual). |
 | `POST` | `/portfolios/{id}/import` | Import de Flex Query (multipart, como `/api/imports`); devuelve resumen filas ok/duplicadas/errores/*warnings*. |
 | `GET` | `/portfolios/{id}/performance` | TWR/XIRR por posición y total. |
@@ -170,7 +170,7 @@ Base: `/api/investments`.
 Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los gráficos usan Chart.js directamente y se integran con `ThemeService` (colores/rejilla y redibujado al cambiar de tema), como el dashboard doméstico.
 
 **Cabecera de KPIs (tarjetas):**
-- Valor total de la cartera en EUR, con la **fecha de valoración** visible (RN-6: última cotización disponible).
+- Valor total de la cartera en su divisa base, con la **fecha de valoración** visible (RN-6: última cotización disponible).
 - Capital aportado neto (Σ aportaciones − Σ retiradas).
 - P&L latente (€ y %).
 - Efectivo disponible (por divisa).
@@ -202,6 +202,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 | Eliminar cartera o instrumento con operaciones | `409 ConflictException`. |
 | Import: fila ilegible o instrumento sin ISIN/símbolo | Fila reportada como error, el resto se importa (tolerante, como el import bancario). |
 | Import: operación duplicada (`external_id`) | Se omite y se reporta como duplicada. |
+| Import: la divisa base de la cuenta del informe (`AccountInformation.currency`) no coincide con `base_currency` de la cartera | **Import rechazado entero** con error explicativo antes de procesar filas — los snapshots `fxRateToBase` apuntarían a otra base y corromperían RN-7a. |
 
 ## 9. Casos límite y notas
 
@@ -214,7 +215,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 - **Cartera sin cotizaciones recientes**: la valoración queda "a fecha de último import"; la UI muestra la fecha de valoración.
 - **Apunte manual + import del mismo apunte**: una operación registrada a mano no tiene `external_id`, por lo que un import posterior que contenga esa misma operación la duplicará (RN-10). Convención de uso: en carteras alimentadas por Flex, no registrar a mano operaciones que vayan a llegar en el informe; el alta manual es para lo que el Flex no cubre.
 - **Configuración validada del Flex Query** (Activity Flex Query, formato **XML**, fechas ISO `yyyy-MM-dd`, verificada contra un informe real de la cuenta el 2026-07-02):
-  - *Account Information*: solo `accountId` y `currency` (sin datos personales).
+  - *Account Information*: solo `accountId` y `currency` (sin datos personales). `currency` es la **divisa base de la cuenta**: el import la valida contra `base_currency` de la cartera antes de procesar filas (§8).
   - *Trades*: nivel **Orders** únicamente (las filas `SYMBOL_SUMMARY`/`ASSET_SUMMARY`, si aparecen, se ignoran filtrando `levelOfDetail="ORDER"`).
   - *Cash Transactions*: nivel **Detail** (tipos Dividends, Withholding Tax, Deposits/Withdrawals; incluir Broker Interest si la cuenta genera intereses).
   - *Corporate Actions*: nivel **Detail** únicamente (la fila `levelOfDetail="SUMMARY"` con `accountId="-"` duplica el apunte y se ignora); solo `type` FS/RS (split directo/inverso), el resto → error de fila.
@@ -250,7 +251,7 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 | Hito | Contenido | Tests |
 |---|---|---|
 | H1.1 | Value objects del contexto: `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity` (**decimal** — fracciones de acción y residuos FX; escalas y redondeo de §3). | Unitarios de dominio. |
-| H1.2 | Agregados `Security` (con metadatos `exchange`/`figi`, §9) + `PriceQuote` + `ExchangeRate` (invariantes: divisa ISO, identidad ISIN+divisa, unicidad de cotización y de tipo de cambio por fecha, upsert) + servicio de conversión de dominio (último tipo ≤ fecha, RN-7). | Unitarios de dominio. |
+| H1.2 | Agregados `Security` (con metadatos `exchange`/`figi`, §9) + `PriceQuote` + `ExchangeRate` (invariantes: divisa ISO, identidad ISIN+divisa, unicidad de cotización y de tipo de cambio por fecha, upsert) + servicio de conversión de dominio (último tipo ≤ fecha, **tipos cruzados vía pivote EUR**, RN-7). | Unitarios de dominio. |
 | H1.3 | Agregados `Portfolio` e `InvestmentTransaction` (tipos de operación, invariantes del convenio de signos por tipo §3, `external_id`). | Unitarios de dominio. |
 | H1.4 | Servicio de dominio `PositionCalculator`: posiciones, coste medio, P&L latente/realizado, efectivo por divisa (RN-2/RN-3/RN-4, venta sin posición). | Unitarios de dominio. |
 | H1.5 | Puertos de salida + `PortfolioService`/`SecurityService` (casos de uso CRUD, guardas de borrado RN-5). | Aplicación con puertos mockeados. |
@@ -258,7 +259,7 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 | H1.7 | Read-side CQRS: `InvestmentQueryPort`, `PositionView`, `PortfolioSummaryView`, `ValuationHistoryView` (serie valor vs aportado) y resumen global multi-cartera + query adapter (valoración con última cotización, RN-6, **convertida a divisa base** con el doble mecanismo RN-7). | `@DataJpaTest` del adapter. |
 | H1.8 | Web: `PortfolioController`/`SecurityController` + DTOs; endpoints CRUD (incl. `DELETE /securities/{id}` con guarda RN-5), `GET /positions`, `GET /summary` (por cartera y global) y `GET /valuation-history`; el contexto entra en ArchUnit. | `@WebMvcTest` + `ArchitectureTest`. |
 | H1.9 | `FlexReportParser` (ACL): secciones *Trades* (órdenes de valores y conversiones `FX_TRADE`), *Corporate Actions* (`SPLIT` como delta de cantidad, solo `DETAIL`, FS/RS), *Transaction Taxes* (filas `TRADE_TAX`, solo `ORDER_SUMMARY`, ignora `TransactionTaxDetail`), *Open Positions* y ***Cash Transactions* completa** (depósitos, retiradas, dividendos y retenciones — el par dividendo+retención llega como apuntes separados, §9) y ***Conversion Rates*** (solo pares con divisas de la cartera, normalizados divisa→EUR, §9); fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
-| H1.10 | Caso de uso `ImportFlexReport`: idempotencia por `external_id` (RF-4), alta automática de `Security`, upsert de cotizaciones y tipos de cambio (RN-9), errores y *warnings* por fila (venta sin posición, RN-4); endpoint `POST /portfolios/{id}/import`. Con esto el efectivo (RN-2) y el capital aportado son exactos desde el primer import. | Aplicación mockeada + `@WebMvcTest`. |
+| H1.10 | Caso de uso `ImportFlexReport`: validación divisa base cuenta↔cartera (§8), idempotencia por `external_id` (RF-4), alta automática de `Security`, upsert de cotizaciones y tipos de cambio (RN-9), errores y *warnings* por fila (venta sin posición, RN-4); endpoint `POST /portfolios/{id}/import`. Con esto el efectivo (RN-2) y el capital aportado son exactos desde el primer import. | Aplicación mockeada + `@WebMvcTest`. |
 | H1.11 | Frontend: página `pages/investments` (KPIs, donut de asignación, evolución valor vs aportado, P&L por posición, tabla de posiciones), diálogo de import Flex, ruta lazy y entrada en el menú. | Build + revisión manual. |
 | H1.12 | Tarjeta de patrimonio en el dashboard doméstico (valor total + fecha de valoración, leyendo la API de `investments`); actualización del PRD Dashboard. | Build + revisión manual. |
 
