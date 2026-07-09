@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.25 |
+| Versión | 0.26 |
 | Última actualización | 2026-07-03 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -48,7 +48,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | `bigint` PK | |
-| `isin` | `varchar` | Identidad de negocio junto a la divisa de cotización (única por par). |
+| `isin` | `varchar NOT NULL` | Identidad de negocio junto a la divisa de cotización — constraint física `UNIQUE (isin, currency)` en la migración V6. |
 | `ticker` | `varchar` | Símbolo (p. ej. `VWCE`). |
 | `name` | `varchar NOT NULL` | |
 | `currency` | `varchar(3) NOT NULL` | Divisa de cotización (ISO 4217). |
@@ -145,7 +145,7 @@ Coste asumido del convenio: la API expone los signos "contables" y la UI formate
 | RN-6 | La valoración usa la **última cotización disponible** ≤ fecha de valoración; si un instrumento no tiene cotización, su posición se muestra a coste con aviso. |
 | RN-7 | **Doble mecanismo de conversión de divisa**, siempre en la capa de lectura (los datos se almacenan en su divisa original): (a) los importes **fijados en el pasado** (coste de adquisición, P&L realizado, dividendos cobrados) se convierten con el **snapshot** `fx_rate_to_base` del propio apunte — inmutables ante reimportaciones y cuadran con la liquidación real de IBKR; (b) la **valoración a una fecha** (valor de mercado, evolución, pesos) usa el último tipo ≤ fecha de la tabla `exchange_rate`, que también es el fallback para apuntes sin snapshot (manuales). Los tipos se almacenan divisa→EUR y **EUR actúa de pivote**: cualquier par se deriva (`from→to = (from→EUR) ÷ (to→EUR)`), así la divisa base de la cartera puede ser cualquiera. Los snapshots (a) apuntan a la base de la cuenta del broker — por eso el import valida que coincida con la de la cartera (§8). El P&L latente incorpora así automáticamente el efecto divisa. |
 | RN-8 | **TWR**: rentabilidad encadenada por subperiodos delimitados por flujos externos (`DEPOSIT`/`WITHDRAWAL`), calculada sobre la serie de valoraciones disponible. **XIRR**: TIR de los flujos externos + valor actual (Newton-Raphson con fallback de bisección). Los `FX_TRADE` **no** son flujos externos: no delimitan subperiodos ni cuentan como cashflow (solo cambian la divisa del efectivo). Con cotizaciones solo en fechas de import, ambas son aproximaciones sobre esos puntos; mejorarán al llegar la API de precios. |
-| RN-9 | Cotizaciones y tipos de cambio del Flex hacen *upsert*: un valor más reciente para la misma fecha sobrescribe (clave natural: `security`+fecha y fecha+par de divisas). Nunca generan filas duplicadas. |
+| RN-9 | Cotizaciones y tipos de cambio del Flex hacen *upsert*: un valor más reciente para la misma fecha sobrescribe (clave natural: `security`+fecha y fecha+par de divisas). Nunca generan filas duplicadas. El reimport también refresca los **metadatos no identitarios** del `security` (`name`/`ticker`/`exchange`/`figi` — corrige renombres de IBKR); la identidad ISIN+divisa nunca cambia. |
 | RN-10 | **Idempotencia de la importación** (doble defensa): (a) el caso de uso omite toda fila cuyo `external_id` ya exista en la cartera y la reporta como "duplicada" en el resumen (no es error: reimportar el mismo informe o periodos solapados es un uso esperado); (b) la BD lo garantiza físicamente con `UNIQUE (portfolio_id, external_id)` en `investments.investment_transaction`. `external_id` se construye **prefijado por origen** para aislar los espacios de numeración de IBKR (secuencias independientes que podrían colisionar numéricamente): `ORD-<ibOrderID>` (operaciones), `CT-<transactionID>` (efectivo), `FTT-<tradeId>` (tasas FTT → filas `TRADE_TAX`), `CA-<transactionID>` (acciones corporativas/splits). Límite conocido: los apuntes manuales (sin `external_id`) no son deduplicables frente a un import posterior (ver §9). |
 
 ## 6. API (diseño)
@@ -159,7 +159,7 @@ Base: `/api/investments`.
 | `GET` | `/portfolios/{id}/summary` | KPIs de cabecera: valor total, aportado neto, P&L latente, efectivo por divisa, dividendos del año, fecha de valoración. |
 | `GET` | `/portfolios/{id}/valuation-history` | Serie `{fecha, valor, aportado acumulado}` para el gráfico de evolución (§7). |
 | `GET` | `/summary` | Resumen global: patrimonio **agregado de todas las carteras** + desglose por cartera, **en EUR** (divisa de la app doméstica; cada cartera se convierte desde su base vía pivote si difiere); fecha de valoración = la más antigua de las usadas. Consumido por la tarjeta RF-10. |
-| `GET/POST` | `/portfolios/{id}/transactions` · `PUT/DELETE /transactions/{id}` | Operaciones (listado filtrable + alta/edición manual). |
+| `GET/POST` | `/portfolios/{id}/transactions` · `PUT/DELETE /transactions/{id}` | Operaciones (listado filtrable por **tipo, rango de fechas e instrumento**, sin paginación en v1 + alta/edición manual). |
 | `POST` | `/portfolios/{id}/import` | Import de Flex Query (multipart, como `/api/imports`); devuelve resumen filas ok/duplicadas/errores/*warnings*. |
 | `GET` | `/portfolios/{id}/performance` | TWR/XIRR por posición y total. |
 | `GET` | `/portfolios/{id}/income` | Dividendos/intereses/comisiones agregados. |
@@ -172,7 +172,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 **Cabecera de KPIs (tarjetas):**
 - Valor total de la cartera en su divisa base, con la **fecha de valoración** visible (RN-6: última cotización disponible).
 - Capital aportado neto (Σ aportaciones − Σ retiradas).
-- P&L latente (€ y %).
+- P&L latente (€ y % — el % sobre el coste de adquisición capitalizado, RN-3).
 - Efectivo disponible (por divisa).
 - Dividendos cobrados en el año en curso — en **bruto** (antes de retención en origen), con el neto en el tooltip/detalle (criterio Portfolio Performance).
 - TWR y XIRR del total (desde F3).
@@ -214,13 +214,14 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 - **Ventas parciales**: P&L realizado por coste promedio (capitalizado, RN-3) en el momento de la venta.
 - **Cartera sin cotizaciones recientes**: la valoración queda "a fecha de último import"; la UI muestra la fecha de valoración.
 - **Apunte manual + import del mismo apunte**: una operación registrada a mano no tiene `external_id`, por lo que un import posterior que contenga esa misma operación la duplicará (RN-10). Convención de uso: en carteras alimentadas por Flex, no registrar a mano operaciones que vayan a llegar en el informe; el alta manual es para lo que el Flex no cubre.
+- **Borrar un apunte importado y reimportar lo resucita**: al eliminar la fila desaparece su `external_id` de la BD, así que el siguiente import del mismo periodo la vuelve a crear. Comportamiento esperado en v1 (una "lista de exclusión" queda como mejora futura); si algo del Flex no debe contar, la vía es no incluirlo en el informe, no borrarlo en la app.
 - **Configuración validada del Flex Query** (Activity Flex Query, formato **XML**, fechas ISO `yyyy-MM-dd`, verificada contra un informe real de la cuenta el 2026-07-02):
   - *Account Information*: solo `accountId` y `currency` (sin datos personales). `currency` es la **divisa base de la cuenta**: el import la valida contra `base_currency` de la cartera antes de procesar filas (§8).
   - *Trades*: nivel **Orders** únicamente (las filas `SYMBOL_SUMMARY`/`ASSET_SUMMARY`, si aparecen, se ignoran filtrando `levelOfDetail="ORDER"`).
   - *Cash Transactions*: nivel **Detail** (tipos Dividends, Withholding Tax, Deposits/Withdrawals; incluir Broker Interest si la cuenta genera intereses).
   - *Corporate Actions*: nivel **Detail** únicamente (la fila `levelOfDetail="SUMMARY"` con `accountId="-"` duplica el apunte y se ignora); solo `type` FS/RS (split directo/inverso), el resto → error de fila.
   - *Transaction Taxes* (FTT): cada tasa se importa como **fila propia de tipo `TRADE_TAX`** (nunca `TAX`: si compras y cobras dividendo del mismo valor el mismo día, la vista de rentas no debe restar la FTT como si fuera retención). El parser consume **solo** `TransactionTax` con `levelOfDetail="ORDER_SUMMARY"` e **ignora** `TransactionTaxDetail` (`ORDER_DETAIL`). Motivo: la FTT cambia de forma entre ejercicios — 2024 trae solo `TransactionTax`; 2025 trae `TransactionTax` (`ORDER_SUMMARY`) **más** `TransactionTaxDetail` (`ORDER_DETAIL`) duplicando la misma tasa con el mismo `tradeId` (p. ej. −0.203 GBP en ambos niveles). `ORDER_SUMMARY` es el único nivel presente en **ambos** años, así que consumirlo da un parser uniforme sin ramas por ejercicio y sin doble conteo. Nota: no hay una regla global "siempre summary" o "siempre detail" — cada sección fija su nivel (Trades→`ORDER`, Corporate Actions→`DETAIL`, FTT→`ORDER_SUMMARY`). **Decisión provisional del formato actual**, revisable al refinar la configuración del Flex Query cuando la app tenga su primera versión.
-  - *Open Positions* (`markPrice` a fecha del informe → fuente de cotizaciones en v1; `listingExchange`/`figi` → metadatos del `security`), *Securities (Financial Instrument Information)*, *Corporate Actions*, *Transaction Taxes* (FTT itemizada; en la fila de la orden `taxes` viene a 0; solo nivel `ORDER_SUMMARY`, ver detalle más abajo) y *Conversion Rates* (el parser filtra y persiste solo los pares con divisas presentes en la cartera, **normalizados a una sola dirección** divisa→EUR — IBKR exporta ambas direcciones de muchos pares irrelevantes; la inversa se obtiene aritméticamente. Volumen resultante: ~365 filas/año por divisa extranjera en cartera).
+  - *Open Positions* (`markPrice` → cotización con `quote_date` = `toDate` del `FlexStatement`; fuente de cotizaciones en v1; `listingExchange`/`figi` → metadatos del `security`), *Securities (Financial Instrument Information)*, *Corporate Actions*, *Transaction Taxes* (FTT itemizada; en la fila de la orden `taxes` viene a 0; solo nivel `ORDER_SUMMARY`, ver detalle más abajo) y *Conversion Rates* (el parser filtra y persiste solo los pares con divisas presentes en la cartera, **normalizados a una sola dirección** divisa→EUR — IBKR exporta ambas direcciones de muchos pares irrelevantes; la inversa se obtiene aritméticamente. Volumen resultante: ~365 filas/año por divisa extranjera en cartera).
   - Secciones vacías o no marcadas (`Transfers`, `ComplexPositions`, `FxPositions`…) se ignoran.
 - **Identificadores para la idempotencia** (`external_id`): a nivel ORDER `tradeID`/`transactionID` vienen vacíos → usar **`ibOrderID`** en operaciones, **`transactionID`** en apuntes de efectivo y en acciones corporativas, y **`tradeId`** en `TransactionTax`. Como son secuencias de numeración independientes de IBKR (podrían colisionar entre sí), el `external_id` se **prefija por origen**: `ORD-`/`CT-`/`FTT-`/`CA-` (RN-10). El vínculo de una FTT con su orden se resuelve por instrumento+fecha (su `tradeId` apunta al nivel ejecución, que no se importa).
 - Un informe Flex cubre como máximo 365 días: la carga inicial del histórico se hace con un informe por año, importados en orden; la idempotencia hace inocuos los solapamientos. Si falta histórico anterior (import parcial), las ventas sin posición entran con *warning* y la posición puede quedar negativa hasta importar el año que falta (RN-4); nada queda a medias ni bloqueado.
