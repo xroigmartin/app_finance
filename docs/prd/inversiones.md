@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.20 |
-| Última actualización | 2026-07-02 |
+| Versión | 0.21 |
+| Última actualización | 2026-07-03 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -84,11 +84,11 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | `trade_date` | `date NOT NULL` | |
 | `quantity` | `numeric(19,8)` | Títulos (nulo si no aplica); admite fracciones de acción. |
 | `price` | `numeric(19,8)` | Precio unitario en la divisa del instrumento. |
-| `amount` | `numeric(19,4) NOT NULL` | Importe total con signo, en `currency`. En `FX_TRADE`: la pierna **saliente** (negativa). |
+| `amount` | `numeric(19,4) NOT NULL` | Importe total con el **signo del flujo de caja** (convenio de signos, tabla más abajo), en `currency`, y **sin comisión** — la comisión vive solo en `fee`, evitando el doble conteo. En `FX_TRADE`: la pierna **saliente** (negativa). |
 | `currency` | `varchar(3) NOT NULL` | |
 | `counter_amount` | `numeric(19,4)`, nullable | Solo `FX_TRADE`: pierna **entrante** (positiva) de la conversión, en `counter_currency`. |
 | `counter_currency` | `varchar(3)`, nullable | Solo `FX_TRADE`. |
-| `fee` / `tax` | `numeric(19,4)` | Comisión y retención asociadas a la operación. |
+| `fee` / `tax` | `numeric(19,4)` | Comisión y retención asociadas a la operación, con el signo del flujo de caja (**negativas**), como todo importe. |
 | `fee_currency` / `tax_currency` | `varchar(3)`, nullable | Divisa propia de la comisión/retención **cuando difiere** de `currency`; nulo = la divisa del apunte (caso común). En las FX de IBKR el apunte va en la divisa de proceeds (p. ej. USD) y la comisión en EUR. |
 | `fx_rate_to_base` | `numeric(19,8)`, nullable | **Snapshot del tipo de cambio aplicado en el apunte** (`fxRateToBase` del Flex, tipo divisa del apunte → divisa base). Nulo en apuntes manuales (fallback: tabla `exchange_rate`, RN-7). |
 | `description` | `varchar` | |
@@ -102,6 +102,19 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | `rate_date` | `date` | Único por (`rate_date`, `from_currency`, `to_currency`). |
 | `from_currency` / `to_currency` | `varchar(3)` | |
 | `rate` | `numeric(19,8)` | |
+
+**Convenio de signos — "perspectiva del efectivo"** (el mismo que usa el Flex de IBKR: `proceeds` positivo en ventas, `ibCommission` negativo…): todo importe se almacena con el signo del flujo de caja real, de modo que el efectivo (RN-2) y la posición (RN-3) son **sumas directas sin lógica de signos por tipo**, y el parser copia los signos del Flex casi sin traducir. Invariantes por tipo (validados en dominio, §8):
+
+| Tipo | `quantity` | `amount` | Nota |
+|---|---|---|---|
+| `BUY` | > 0 | < 0 | Sale efectivo |
+| `SELL` | < 0 | > 0 | Entra efectivo |
+| `DIVIDEND` / `INTEREST` / `DEPOSIT` | nulo | > 0 | Entra efectivo |
+| `WITHDRAWAL` / `FEE` / `TAX` | nulo | < 0 | Sale efectivo |
+| `SPLIT` | delta con signo | = 0 | Sin flujo de caja |
+| `FX_TRADE` | nulo | < 0 (pierna saliente) | `counter_amount` > 0 (pierna entrante) |
+
+Coste asumido del convenio: la API expone los signos "contables" y la UI formatea para presentación (p. ej. una venta lista `quantity` negativa).
 
 **Nada materializado**: posiciones, coste medio, efectivo de la cartera y valoración se calculan siempre a partir de `investment_transaction` + `price_quote` + `exchange_rate`.
 
@@ -125,8 +138,8 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | ID | Regla |
 |---|---|
 | RN-1 | **Aislamiento de contextos**: ninguna operación de inversión crea, modifica ni afecta a movimientos, transferencias, categorías, presupuestos ni dashboard domésticos. El traspaso de fondos se registra de forma independiente en cada lado: gasto/ingreso (categoría del usuario, p. ej. "Inversión") en la cuenta doméstica, y `DEPOSIT`/`WITHDRAWAL` en la cartera. Sin enlace automático. |
-| RN-2 | El **efectivo de la cartera se calcula por divisa**: `Σ DEPOSIT − Σ WITHDRAWAL − Σ compras + Σ ventas + Σ dividendos + Σ intereses − Σ comisiones − Σ retenciones − Σ piernas salientes de FX_TRADE en esa divisa + Σ piernas entrantes de FX_TRADE en esa divisa`. Cada comisión/retención descuenta del saldo de **su** divisa (`fee_currency`/`tax_currency` si están informadas; la del apunte si no). Una conversión de divisa mueve dos saldos a la vez y **no** es un flujo externo de la cartera. |
-| RN-3 | Las **posiciones se calculan** por instrumento: cantidad = Σ compras − Σ ventas + Σ deltas de `SPLIT`; coste medio por método de coste promedio. Un `SPLIT` es un **delta de cantidad a coste 0** (`quantity` del apunte, con signo), no un ratio: sumar títulos sin coste reduce el coste medio automáticamente (mismo coste total repartido entre más títulos) sin reprocesar el histórico. |
+| RN-2 | El **efectivo de la cartera se calcula por divisa** como **suma directa de importes firmados** (convenio de signos de §3): `Σ amount` de los apuntes en esa divisa `+ Σ counter_amount` de los `FX_TRADE` cuya `counter_currency` es esa divisa `+ Σ fee/tax` cuya divisa efectiva es esa (la divisa efectiva de una comisión/retención es `fee_currency`/`tax_currency` si está informada; la del apunte si no). Sin lógica de signos por tipo: el signo ya está en el dato. Una conversión de divisa mueve dos saldos a la vez y **no** es un flujo externo de la cartera. |
+| RN-3 | Las **posiciones se calculan** por instrumento: cantidad = **Σ `quantity` directa** (compras positivas, ventas negativas, deltas de `SPLIT` con su signo — convenio §3); coste medio por método de coste promedio. Un `SPLIT` es un **delta de cantidad a coste 0** (`quantity` del apunte, con signo), no un ratio: sumar títulos sin coste reduce el coste medio automáticamente (mismo coste total repartido entre más títulos) sin reprocesar el histórico. |
 | RN-4 | **Venta sin posición suficiente — regla dual**: en alta/edición **manual** es una validación dura de dominio (no se puede vender más cantidad de la que hay en posición a la fecha de la operación → `400`). En **import** la fila se importa igual y se reporta como ***warning*** en el resumen ("posición negativa: falta histórico anterior") — un Flex parcial (p. ej. 2025 sin haber importado 2024) no debe fallar. La UI de posiciones marca en rojo las cantidades negativas. La comparación de cantidades usa la **tolerancia de la precisión** (`numeric(19,8)`), no igualdad estricta: tras compras fraccionadas o splits, cerrar una posición puede dejar residuos de 1e-8 que no deben bloquear la venta. |
 | RN-5 | Un instrumento con operaciones no se puede eliminar; una cartera con operaciones no se puede eliminar (409, como cuentas/categorías). |
 | RN-6 | La valoración usa la **última cotización disponible** ≤ fecha de valoración; si un instrumento no tiene cotización, su posición se muestra a coste con aviso. |
@@ -182,7 +195,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 |---|---|
 | Venta sin posición suficiente (alta/edición manual) | `400 ValidationException` de dominio (RN-4). |
 | Venta sin posición suficiente (import) | La fila se importa y se reporta como *warning* en el resumen (RN-4). |
-| Operación con importe/cantidad no positivos donde aplica | `400`. |
+| Operación que viola el convenio de signos de su tipo (§3: p. ej. `BUY` con `amount` ≥ 0 o `quantity` ≤ 0) | `400 ValidationException` de dominio. |
 | Eliminar cartera o instrumento con operaciones | `409 ConflictException`. |
 | Import: fila ilegible o instrumento sin ISIN/símbolo | Fila reportada como error, el resto se importa (tolerante, como el import bancario). |
 | Import: operación duplicada (`external_id`) | Se omite y se reporta como duplicada. |
@@ -235,7 +248,7 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 |---|---|---|
 | H1.1 | Value objects del contexto: `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity` (**decimal** — fracciones de acción y residuos FX; escalas y redondeo de §3). | Unitarios de dominio. |
 | H1.2 | Agregados `Security` (con metadatos `exchange`/`figi`, §9) + `PriceQuote` + `ExchangeRate` (invariantes: divisa ISO, identidad ISIN+divisa, unicidad de cotización y de tipo de cambio por fecha, upsert) + servicio de conversión de dominio (último tipo ≤ fecha, RN-7). | Unitarios de dominio. |
-| H1.3 | Agregados `Portfolio` e `InvestmentTransaction` (tipos de operación, invariantes de importes/cantidades, `external_id`). | Unitarios de dominio. |
+| H1.3 | Agregados `Portfolio` e `InvestmentTransaction` (tipos de operación, invariantes del convenio de signos por tipo §3, `external_id`). | Unitarios de dominio. |
 | H1.4 | Servicio de dominio `PositionCalculator`: posiciones, coste medio, P&L latente/realizado, efectivo por divisa (RN-2/RN-3/RN-4, venta sin posición). | Unitarios de dominio. |
 | H1.5 | Puertos de salida + `PortfolioService`/`SecurityService` (casos de uso CRUD, guardas de borrado RN-5). | Aplicación con puertos mockeados. |
 | H1.6 | Migración `V6__investments.sql` (crea el **esquema `investments`** + **todas** las tablas §3, incluida `exchange_rate`) + entidades/mappers/adaptadores JPA (`@Table(schema = "investments")`). | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades, esquema separado. |
