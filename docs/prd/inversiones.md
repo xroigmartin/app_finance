@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.22 |
+| Versión | 0.23 |
 | Última actualización | 2026-07-03 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -131,7 +131,7 @@ Coste asumido del convenio: la API expone los signos "contables" y la UI formate
 | RF-7 | El usuario ve los dividendos e intereses cobrados (en **bruto**, con el neto disponible en el detalle) y las comisiones/retenciones pagadas, agregados por periodo y por instrumento. |
 | RF-8 | El usuario ve la rentabilidad TWR y XIRR por posición y por cartera. |
 | RF-9 | Toda la valoración agregada se muestra convertida a EUR (o a la divisa base de la cartera), usando el último tipo de cambio disponible. |
-| RF-10 | El dashboard doméstico muestra una tarjeta informativa de patrimonio con el valor total de la cartera y su fecha de valoración (solo lectura de la API de `investments`; sin mezclar agregados domésticos). **Comportamiento degradado**: sin carteras o sin valor que mostrar, la tarjeta se **oculta**; si la API de `investments` falla, la tarjeta se muestra con **"—"** y no rompe el resto del dashboard. |
+| RF-10 | El dashboard doméstico muestra una tarjeta informativa de patrimonio con el **patrimonio agregado de todas las carteras** y su fecha de valoración (la más antigua de las usadas); con más de una cartera, la tarjeta desglosa el valor de cada una (vía `GET /api/investments/summary`; solo lectura, sin mezclar agregados domésticos). **Comportamiento degradado**: sin carteras o sin valor que mostrar, la tarjeta se **oculta**; si la API de `investments` falla, la tarjeta se muestra con **"—"** y no rompe el resto del dashboard. |
 
 ## 5. Reglas de negocio
 
@@ -156,11 +156,14 @@ Base: `/api/investments`.
 |---|---|---|
 | `GET/POST` | `/portfolios` · `PUT/DELETE /portfolios/{id}` | CRUD de carteras. |
 | `GET` | `/portfolios/{id}/positions` | Posiciones actuales (view CQRS). |
+| `GET` | `/portfolios/{id}/summary` | KPIs de cabecera: valor total, aportado neto, P&L latente, efectivo por divisa, dividendos del año, fecha de valoración. |
+| `GET` | `/portfolios/{id}/valuation-history` | Serie `{fecha, valor, aportado acumulado}` para el gráfico de evolución (§7). |
+| `GET` | `/summary` | Resumen global: patrimonio **agregado de todas las carteras** + desglose por cartera; fecha de valoración = la más antigua de las usadas. Consumido por la tarjeta RF-10. |
 | `GET/POST` | `/portfolios/{id}/transactions` · `PUT/DELETE /transactions/{id}` | Operaciones (listado filtrable + alta/edición manual). |
 | `POST` | `/portfolios/{id}/import` | Import de Flex Query (multipart, como `/api/imports`); devuelve resumen filas ok/duplicadas/errores/*warnings*. |
 | `GET` | `/portfolios/{id}/performance` | TWR/XIRR por posición y total. |
 | `GET` | `/portfolios/{id}/income` | Dividendos/intereses/comisiones agregados. |
-| `GET/POST` | `/securities` · `PUT /securities/{id}` | Catálogo de instrumentos (alta automática en import). |
+| `GET/POST` | `/securities` · `PUT/DELETE /securities/{id}` | Catálogo de instrumentos (alta automática en import). `DELETE` solo sin operaciones (guarda RN-5 → 409). |
 
 ## 7. UI/UX (diseño)
 
@@ -187,7 +190,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 
 **Botón Importar Flex**: reutiliza el patrón del diálogo de import existente (`components/import-dialog.ts`) adaptado al Flex.
 
-**Tarjeta de patrimonio en el dashboard doméstico**: única presencia de la inversión fuera de su página — una tarjeta informativa con el valor total de la cartera (y fecha de valoración), leyendo el resumen del contexto `investments` vía su API. No mezcla agregados: los ingresos/gastos/saldos domésticos no incorporan nada de inversión (RN-1 intacta a nivel de datos). Degradación (RF-10): se **oculta** si no hay carteras o no hay valor que mostrar; ante error de la API muestra **"—"** sin tumbar el dashboard doméstico. Al implementarla se actualizará también el PRD Dashboard.
+**Tarjeta de patrimonio en el dashboard doméstico**: única presencia de la inversión fuera de su página — una tarjeta informativa con el patrimonio **agregado de todas las carteras** (y fecha de valoración, la más antigua de las usadas), desglosando el valor por cartera cuando hay más de una, leyendo `GET /api/investments/summary`. No mezcla agregados: los ingresos/gastos/saldos domésticos no incorporan nada de inversión (RN-1 intacta a nivel de datos). Degradación (RF-10): se **oculta** si no hay carteras o no hay valor que mostrar; ante error de la API muestra **"—"** sin tumbar el dashboard doméstico. Al implementarla se actualizará también el PRD Dashboard.
 
 ## 8. Validaciones y errores
 
@@ -252,8 +255,8 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 | H1.4 | Servicio de dominio `PositionCalculator`: posiciones, coste medio, P&L latente/realizado, efectivo por divisa (RN-2/RN-3/RN-4, venta sin posición). | Unitarios de dominio. |
 | H1.5 | Puertos de salida + `PortfolioService`/`SecurityService` (casos de uso CRUD, guardas de borrado RN-5). | Aplicación con puertos mockeados. |
 | H1.6 | Migración `V6__investments.sql` (crea el **esquema `investments`** + **todas** las tablas §3, incluida `exchange_rate`) + entidades/mappers/adaptadores JPA (`@Table(schema = "investments")`). | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades, esquema separado. |
-| H1.7 | Read-side CQRS: `InvestmentQueryPort`, `PositionView`, `PortfolioSummaryView` + query adapter (valoración con última cotización, RN-6, **convertida a divisa base** con el doble mecanismo RN-7). | `@DataJpaTest` del adapter. |
-| H1.8 | Web: `PortfolioController`/`SecurityController` + DTOs; endpoints CRUD y `GET /positions`; el contexto entra en ArchUnit. | `@WebMvcTest` + `ArchitectureTest`. |
+| H1.7 | Read-side CQRS: `InvestmentQueryPort`, `PositionView`, `PortfolioSummaryView`, `ValuationHistoryView` (serie valor vs aportado) y resumen global multi-cartera + query adapter (valoración con última cotización, RN-6, **convertida a divisa base** con el doble mecanismo RN-7). | `@DataJpaTest` del adapter. |
+| H1.8 | Web: `PortfolioController`/`SecurityController` + DTOs; endpoints CRUD (incl. `DELETE /securities/{id}` con guarda RN-5), `GET /positions`, `GET /summary` (por cartera y global) y `GET /valuation-history`; el contexto entra en ArchUnit. | `@WebMvcTest` + `ArchitectureTest`. |
 | H1.9 | `FlexReportParser` (ACL): secciones *Trades* (órdenes de valores y conversiones `FX_TRADE`), *Corporate Actions* (`SPLIT` como delta de cantidad, solo `DETAIL`, FS/RS), *Transaction Taxes* (filas `TRADE_TAX`, solo `ORDER_SUMMARY`, ignora `TransactionTaxDetail`), *Open Positions* y ***Cash Transactions* completa** (depósitos, retiradas, dividendos y retenciones — el par dividendo+retención llega como apuntes separados, §9) y ***Conversion Rates*** (solo pares con divisas de la cartera, normalizados divisa→EUR, §9); fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
 | H1.10 | Caso de uso `ImportFlexReport`: idempotencia por `external_id` (RF-4), alta automática de `Security`, upsert de cotizaciones y tipos de cambio (RN-9), errores y *warnings* por fila (venta sin posición, RN-4); endpoint `POST /portfolios/{id}/import`. Con esto el efectivo (RN-2) y el capital aportado son exactos desde el primer import. | Aplicación mockeada + `@WebMvcTest`. |
 | H1.11 | Frontend: página `pages/investments` (KPIs, donut de asignación, evolución valor vs aportado, P&L por posición, tabla de posiciones), diálogo de import Flex, ruta lazy y entrada en el menú. | Build + revisión manual. |
@@ -294,6 +297,6 @@ La multidivisa ya no es una fase: `exchange_rate`, el parser de *Conversion Rate
 Pendiente de implementación. Estructura prevista del contexto `investments` (idéntica al resto):
 
 - **Dominio**: agregados `Portfolio`, `Security`, `InvestmentTransaction`, `ExchangeRate`; VOs `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity`; servicios `PositionCalculator`, `PerformanceCalculator`; puertos de salida `PortfolioRepository`, `SecurityRepository`, `InvestmentTransactionRepository`, `ExchangeRateRepository`, `PriceProviderPort`.
-- **Aplicación**: casos de uso CRUD + `ImportFlexReport`; read-side CQRS `InvestmentQueryPort` + views (`PositionView`, `PerformanceView`, `IncomeView`).
+- **Aplicación**: casos de uso CRUD + `ImportFlexReport`; read-side CQRS `InvestmentQueryPort` + views (`PositionView`, `PortfolioSummaryView`, `ValuationHistoryView`, `PerformanceView`, `IncomeView`).
 - **Infraestructura**: persistencia JPA (entities/mappers/adapters), web (`InvestmentController` y DTOs), y el ACL `FlexReportParser` en infraestructura de import.
 - **Frontend**: `pages/investments/`, modelos en `models.ts`, llamadas en `api.service.ts`.
