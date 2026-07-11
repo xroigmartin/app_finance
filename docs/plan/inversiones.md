@@ -33,7 +33,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.2 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -54,16 +54,16 @@ Tests: unitarios de dominio.
 - [x] Refactor + suite verde (500 tests).
 - [x] Commit del hito.
 
-### H1.2 — Agregados `Security` + `PriceQuote` + `ExchangeRate` + conversión ⬜
+### H1.2 — Agregados `Security` + `PriceQuote` + `ExchangeRate` + conversión ✅
 
 Tests: unitarios de dominio.
 
-- [ ] `Security`: identidad ISIN+divisa, `isin`/`name`/`currency` obligatorios, metadatos `ticker`/`exchange`/`figi` (§9); refresco de metadatos no identitarios (RN-9).
-- [ ] `PriceQuote`: unicidad (security, fecha), precio escala 8, semántica upsert (RN-9).
-- [ ] `ExchangeRate`: unicidad (fecha, par), normalización divisa→EUR, semántica upsert (RN-9).
-- [ ] Servicio de conversión de dominio: último tipo ≤ fecha; **pares cruzados vía pivote EUR** (`from→to = (from→EUR) ÷ (to→EUR)`), RN-7.
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] `Security`: identidad ISIN+divisa, `isin`/`name`/`currency` obligatorios, metadatos `ticker`/`exchange`/`figi` (§9); refresco de metadatos no identitarios (RN-9) — un valor entrante nulo/vacío conserva el actual (el refresco nunca borra).
+- [x] `PriceQuote`: invariantes (instrumento/fecha/precio positivo), precio escala 8. La unicidad (security, fecha) y el upsert (RN-9) son contrato del repositorio → se verifican en H1.6.
+- [x] `ExchangeRate`: invariantes y normalización divisa→EUR (rechaza EUR→EUR y direcciones ≠→EUR). Unicidad (fecha, par) y upsert (RN-9) → H1.6.
+- [x] Servicio de conversión `CurrencyConverter`: último tipo ≤ fecha; **pares cruzados vía pivote EUR** (`from→to = (from→EUR) ÷ (to→EUR)`), RN-7; sin tipo disponible devuelve vacío (la degradación la decide la capa de lectura).
+- [x] Refactor (helper `IsoCurrency` compartido) + suite verde (520 tests).
+- [x] Commit del hito.
 
 ### H1.3 — Agregados `Portfolio` e `InvestmentTransaction` ⬜
 

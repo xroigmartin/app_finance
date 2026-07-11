@@ -4,8 +4,6 @@ import com.xroig.finance.shared.domain.ValidationException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Currency;
-import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -27,7 +25,7 @@ public final class CurrencyMoney implements Comparable<CurrencyMoney> {
 
     private CurrencyMoney(BigDecimal amount, String currency) {
         this.amount = Objects.requireNonNull(amount, "amount").setScale(SCALE, RoundingMode.HALF_UP);
-        this.currency = requireIsoCurrency(currency);
+        this.currency = IsoCurrency.require(currency);
     }
 
     public static CurrencyMoney of(BigDecimal amount, String currency) {
@@ -100,19 +98,6 @@ public final class CurrencyMoney implements Comparable<CurrencyMoney> {
     @Override
     public String toString() {
         return amount.toPlainString() + " " + currency;
-    }
-
-    private static String requireIsoCurrency(String currency) {
-        if (currency == null || currency.isBlank()) {
-            throw new ValidationException("El importe requiere una divisa ISO 4217");
-        }
-        String normalized = currency.toUpperCase(Locale.ROOT);
-        try {
-            Currency.getInstance(normalized);
-        } catch (IllegalArgumentException e) {
-            throw new ValidationException("Divisa no reconocida (ISO 4217): " + currency);
-        }
-        return normalized;
     }
 
     private CurrencyMoney requireSameCurrency(CurrencyMoney other) {
