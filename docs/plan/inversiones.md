@@ -33,7 +33,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.3 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.4 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -76,18 +76,18 @@ Tests: unitarios de dominio.
 - [x] Refactor + suite verde (537 tests).
 - [x] Commit del hito.
 
-### H1.4 — Servicio de dominio `PositionCalculator` ⬜
+### H1.4 — Servicio de dominio `PositionCalculator` ✅
 
 Tests: unitarios de dominio.
 
-- [ ] Cantidad por instrumento = Σ `quantity` directa (compras, ventas, deltas de `SPLIT`) — RN-3.
-- [ ] Coste medio promedio con **coste de compra capitalizado** (`|amount| + |fee| + |trade_tax|`) — RN-3.
-- [ ] P&L realizado en ventas (neto percibido − coste capitalizado promedio) y ventas parciales (§9).
-- [ ] `SPLIT` como delta a coste 0: reduce coste medio sin reprocesar histórico — RN-3.
-- [ ] Efectivo por divisa: suma directa firmada de `amount` + `counter_amount` + `fee`/`tax` según divisa efectiva — RN-2.
-- [ ] Venta sin posición suficiente: detección con tolerancia 1e-8 (RN-4) — el calculador la señala; la dureza (400 vs warning) la decide el caso de uso.
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] Cantidad por instrumento = Σ `quantity` directa (compras, ventas, deltas de `SPLIT`) — RN-3. Resultado: `PortfolioPositions` (posiciones + efectivo + warnings `PositionWarning`).
+- [x] Coste medio promedio con **coste de compra capitalizado** (`|amount| + |fee| + |trade_tax|`) — RN-3; el coste se mantiene en **divisa base** (cada componente convertido con su snapshot, así el P&L latente incorporará el efecto divisa). Vínculo FTT↔orden por (instrumento, fecha): en fecha de compra capitaliza; en fecha de venta reduce el neto (si el día tiene compra y venta, la compra consume el bucket).
+- [x] P&L realizado en ventas (neto percibido − coste capitalizado promedio) y ventas parciales (§9); con posición insuficiente, el coste de lo vendido se calcula sobre la parte cubierta.
+- [x] `SPLIT` como delta a coste 0: reduce coste medio sin reprocesar histórico — RN-3.
+- [x] Efectivo por divisa: suma directa firmada de `amount` + `counter_amount` + `fee`/`tax` según divisa efectiva — RN-2.
+- [x] Venta sin posición suficiente: detección con tolerancia 1e-8 (RN-4), fila procesada igual (posición negativa); dentro de un mismo día las adquisiciones se procesan antes que las ventas. Sin tipo de cambio disponible: 1:1 + warning (no rompe el cálculo).
+- [x] Refactor + suite verde (550 tests).
+- [x] Commit del hito.
 
 ### H1.5 — Puertos de salida + servicios de aplicación CRUD ⬜
 
