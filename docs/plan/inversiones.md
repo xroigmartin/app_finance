@@ -33,7 +33,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.2 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.3 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -65,16 +65,16 @@ Tests: unitarios de dominio.
 - [x] Refactor (helper `IsoCurrency` compartido) + suite verde (520 tests).
 - [x] Commit del hito.
 
-### H1.3 — Agregados `Portfolio` e `InvestmentTransaction` ⬜
+### H1.3 — Agregados `Portfolio` e `InvestmentTransaction` ✅
 
 Tests: unitarios de dominio.
 
-- [ ] `Portfolio`: nombre obligatorio, `base_currency` ISO 4217.
-- [ ] `InvestmentTransaction`: los 11 tipos (§3), campos condicionales (`security` nulo en efectivo, `counter_*` solo en `FX_TRADE`, `fee_currency`/`tax_currency` solo si difieren).
-- [ ] Invariantes del **convenio de signos por tipo** (tabla §3): `BUY` qty>0/amount<0, `SELL` qty<0/amount>0, `SPLIT` amount=0, `FX_TRADE` amount<0/counter>0, etc. → `ValidationException` (§8).
-- [ ] `external_id` opcional (nulo en apuntes manuales) — RN-10.
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] `Portfolio`: nombre obligatorio, `base_currency` ISO 4217 — **inmutable tras la creación** (cambiarla corrompería los snapshots RN-7a; editar = renombrar).
+- [x] `InvestmentTransaction`: los 11 tipos (§3) como enum con las reglas por tipo codificadas como datos; campos condicionales (`security` REQUIRED/OPTIONAL/FORBIDDEN según tipo, `counter_*` solo en `FX_TRADE` y en divisa distinta, `fee`/`tax` como `CurrencyMoney` con su propia divisa). Construcción vía builder fluido.
+- [x] Invariantes del **convenio de signos por tipo** (tabla §3): `BUY` qty>0/amount<0, `SELL` qty<0/amount>0, `SPLIT` amount=0 y delta≠0, `FX_TRADE` amount<0/counter>0, fee/tax negativas, cantidad solo en BUY/SELL/SPLIT → `ValidationException` (§8).
+- [x] `external_id` opcional (nulo en apuntes manuales, blanco→nulo) — RN-10; `fx_rate_to_base` opcional positivo (RN-7a).
+- [x] Refactor + suite verde (537 tests).
+- [x] Commit del hito.
 
 ### H1.4 — Servicio de dominio `PositionCalculator` ⬜
 
