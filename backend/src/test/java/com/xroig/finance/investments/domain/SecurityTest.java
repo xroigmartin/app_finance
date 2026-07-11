@@ -88,6 +88,17 @@ class SecurityTest {
     }
 
     @Test
+    void changesTypeKeepingItWhenIncomingIsMissing() {
+        Security security = Security.create("IE00BK5BQT80", "USD", "Name", null, "Acción", null, null);
+
+        security.changeType("ETF");
+        assertThat(security.type()).isEqualTo("ETF");
+
+        security.changeType(null);
+        assertThat(security.type()).isEqualTo("ETF");
+    }
+
+    @Test
     void rehydrateRequiresIdentity() {
         Security security = Security.rehydrate(new SecurityId(7L),
                 "IE00BK5BQT80", "USD", "Vanguard", "VWCE", "ETF", "AEB", "FIGI1");

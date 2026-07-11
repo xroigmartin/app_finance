@@ -71,6 +71,13 @@ public class Security {
         }
     }
 
+    /** Changes the (free-text) instrument type; a missing incoming value keeps the current one. */
+    public void changeType(String type) {
+        if (type != null && !type.isBlank()) {
+            this.type = type;
+        }
+    }
+
     public SecurityId id() {
         return id;
     }
