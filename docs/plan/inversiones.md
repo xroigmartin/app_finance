@@ -33,7 +33,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ⬜ Pendiente |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -44,15 +44,15 @@ Leyenda: ⬜ pendiente · 🔨 en curso · ✅ hecho (commit creado) · 🗄️ 
 
 ## F1 — Modelo + import Flex + posiciones/valoración multidivisa
 
-### H1.1 — Value objects del contexto ⬜
+### H1.1 — Value objects del contexto ✅
 
 Tests: unitarios de dominio.
 
-- [ ] `CurrencyMoney` (importe + divisa ISO 4217; escala 4, redondeo fijado; operaciones solo entre misma divisa) — PRD §3.
-- [ ] Ids tipados `PortfolioId`, `SecurityId` (y los que pida el modelo: `InvestmentTransactionId`).
-- [ ] `Quantity` decimal (escala 8; fracciones de acción y residuos FX; comparación con tolerancia de precisión para RN-4).
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] `CurrencyMoney` (importe + divisa ISO 4217; escala 4, redondeo fijado; operaciones solo entre misma divisa) — PRD §3.
+- [x] Ids tipados `PortfolioId`, `SecurityId` (y los que pida el modelo: `InvestmentTransactionId`).
+- [x] `Quantity` decimal (escala 8; fracciones de acción y residuos FX; comparación con tolerancia de precisión para RN-4).
+- [x] Refactor + suite verde (500 tests).
+- [x] Commit del hito.
 
 ### H1.2 — Agregados `Security` + `PriceQuote` + `ExchangeRate` + conversión ⬜
 
