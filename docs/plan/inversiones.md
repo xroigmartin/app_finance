@@ -14,10 +14,15 @@ Prompt sugerido para continuar en una sesión nueva:
 > Lee `docs/plan/inversiones.md` y `docs/prd/inversiones.md`. Continúa por la primera
 > tarea sin marcar del primer hito abierto, con TDD estricto (red-green-refactor).
 > Al cerrar cada hito: tests en verde, PRD actualizado si procede, marcar las tareas
-> en el plan y commit.
+> en el plan y commit. **Trabaja un solo hito y detente**: no empieces el siguiente
+> sin el OK explícito del usuario.
 
 ## Convenciones de trabajo
 
+- **Un hito por turno, con OK explícito** (decisión del usuario, 2026-07-12): al cerrar
+  un hito (tests verdes + PRD + plan + commit) se presenta un resumen y se **espera la
+  aprobación del usuario** antes de empezar el siguiente. No encadenar hitos por
+  iniciativa propia, aunque el siguiente esté claro.
 - **TDD obligatorio** (ver `CLAUDE.md`): cada tarea de código es uno o más ciclos
   red-green-refactor; nunca producción sin test rojo previo.
 - **Un commit por hito** (tests verdes + plan actualizado + PRD si el hito cambia
