@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Diseño aprobado (pendiente de implementación) |
-| Versión | 0.26 |
-| Última actualización | 2026-07-03 |
+| Estado | 🚧 En implementación — F1 en curso (H1.1–H1.6 completados) |
+| Versión | 0.27 |
+| Última actualización | 2026-07-12 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -37,9 +37,9 @@ Es un **bounded context autocontenido** (`investments`), deliberadamente aislado
 
 ## 3. Modelo de datos (diseño)
 
-**Esquema PostgreSQL separado**: todas las tablas del módulo viven en el esquema **`investments`** (la economía doméstica sigue en `public`), de modo que el aislamiento del bounded context también es físico — ningún esquema se contamina con datos del otro ámbito y no existen foreign keys entre esquemas. La migración `V6` crea el esquema (`CREATE SCHEMA IF NOT EXISTS investments`) y Flyway lo gestiona desde el mismo histórico de migraciones; las entidades JPA del contexto declaran `@Table(schema = "investments")` y `ddl-auto=validate` valida contra él.
+**Esquema PostgreSQL separado**: todas las tablas del módulo viven en el esquema **`investments`** (la economía doméstica sigue en `public`), de modo que el aislamiento del bounded context también es físico — ningún esquema se contamina con datos del otro ámbito y no existen foreign keys entre esquemas. La migración `V7` (`V7__investments.sql`; el diseño preveía `V6`, pero ese número lo ocupó la migración de devoluciones de la economía doméstica) crea el esquema (`CREATE SCHEMA IF NOT EXISTS investments`) y Flyway lo gestiona desde el mismo histórico de migraciones; las entidades JPA del contexto declaran `@Table(schema = "investments")` y `ddl-auto=validate` valida contra él.
 
-Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo importe monetario del contexto usa un value object propio **con divisa** (p. ej. `CurrencyMoney(amount, currency)`); el `Money` del kernel compartido (EUR implícito) **no se toca**.
+Nuevas tablas vía migraciones Flyway `V7+`, todas en `investments.*`. Todo importe monetario del contexto usa un value object propio **con divisa** (p. ej. `CurrencyMoney(amount, currency)`); el `Money` del kernel compartido (EUR implícito) **no se toca**.
 
 **Precisión decimal fijada** (los informes reales traen fracciones de acción — compras de `2.303` títulos — y residuos FX de 8 decimales): cantidades, precios y tipos de cambio `numeric(19,8)`; importes monetarios `numeric(19,4)`. En Java todo es `BigDecimal` (los VOs fijan escala y redondeo). El frontend **no calcula, solo formatea**: recibe los agregados ya computados por la capa de lectura como números JSON (`number` de TypeScript, suficiente para visualización) y los muestra con los pipes de Angular; si alguna vista necesitara aritmética en cliente, ese campo pasaría a string + librería decimal.
 
@@ -48,7 +48,7 @@ Nuevas tablas vía migraciones Flyway `V6+`, todas en `investments.*`. Todo impo
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | `bigint` PK | |
-| `isin` | `varchar NOT NULL` | Identidad de negocio junto a la divisa de cotización — constraint física `UNIQUE (isin, currency)` en la migración V6. |
+| `isin` | `varchar NOT NULL` | Identidad de negocio junto a la divisa de cotización — constraint física `UNIQUE (isin, currency)` en la migración V7. |
 | `ticker` | `varchar` | Símbolo (p. ej. `VWCE`). |
 | `name` | `varchar NOT NULL` | |
 | `currency` | `varchar(3) NOT NULL` | Divisa de cotización (ISO 4217). |
@@ -256,7 +256,7 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): cada hito se construye en 
 | H1.3 | Agregados `Portfolio` e `InvestmentTransaction` (tipos de operación, invariantes del convenio de signos por tipo §3, `external_id`). | Unitarios de dominio. |
 | H1.4 | Servicio de dominio `PositionCalculator`: posiciones, coste medio con **coste de compra capitalizado** (importe + comisión + `TRADE_TAX`, RN-3), P&L latente/realizado, efectivo por divisa (RN-2/RN-3/RN-4, venta sin posición). | Unitarios de dominio. |
 | H1.5 | Puertos de salida + `PortfolioService`/`SecurityService` (casos de uso CRUD, guardas de borrado RN-5). | Aplicación con puertos mockeados. |
-| H1.6 | Migración `V6__investments.sql` (crea el **esquema `investments`** + **todas** las tablas §3, incluida `exchange_rate`) + entidades/mappers/adaptadores JPA (`@Table(schema = "investments")`). | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades, esquema separado. |
+| H1.6 | Migración `V7__investments.sql` (crea el **esquema `investments`** + **todas** las tablas §3, incluida `exchange_rate`) + entidades/mappers/adaptadores JPA (`@Table(schema = "investments")`). | `@DataJpaTest` (Testcontainers): round-trip mappers, unicidades, esquema separado. |
 | H1.7 | Read-side CQRS: `InvestmentQueryPort`, `PositionView`, `PortfolioSummaryView`, `ValuationHistoryView` (serie valor vs aportado) y resumen global multi-cartera + query adapter (valoración con última cotización, RN-6, **convertida a divisa base** con el doble mecanismo RN-7). | `@DataJpaTest` del adapter. |
 | H1.8 | Web: `PortfolioController`/`SecurityController` + DTOs; endpoints CRUD (incl. `DELETE /securities/{id}` con guarda RN-5), `GET /positions`, `GET /summary` (por cartera y global) y `GET /valuation-history`; el contexto entra en ArchUnit. | `@WebMvcTest` + `ArchitectureTest`. |
 | H1.9 | `FlexReportParser` (ACL): secciones *Trades* (órdenes de valores y conversiones `FX_TRADE`), *Corporate Actions* (`SPLIT` como delta de cantidad, solo `DETAIL`, FS/RS), *Transaction Taxes* (filas `TRADE_TAX`, solo `ORDER_SUMMARY`, ignora `TransactionTaxDetail`), *Open Positions* y ***Cash Transactions* completa** (depósitos, retiradas, dividendos y retenciones — el par dividendo+retención llega como apuntes separados, §9) y ***Conversion Rates*** (solo pares con divisas de la cartera, normalizados divisa→EUR, §9); fixtures de informes Flex reales. | Unitarios del parser con fixtures. |
@@ -296,9 +296,10 @@ La multidivisa ya no es una fase: `exchange_rate`, el parser de *Conversion Rate
 
 ## 13. Referencias de código
 
-Pendiente de implementación. Estructura prevista del contexto `investments` (idéntica al resto):
+Implementado hasta H1.6 (`backend/src/main/java/com/xroig/finance/investments/`):
 
-- **Dominio**: agregados `Portfolio`, `Security`, `InvestmentTransaction`, `ExchangeRate`; VOs `CurrencyMoney`, `PortfolioId`, `SecurityId`, `Quantity`; servicios `PositionCalculator`, `PerformanceCalculator`; puertos de salida `PortfolioRepository`, `SecurityRepository`, `InvestmentTransactionRepository`, `ExchangeRateRepository`, `PriceProviderPort`.
-- **Aplicación**: casos de uso CRUD + `ImportFlexReport`; read-side CQRS `InvestmentQueryPort` + views (`PositionView`, `PortfolioSummaryView`, `ValuationHistoryView`, `PerformanceView`, `IncomeView`).
-- **Infraestructura**: persistencia JPA (entities/mappers/adapters), web (`InvestmentController` y DTOs), y el ACL `FlexReportParser` en infraestructura de import.
-- **Frontend**: `pages/investments/`, modelos en `models.ts`, llamadas en `api.service.ts`.
+- **Dominio** (`domain/`, puro): agregados `Portfolio`, `Security`, `InvestmentTransaction` (builder + invariantes de signos por tipo vía `InvestmentTransactionType`); values `CurrencyMoney`, `Quantity`, `PriceQuote`, `ExchangeRate`, ids `PortfolioId`/`SecurityId`/`InvestmentTransactionId`, helper `IsoCurrency`; servicios `PositionCalculator` (→ `PortfolioPositions`, `Position`, `PositionWarning`) y `CurrencyConverter`; puertos de salida `PortfolioRepository`, `SecurityRepository`, `InvestmentTransactionRepository`, `PriceQuoteRepository`/`ExchangeRateRepository` (contrato upsert RN-9) y `PriceProviderPort` (sin adaptador, backlog F4).
+- **Aplicación** (`application/`): `PortfolioService` y `SecurityService` (`@Service`/`@Transactional`) implementando los puertos de entrada de `application/port/` (`CreateX`/`FindX`/`UpdateX`/`DeleteX`).
+- **Infraestructura** (`infrastructure/persistence/`): migración `V7__investments.sql` (esquema `investments` + 5 tablas); entidades `XJpaEntity` con `@Table(schema = "investments")` (FKs como columnas id planas, sin `@ManyToOne` — los agregados se referencian por id); repositorios Spring Data `XJpaRepository`; mappers `PortfolioJpaMapper`/`SecurityJpaMapper`/`InvestmentTransactionJpaMapper` (divisa propia de fee/tax: columna nula = divisa del apunte); adaptadores `XPersistenceAdapter` (upsert por clave natural en cotizaciones y tipos de cambio).
+
+Pendiente (estructura prevista): read-side CQRS `InvestmentQueryPort` + views (`PositionView`, `PortfolioSummaryView`, `ValuationHistoryView`, `PerformanceView`, `IncomeView`) — H1.7; capa web `PortfolioController`/`SecurityController` + DTOs bajo `/api/investments` — H1.8; ACL `FlexReportParser` + caso de uso `ImportFlexReport` — H1.9/H1.10; `PerformanceCalculator` — F3; frontend `pages/investments/`, modelos en `models.ts`, llamadas en `api.service.ts` — H1.11.

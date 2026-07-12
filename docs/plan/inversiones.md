@@ -33,7 +33,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.5 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.6 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -99,17 +99,17 @@ Tests: aplicación con puertos mockeados.
 - [x] Refactor + suite verde (564 tests). Nota: los servicios quedan **sin `@Service`** hasta H1.6 (sin adaptadores, el contexto Spring completo no arranca — `DataSeederTest`); tarea añadida a H1.6.
 - [x] Commit del hito.
 
-### H1.6 — Migración `V6__investments.sql` + persistencia JPA ⬜
+### H1.6 — Migración `V7__investments.sql` + persistencia JPA ✅
 
 Tests: `@DataJpaTest` (Testcontainers).
 
-- [ ] Migración V6: `CREATE SCHEMA investments` + tablas `security`, `price_quote`, `portfolio`, `investment_transaction`, `exchange_rate` con tipos/constraints de §3 (`UNIQUE (isin, currency)`, `UNIQUE (portfolio_id, external_id)`, unicidades de cotización y tipo).
-- [ ] Reactivar `@Service`/`@Transactional` en `PortfolioService`/`SecurityService` (diferidos en H1.5: sin adaptadores el contexto Spring no arrancaba — `DataSeederTest`).
-- [ ] Entidades JPA con `@Table(schema = "investments")` + mappers dominio↔entidad.
-- [ ] Adaptadores de persistencia implementando los puertos de H1.5 (upsert de cotizaciones/tipos, RN-9).
-- [ ] Tests: round-trip de mappers, violación de unicidades, `ddl-auto=validate` pasa contra el esquema.
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] Migración **V7** (el diseño preveía V6, pero `V6__transaction_refunds.sql` ya existía): `CREATE SCHEMA investments` + tablas `security`, `price_quote`, `portfolio`, `investment_transaction`, `exchange_rate` con tipos/constraints de §3 (`UNIQUE (isin, currency)`, `UNIQUE (portfolio_id, external_id)`, unicidades de cotización y tipo).
+- [x] Reactivar `@Service`/`@Transactional` en `PortfolioService`/`SecurityService` (diferidos en H1.5: sin adaptadores el contexto Spring no arrancaba — `DataSeederTest`).
+- [x] Entidades JPA con `@Table(schema = "investments")` + mappers dominio↔entidad (FKs como columnas id planas — los agregados se referencian por id; divisa propia de fee/tax: columna nula = divisa del apunte).
+- [x] Adaptadores de persistencia implementando los puertos de H1.5 (upsert de cotizaciones/tipos por clave natural, RN-9).
+- [x] Tests: round-trip de mappers, violación de unicidades, `ddl-auto=validate` pasa contra el esquema.
+- [x] Refactor + suite verde (594 tests).
+- [x] Commit del hito.
 
 ### H1.7 — Read-side CQRS (query port + views + adapter) ⬜
 

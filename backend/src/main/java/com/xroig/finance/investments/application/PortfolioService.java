@@ -10,6 +10,8 @@ import com.xroig.finance.investments.domain.PortfolioId;
 import com.xroig.finance.investments.domain.PortfolioRepository;
 import com.xroig.finance.shared.domain.ConflictException;
 import com.xroig.finance.shared.domain.NotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,11 +21,9 @@ import java.util.List;
  * invariants live in {@link Portfolio}; here we resolve identity, map "not found"
  * and apply the RN-5 deletion guard (a portfolio with operations cannot be
  * deleted).
- *
- * <p>Deliberately not a Spring bean yet: it becomes {@code @Service}/
- * {@code @Transactional} in H1.6, when the persistence adapters that satisfy its
- * ports exist (until then the full application context could not start).
  */
+@Service
+@Transactional
 public class PortfolioService implements FindPortfolios, CreatePortfolio, UpdatePortfolio, DeletePortfolio {
 
     private final PortfolioRepository portfolios;
@@ -35,6 +35,7 @@ public class PortfolioService implements FindPortfolios, CreatePortfolio, Update
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Portfolio> all() {
         return portfolios.findAll();
     }

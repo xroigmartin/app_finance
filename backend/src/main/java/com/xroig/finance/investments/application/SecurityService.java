@@ -10,6 +10,8 @@ import com.xroig.finance.investments.domain.SecurityId;
 import com.xroig.finance.investments.domain.SecurityRepository;
 import com.xroig.finance.shared.domain.ConflictException;
 import com.xroig.finance.shared.domain.NotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,11 +21,9 @@ import java.util.List;
  * resolve identity, guard the ISIN+currency duplicate proactively (the DB unique
  * constraint is the physical backstop), map "not found" and apply the RN-5
  * deletion guard (an instrument with operations cannot be deleted).
- *
- * <p>Deliberately not a Spring bean yet: it becomes {@code @Service}/
- * {@code @Transactional} in H1.6, when the persistence adapters that satisfy its
- * ports exist (until then the full application context could not start).
  */
+@Service
+@Transactional
 public class SecurityService implements FindSecurities, CreateSecurity, UpdateSecurity, DeleteSecurity {
 
     private final SecurityRepository securities;
@@ -35,6 +35,7 @@ public class SecurityService implements FindSecurities, CreateSecurity, UpdateSe
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Security> all() {
         return securities.findAll();
     }
