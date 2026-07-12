@@ -1,0 +1,98 @@
+package com.xroig.finance.investments.infrastructure.web;
+
+import com.xroig.finance.investments.application.InvestmentQueryPort;
+import com.xroig.finance.investments.application.InvestmentsSummaryView;
+import com.xroig.finance.investments.application.PortfolioSummaryView;
+import com.xroig.finance.investments.application.PositionView;
+import com.xroig.finance.investments.application.ValuationHistoryView;
+import com.xroig.finance.investments.application.port.CreatePortfolio;
+import com.xroig.finance.investments.application.port.CreatePortfolio.CreatePortfolioCommand;
+import com.xroig.finance.investments.application.port.DeletePortfolio;
+import com.xroig.finance.investments.application.port.FindPortfolios;
+import com.xroig.finance.investments.application.port.UpdatePortfolio;
+import com.xroig.finance.investments.application.port.UpdatePortfolio.UpdatePortfolioCommand;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * Inbound web adapter for the portfolios of the investments context (§6). Thin by
+ * design: it (de)serializes DTOs and delegates to the inbound ports — the CRUD to
+ * the use cases, the read screens (positions, summary, valuation history, global
+ * summary) to the CQRS {@link InvestmentQueryPort}, whose views serialize as-is.
+ * Domain failures map to HTTP in {@code shared.web.DomainExceptionHandler}
+ * (not found → 404, RN-5 guard → 409).
+ */
+@RestController
+@RequestMapping("/api/investments")
+public class PortfolioController {
+
+    private final FindPortfolios findPortfolios;
+    private final CreatePortfolio createPortfolio;
+    private final UpdatePortfolio updatePortfolio;
+    private final DeletePortfolio deletePortfolio;
+    private final InvestmentQueryPort queries;
+
+    public PortfolioController(FindPortfolios findPortfolios, CreatePortfolio createPortfolio,
+                               UpdatePortfolio updatePortfolio, DeletePortfolio deletePortfolio,
+                               InvestmentQueryPort queries) {
+        this.findPortfolios = findPortfolios;
+        this.createPortfolio = createPortfolio;
+        this.updatePortfolio = updatePortfolio;
+        this.deletePortfolio = deletePortfolio;
+        this.queries = queries;
+    }
+
+    @GetMapping("/portfolios")
+    public List<PortfolioResponse> findAll() {
+        return findPortfolios.all().stream().map(PortfolioResponse::from).toList();
+    }
+
+    @PostMapping("/portfolios")
+    @ResponseStatus(HttpStatus.CREATED)
+    public PortfolioResponse create(@Valid @RequestBody PortfolioRequest request) {
+        return PortfolioResponse.from(createPortfolio.create(
+                new CreatePortfolioCommand(request.name(), request.baseCurrency())));
+    }
+
+    @PutMapping("/portfolios/{id}")
+    public PortfolioResponse update(@PathVariable Long id, @Valid @RequestBody PortfolioRequest request) {
+        return PortfolioResponse.from(updatePortfolio.update(id, new UpdatePortfolioCommand(request.name())));
+    }
+
+    @DeleteMapping("/portfolios/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        deletePortfolio.delete(id);
+    }
+
+    @GetMapping("/portfolios/{id}/positions")
+    public List<PositionView> positions(@PathVariable Long id) {
+        return queries.positions(id);
+    }
+
+    @GetMapping("/portfolios/{id}/summary")
+    public PortfolioSummaryView summary(@PathVariable Long id) {
+        return queries.summary(id);
+    }
+
+    @GetMapping("/portfolios/{id}/valuation-history")
+    public List<ValuationHistoryView> valuationHistory(@PathVariable Long id) {
+        return queries.valuationHistory(id);
+    }
+
+    @GetMapping("/summary")
+    public InvestmentsSummaryView globalSummary() {
+        return queries.globalSummary();
+    }
+}

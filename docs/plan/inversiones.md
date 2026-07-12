@@ -33,7 +33,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.7 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.8 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -124,15 +124,15 @@ Tests: `@DataJpaTest` del adapter.
 - [x] Refactor + suite verde (606 tests).
 - [x] Commit del hito.
 
-### H1.8 — Capa web + ArchUnit ⬜
+### H1.8 — Capa web + ArchUnit ✅
 
 Tests: `@WebMvcTest` + `ArchitectureTest`.
 
-- [ ] `PortfolioController` + `SecurityController` + DTOs bajo `/api/investments` (§6): CRUD carteras, CRUD securities (`DELETE` → 409 con operaciones), `GET /positions`, `GET /portfolios/{id}/summary`, `GET /summary`, `GET /valuation-history`.
-- [ ] Mapeo de errores: `DomainException` → 400/404/409 `problem+json` (handler compartido existente).
-- [ ] El contexto `investments` entra en las reglas de `ArchitectureTest` (dirección de dependencias).
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] `PortfolioController` + `SecurityController` + DTOs bajo `/api/investments` (§6): CRUD carteras, CRUD securities (`DELETE` → 409 con operaciones), `GET /positions`, `GET /portfolios/{id}/summary`, `GET /summary`, `GET /valuation-history`.
+- [x] Mapeo de errores: `DomainException` → 400/404/409 `problem+json` (handler compartido existente).
+- [x] El contexto `investments` entra en las reglas de `ArchitectureTest` (las reglas por paquete `..domain../..application../..infrastructure..` ya lo cubren; verificado que el controller solo llega a la aplicación por puertos).
+- [x] Refactor + suite verde (626 tests).
+- [x] Commit del hito.
 
 ### H1.9 — `FlexReportParser` (ACL) ⬜
 
