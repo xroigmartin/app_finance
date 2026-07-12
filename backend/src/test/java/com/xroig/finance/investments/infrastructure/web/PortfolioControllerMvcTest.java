@@ -1,5 +1,7 @@
 package com.xroig.finance.investments.infrastructure.web;
 
+import com.xroig.finance.investments.application.FlexImportResult;
+import com.xroig.finance.investments.application.FlexRowError;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
 import com.xroig.finance.investments.application.InvestmentsSummaryView.PortfolioValueView;
@@ -10,17 +12,20 @@ import com.xroig.finance.investments.application.port.CreatePortfolio;
 import com.xroig.finance.investments.application.port.CreatePortfolio.CreatePortfolioCommand;
 import com.xroig.finance.investments.application.port.DeletePortfolio;
 import com.xroig.finance.investments.application.port.FindPortfolios;
+import com.xroig.finance.investments.application.port.ImportFlexReport;
 import com.xroig.finance.investments.application.port.UpdatePortfolio;
 import com.xroig.finance.investments.application.port.UpdatePortfolio.UpdatePortfolioCommand;
 import com.xroig.finance.investments.domain.Portfolio;
 import com.xroig.finance.investments.domain.PortfolioId;
 import com.xroig.finance.shared.domain.ConflictException;
 import com.xroig.finance.shared.domain.NotFoundException;
+import com.xroig.finance.shared.domain.ValidationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
@@ -32,6 +37,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -53,6 +59,7 @@ class PortfolioControllerMvcTest {
     @MockitoBean private UpdatePortfolio updatePortfolio;
     @MockitoBean private DeletePortfolio deletePortfolio;
     @MockitoBean private InvestmentQueryPort queries;
+    @MockitoBean private ImportFlexReport importFlexReport;
 
     private static Portfolio portfolio(long id, String name) {
         return Portfolio.rehydrate(new PortfolioId(id), name, "EUR");
@@ -66,6 +73,51 @@ class PortfolioControllerMvcTest {
                 .hasStatusOk()
                 .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
                 .bodyJson().extractingPath("$[0].name").isEqualTo("IBKR");
+    }
+
+    @Test
+    void importFlex_returns200WithTheSummary() {
+        when(importFlexReport.importReport(eq(7L), any()))
+                .thenReturn(new FlexImportResult(120, 4,
+                        List.of(new FlexRowError("CorporateActions", "CA-9", "tipo no soportado: TC")),
+                        List.of("2025-05-20: venta sin posición suficiente: falta histórico anterior (RN-4)")));
+
+        var result = mvc.post().uri("/api/investments/portfolios/7/import")
+                .multipart()
+                .file(new MockMultipartFile(
+                        "file", "flex.xml", MediaType.APPLICATION_XML_VALUE, "<FlexQueryResponse/>".getBytes()))
+                .exchange();
+
+        assertThat(result).hasStatusOk().hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON);
+        assertThat(result).bodyJson().extractingPath("$.imported").asNumber().isEqualTo(120);
+        assertThat(result).bodyJson().extractingPath("$.duplicated").asNumber().isEqualTo(4);
+        assertThat(result).bodyJson().extractingPath("$.errors[0].reference").isEqualTo("CA-9");
+        assertThat(result).bodyJson().extractingPath("$.warnings[0]").asString().contains("RN-4");
+    }
+
+    @Test
+    void importFlex_baseCurrencyMismatch_returns400ProblemJson() {
+        when(importFlexReport.importReport(anyLong(), any()))
+                .thenThrow(new ValidationException("La divisa base de la cuenta del informe (USD) no coincide"));
+
+        assertThat(mvc.post().uri("/api/investments/portfolios/7/import")
+                .multipart()
+                .file(new MockMultipartFile(
+                        "file", "flex.xml", MediaType.APPLICATION_XML_VALUE, "<FlexQueryResponse/>".getBytes())))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    @Test
+    void importFlex_unknownPortfolio_returns404() {
+        when(importFlexReport.importReport(anyLong(), any()))
+                .thenThrow(new NotFoundException("Cartera no encontrada"));
+
+        assertThat(mvc.post().uri("/api/investments/portfolios/99/import")
+                .multipart()
+                .file(new MockMultipartFile(
+                        "file", "flex.xml", MediaType.APPLICATION_XML_VALUE, "<FlexQueryResponse/>".getBytes())))
+                .hasStatus(HttpStatus.NOT_FOUND);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.xroig.finance.investments.infrastructure.web;
 
+import com.xroig.finance.investments.application.FlexImportResult;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
 import com.xroig.finance.investments.application.PortfolioSummaryView;
@@ -9,6 +10,7 @@ import com.xroig.finance.investments.application.port.CreatePortfolio;
 import com.xroig.finance.investments.application.port.CreatePortfolio.CreatePortfolioCommand;
 import com.xroig.finance.investments.application.port.DeletePortfolio;
 import com.xroig.finance.investments.application.port.FindPortfolios;
+import com.xroig.finance.investments.application.port.ImportFlexReport;
 import com.xroig.finance.investments.application.port.UpdatePortfolio;
 import com.xroig.finance.investments.application.port.UpdatePortfolio.UpdatePortfolioCommand;
 import jakarta.validation.Valid;
@@ -20,8 +22,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -41,15 +45,17 @@ public class PortfolioController {
     private final CreatePortfolio createPortfolio;
     private final UpdatePortfolio updatePortfolio;
     private final DeletePortfolio deletePortfolio;
+    private final ImportFlexReport importFlexReport;
     private final InvestmentQueryPort queries;
 
     public PortfolioController(FindPortfolios findPortfolios, CreatePortfolio createPortfolio,
                                UpdatePortfolio updatePortfolio, DeletePortfolio deletePortfolio,
-                               InvestmentQueryPort queries) {
+                               ImportFlexReport importFlexReport, InvestmentQueryPort queries) {
         this.findPortfolios = findPortfolios;
         this.createPortfolio = createPortfolio;
         this.updatePortfolio = updatePortfolio;
         this.deletePortfolio = deletePortfolio;
+        this.importFlexReport = importFlexReport;
         this.queries = queries;
     }
 
@@ -74,6 +80,11 @@ public class PortfolioController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         deletePortfolio.delete(id);
+    }
+
+    @PostMapping("/portfolios/{id}/import")
+    public FlexImportResult importFlex(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        return importFlexReport.importReport(id, file);
     }
 
     @GetMapping("/portfolios/{id}/positions")

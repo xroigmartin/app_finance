@@ -38,7 +38,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.9 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.10 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -155,19 +155,19 @@ Tests: unitarios del parser con fixtures XML reales (§9, configuración validad
 - [x] Refactor + suite verde (642 tests).
 - [x] Commit del hito.
 
-### H1.10 — Caso de uso `ImportFlexReport` + endpoint ⬜
+### H1.10 — Caso de uso `ImportFlexReport` + endpoint ✅
 
 Tests: aplicación mockeada + `@WebMvcTest`.
 
-- [ ] Validación previa divisa base cuenta↔cartera; si difiere, **import rechazado entero** (§8).
-- [ ] Idempotencia por `external_id`: duplicados omitidos y reportados (RN-10, RF-4).
-- [ ] Alta automática de `Security` (por ISIN+divisa) y refresco de metadatos en reimport (RN-9).
-- [ ] Upsert de cotizaciones y tipos de cambio (RN-9).
-- [ ] Venta sin posición → la fila entra con *warning* en el resumen (RN-4, regla dual).
-- [ ] Resumen de import: ok / duplicadas / errores / warnings.
-- [ ] Endpoint `POST /portfolios/{id}/import` (multipart, como `/api/imports`).
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] Validación previa divisa base cuenta↔cartera; si difiere, **import rechazado entero** (§8) — antes de escribir nada.
+- [x] Idempotencia por `external_id`: duplicados omitidos y reportados (RN-10, RF-4) — contra la BD y dentro del mismo fichero.
+- [x] Alta automática de `Security` (por ISIN+divisa) y refresco de metadatos en reimport (RN-9) — una resolución por identidad y fichero.
+- [x] Upsert de cotizaciones y tipos de cambio (RN-9).
+- [x] Venta sin posición → la fila entra con *warning* en el resumen (RN-4, regla dual) — recálculo con `PositionCalculator` tras importar.
+- [x] Resumen de import: ok / duplicadas / errores / warnings (`FlexImportResult`; fila inválida → `FlexRowError`, errores del parser arrastrados).
+- [x] Endpoint `POST /portfolios/{id}/import` (multipart, como `/api/imports`) en `PortfolioController`; límite multipart subido a 10 MB (los Flex anuales rondan 1,5 MB > 1 MB por defecto).
+- [x] Refactor + suite verde (656 tests).
+- [x] Commit del hito.
 
 ### H1.11 — Frontend: página de inversión ⬜
 
