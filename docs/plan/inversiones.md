@@ -33,7 +33,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.8 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.9 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -134,21 +134,21 @@ Tests: `@WebMvcTest` + `ArchitectureTest`.
 - [x] Refactor + suite verde (626 tests).
 - [x] Commit del hito.
 
-### H1.9 — `FlexReportParser` (ACL) ⬜
+### H1.9 — `FlexReportParser` (ACL) ✅
 
 Tests: unitarios del parser con fixtures XML reales (§9, configuración validada del Flex).
 
-- [ ] Fixtures a partir de `docs/investment/2024.xml` / `2025.xml` (recortados/anonimizados).
-- [ ] *Account Information*: extraer `currency` (divisa base de la cuenta) para la validación de §8.
-- [ ] *Trades* nivel `ORDER`: compras/ventas de valores; conversiones `assetCategory="CASH"` → `FX_TRADE` (piernas por signos, comisión en su divisa, §9); `external_id = ORD-<ibOrderID>`.
-- [ ] *Cash Transactions* nivel `DETAIL`: dividendos, withholding tax (`DIVIDEND` + `TAX` separados, §9), depósitos/retiradas, intereses; `external_id = CT-<transactionID>`.
-- [ ] *Corporate Actions* solo `DETAIL`, tipos FS/RS → `SPLIT` delta de cantidad (§9); otros tipos → error de fila; `external_id = CA-<transactionID>`.
-- [ ] *Transaction Taxes* solo `ORDER_SUMMARY` → filas `TRADE_TAX` (ignorar `TransactionTaxDetail`, §9); `external_id = FTT-<tradeId>`.
-- [ ] *Open Positions*: `markPrice` → cotización con `quote_date = toDate` del statement; `listingExchange`/`figi` → metadatos.
-- [ ] *Conversion Rates*: solo pares con divisas de la cartera, normalizados divisa→EUR (§9).
-- [ ] Filas ilegibles / secciones no soportadas → error por fila, resto continúa (tolerante, §8).
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] Fixtures a partir de `docs/investment/2024.xml` / `2025.xml` (recortado/anonimizado: `flex-sample.xml`) + smoke test condicional contra los informes reales (0 errores en ambos años completos).
+- [x] *Account Information*: extraer `currency` (divisa base de la cuenta) para la validación de §8 (falta la sección → `ValidationException`).
+- [x] *Trades* nivel `ORDER`: compras/ventas de valores; conversiones `assetCategory="CASH"` → `FX_TRADE` (piernas por signos, comisión en su divisa, snapshot solo si acompaña a la divisa de la pierna saliente, §9); `external_id = ORD-<ibOrderID>`.
+- [x] *Cash Transactions* nivel `DETAIL`: dividendos, withholding tax (`DIVIDEND` + `TAX` separados, §9), depósitos/retiradas (por signo), intereses (Broker Interest Received → `INTEREST`, Paid/Other Fees → `FEE`); `external_id = CT-<transactionID>`.
+- [x] *Corporate Actions* solo `DETAIL`, tipos FS/RS → `SPLIT` delta de cantidad a la fecha de la acción (§9); otros tipos → error de fila; `external_id = CA-<transactionID>`.
+- [x] *Transaction Taxes* solo `ORDER_SUMMARY` → filas `TRADE_TAX` (ignorar `TransactionTaxDetail`, §9); `external_id = FTT-<tradeId>`.
+- [x] *Open Positions*: `markPrice` → cotización con `quote_date = toDate` del statement; `listingExchange`/`figi` → metadatos.
+- [x] *Conversion Rates*: solo pares con divisas del informe, normalizados divisa→EUR (§9; de ~12.000 filas a ~310/divisa·año).
+- [x] Filas ilegibles / secciones no soportadas → error por fila (`FlexRowError`), resto continúa (tolerante, §8).
+- [x] Refactor + suite verde (642 tests).
+- [x] Commit del hito.
 
 ### H1.10 — Caso de uso `ImportFlexReport` + endpoint ⬜
 
