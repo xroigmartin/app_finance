@@ -2,8 +2,8 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | 🚧 En implementación — F1 en curso (H1.1–H1.6 completados) |
-| Versión | 0.27 |
+| Estado | 🚧 En implementación — F1 en curso (H1.1–H1.7 completados) |
+| Versión | 0.28 |
 | Última actualización | 2026-07-12 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -296,10 +296,10 @@ La multidivisa ya no es una fase: `exchange_rate`, el parser de *Conversion Rate
 
 ## 13. Referencias de código
 
-Implementado hasta H1.6 (`backend/src/main/java/com/xroig/finance/investments/`):
+Implementado hasta H1.7 (`backend/src/main/java/com/xroig/finance/investments/`):
 
 - **Dominio** (`domain/`, puro): agregados `Portfolio`, `Security`, `InvestmentTransaction` (builder + invariantes de signos por tipo vía `InvestmentTransactionType`); values `CurrencyMoney`, `Quantity`, `PriceQuote`, `ExchangeRate`, ids `PortfolioId`/`SecurityId`/`InvestmentTransactionId`, helper `IsoCurrency`; servicios `PositionCalculator` (→ `PortfolioPositions`, `Position`, `PositionWarning`) y `CurrencyConverter`; puertos de salida `PortfolioRepository`, `SecurityRepository`, `InvestmentTransactionRepository`, `PriceQuoteRepository`/`ExchangeRateRepository` (contrato upsert RN-9) y `PriceProviderPort` (sin adaptador, backlog F4).
-- **Aplicación** (`application/`): `PortfolioService` y `SecurityService` (`@Service`/`@Transactional`) implementando los puertos de entrada de `application/port/` (`CreateX`/`FindX`/`UpdateX`/`DeleteX`).
-- **Infraestructura** (`infrastructure/persistence/`): migración `V7__investments.sql` (esquema `investments` + 5 tablas); entidades `XJpaEntity` con `@Table(schema = "investments")` (FKs como columnas id planas, sin `@ManyToOne` — los agregados se referencian por id); repositorios Spring Data `XJpaRepository`; mappers `PortfolioJpaMapper`/`SecurityJpaMapper`/`InvestmentTransactionJpaMapper` (divisa propia de fee/tax: columna nula = divisa del apunte); adaptadores `XPersistenceAdapter` (upsert por clave natural en cotizaciones y tipos de cambio).
+- **Aplicación** (`application/`): `PortfolioService` y `SecurityService` (`@Service`/`@Transactional`) implementando los puertos de entrada de `application/port/` (`CreateX`/`FindX`/`UpdateX`/`DeleteX`); read-side CQRS `InvestmentQueryPort` + views `PositionView`, `PortfolioSummaryView`, `ValuationHistoryView`, `InvestmentsSummaryView` (resumen global en EUR, RF-10).
+- **Infraestructura** (`infrastructure/persistence/`): migración `V7__investments.sql` (esquema `investments` + 5 tablas); entidades `XJpaEntity` con `@Table(schema = "investments")` (FKs como columnas id planas, sin `@ManyToOne` — los agregados se referencian por id); repositorios Spring Data `XJpaRepository`; mappers `PortfolioJpaMapper`/`SecurityJpaMapper`/`InvestmentTransactionJpaMapper` (divisa propia de fee/tax: columna nula = divisa del apunte); adaptadores `XPersistenceAdapter` (upsert por clave natural en cotizaciones y tipos de cambio); `InvestmentQueryAdapter` (valoración RN-6 con última cotización ≤ hoy, conversión RN-7 dual con degradación 1:1, nada materializado).
 
-Pendiente (estructura prevista): read-side CQRS `InvestmentQueryPort` + views (`PositionView`, `PortfolioSummaryView`, `ValuationHistoryView`, `PerformanceView`, `IncomeView`) — H1.7; capa web `PortfolioController`/`SecurityController` + DTOs bajo `/api/investments` — H1.8; ACL `FlexReportParser` + caso de uso `ImportFlexReport` — H1.9/H1.10; `PerformanceCalculator` — F3; frontend `pages/investments/`, modelos en `models.ts`, llamadas en `api.service.ts` — H1.11.
+Pendiente (estructura prevista): capa web `PortfolioController`/`SecurityController` + DTOs bajo `/api/investments` — H1.8; ACL `FlexReportParser` + caso de uso `ImportFlexReport` — H1.9/H1.10; views `IncomeView` — F2 y `PerformanceView` + `PerformanceCalculator` — F3; frontend `pages/investments/`, modelos en `models.ts`, llamadas en `api.service.ts` — H1.11.

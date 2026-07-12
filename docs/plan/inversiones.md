@@ -33,7 +33,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.6 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.7 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -111,18 +111,18 @@ Tests: `@DataJpaTest` (Testcontainers).
 - [x] Refactor + suite verde (594 tests).
 - [x] Commit del hito.
 
-### H1.7 — Read-side CQRS (query port + views + adapter) ⬜
+### H1.7 — Read-side CQRS (query port + views + adapter) ✅
 
 Tests: `@DataJpaTest` del adapter.
 
-- [ ] `InvestmentQueryPort` + records `PositionView`, `PortfolioSummaryView`, `ValuationHistoryView`.
-- [ ] Posiciones valoradas: última cotización ≤ fecha (RN-6), posición sin cotización → a coste con aviso.
-- [ ] Conversión a divisa base con **doble mecanismo** RN-7: snapshots `fx_rate_to_base` para importes fijados (a), tabla `exchange_rate` para valoración a fecha (b).
-- [ ] Summary por cartera: valor total, aportado neto, P&L latente (% sobre coste capitalizado), efectivo por divisa, dividendos del año, fecha de valoración (§6).
-- [ ] Valuation-history: serie `{fecha, valor, aportado acumulado}` (§6/§7).
-- [ ] Resumen global multi-cartera **en EUR** (conversión vía pivote; fecha = la más antigua) — RF-10.
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] `InvestmentQueryPort` + records `PositionView`, `PortfolioSummaryView`, `ValuationHistoryView` (+ `InvestmentsSummaryView` para el resumen global RF-10).
+- [x] Posiciones valoradas: última cotización ≤ fecha (RN-6), posición sin cotización → a coste con aviso (`pricedAtCost`); cerradas excluidas, negativas listadas (RN-4).
+- [x] Conversión a divisa base con **doble mecanismo** RN-7: snapshots `fx_rate_to_base` para importes fijados (a), tabla `exchange_rate` para valoración a fecha (b); degradación 1:1 sin tipo.
+- [x] Summary por cartera: valor total, aportado neto, P&L latente (% sobre coste capitalizado), efectivo por divisa, dividendos del año (bruto), fecha de valoración = la más antigua usada (§6).
+- [x] Valuation-history: serie `{fecha, valor, aportado acumulado}` con puntos en fechas de flujo y de cotización (§6/§7).
+- [x] Resumen global multi-cartera **en EUR** (conversión vía pivote; fecha = la más antigua) — RF-10.
+- [x] Refactor + suite verde (606 tests).
+- [x] Commit del hito.
 
 ### H1.8 — Capa web + ArchUnit ⬜
 
