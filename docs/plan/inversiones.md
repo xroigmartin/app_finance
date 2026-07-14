@@ -39,7 +39,7 @@ Prompt sugerido para continuar en una sesión nueva:
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
 | F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ✅ Completa (H1.1–H1.12) |
-| F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
+| F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | 🔨 En curso (H2.1 ✅) |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
 
@@ -197,14 +197,14 @@ Tests: build + revisión manual.
 
 ## F2 — Vistas de rentas y alta manual
 
-### H2.1 — Dominio: agregación de rentas ⬜
+### H2.1 — Dominio: agregación de rentas ✅
 
 Tests: unitarios de dominio.
 
-- [ ] Agregados de rentas por periodo/instrumento sobre apuntes existentes (RF-7): dividendos/intereses en bruto, neto = bruto − `TAX` vinculada por instrumento+fecha; `TRADE_TAX` **excluido** (§9).
-- [ ] Comisiones/retenciones pagadas agregadas por periodo.
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] Agregados de rentas por periodo/instrumento sobre apuntes existentes (RF-7): `IncomeCalculator` → `IncomeStatement`/`InstrumentIncome` (bruto por instrumento+mes; neto = bruto − `TAX` vinculada por instrumento; `TRADE_TAX` **excluido**, §9; `INTEREST` sin instrumento agrupa bajo securityId nulo; conversión RN-7a snapshot → tabla → 1:1).
+- [x] Comisiones/retenciones pagadas agregadas por periodo (filas `FEE`/`TAX` + componentes `fee` de cualquier apunte y `tax` de apuntes de renta).
+- [x] Refactor + suite verde (666 tests).
+- [x] Commit del hito.
 
 ### H2.2 — `IncomeView` + adapter + endpoint ⬜
 
