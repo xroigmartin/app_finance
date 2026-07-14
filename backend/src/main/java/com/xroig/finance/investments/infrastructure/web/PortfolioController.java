@@ -1,6 +1,7 @@
 package com.xroig.finance.investments.infrastructure.web;
 
 import com.xroig.finance.investments.application.FlexImportResult;
+import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
 import com.xroig.finance.investments.application.PortfolioSummaryView;
@@ -100,6 +101,11 @@ public class PortfolioController {
     @GetMapping("/portfolios/{id}/valuation-history")
     public List<ValuationHistoryView> valuationHistory(@PathVariable Long id) {
         return queries.valuationHistory(id);
+    }
+
+    @GetMapping("/portfolios/{id}/income")
+    public IncomeView income(@PathVariable Long id) {
+        return queries.income(id);
     }
 
     @GetMapping("/summary")

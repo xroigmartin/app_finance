@@ -39,7 +39,7 @@ Prompt sugerido para continuar en una sesión nueva:
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
 | F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ✅ Completa (H1.1–H1.12) |
-| F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | 🔨 En curso (H2.1 ✅) |
+| F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | 🔨 En curso (H2.1–H2.2 ✅) |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
 
@@ -206,14 +206,14 @@ Tests: unitarios de dominio.
 - [x] Refactor + suite verde (666 tests).
 - [x] Commit del hito.
 
-### H2.2 — `IncomeView` + adapter + endpoint ⬜
+### H2.2 — `IncomeView` + adapter + endpoint ✅
 
 Tests: `@DataJpaTest` + `@WebMvcTest`.
 
-- [ ] `IncomeView` + query adapter (conversión con snapshot `fx_rate_to_base`, RN-7a).
-- [ ] Endpoint `GET /portfolios/{id}/income` (§6).
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] `IncomeView` (rentas por instrumento y mes: bruto/retenido/neto + comisiones y retenciones por mes, meses `"YYYY-MM"`, orden mes → nombre) + `income()` en `InvestmentQueryAdapter` delegando en `IncomeCalculator` (conversión con snapshot `fx_rate_to_base`, RN-7a).
+- [x] Endpoint `GET /portfolios/{id}/income` (§6) en `PortfolioController`; cartera inexistente → 404.
+- [x] Refactor + suite verde (671 tests).
+- [x] Commit del hito.
 
 ### H2.3 — Alta/edición manual de operaciones ⬜
 

@@ -1,6 +1,7 @@
 package com.xroig.finance.investments.infrastructure.persistence;
 
 import com.xroig.finance.PostgresTestBase;
+import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
 import com.xroig.finance.investments.application.PortfolioSummaryView;
 import com.xroig.finance.investments.application.PositionView;
@@ -315,8 +316,78 @@ class InvestmentQueryAdapterTest extends PostgresTestBase {
 
     // ---- helpers ----
 
+    // ---- income (H2.2, RF-7) ----
+
+    @Test
+    void income_aggregatesGrossAndLinkedWithholdingPerInstrumentAndMonth() {
+        PortfolioId portfolio = portfolios.save(Portfolio.create("IBKR", "EUR")).id();
+        SecurityId vwce = persistSecurity("IE00BK5BQT80", "EUR", "Vanguard FTSE All-World");
+        LocalDate march10 = LocalDate.of(2025, 3, 10);
+        transactions.save(dividend(portfolio, vwce, march10, "100", "CT-1"));
+        transactions.save(tax(portfolio, vwce, march10, "-15"));
+        transactions.save(feeRow(portfolio, march10, "-2"));
+        transactions.save(buy(portfolio, vwce, march10, "10", "100", "-1000", "-3"));
+
+        IncomeView view = adapter.income(portfolio.value());
+
+        assertThat(view.portfolioId()).isEqualTo(portfolio.value());
+        assertThat(view.baseCurrency()).isEqualTo("EUR");
+        assertThat(view.incomes()).hasSize(1);
+        var income = view.incomes().getFirst();
+        assertThat(income.securityId()).isEqualTo(vwce.value());
+        assertThat(income.name()).isEqualTo("Vanguard FTSE All-World");
+        assertThat(income.month()).isEqualTo("2025-03");
+        assertThat(income.gross()).isEqualByComparingTo("100");
+        assertThat(income.withheld()).isEqualByComparingTo("15");
+        assertThat(income.net()).isEqualByComparingTo("85");
+        assertThat(view.fees()).hasSize(1);
+        assertThat(view.fees().getFirst().month()).isEqualTo("2025-03");
+        assertThat(view.fees().getFirst().amount()).isEqualByComparingTo("5"); // fila FEE 2 + fee compra 3
+        assertThat(view.taxes()).hasSize(1);
+        assertThat(view.taxes().getFirst().amount()).isEqualByComparingTo("15");
+    }
+
+    @Test
+    void income_ordersEntriesByMonthAndInstrumentName() {
+        PortfolioId portfolio = portfolios.save(Portfolio.create("IBKR", "EUR")).id();
+        SecurityId zeta = persistSecurity("IE00ZZZZZZZ9", "EUR", "Zeta Fund");
+        SecurityId alpha = persistSecurity("IE00AAAAAAA1", "EUR", "Alpha Fund");
+        transactions.save(dividend(portfolio, zeta, LocalDate.of(2025, 1, 10), "10", "CT-1"));
+        transactions.save(dividend(portfolio, alpha, LocalDate.of(2025, 1, 20), "20", "CT-2"));
+        transactions.save(dividend(portfolio, alpha, LocalDate.of(2024, 12, 5), "30", "CT-3"));
+
+        IncomeView view = adapter.income(portfolio.value());
+
+        assertThat(view.incomes()).extracting(e -> e.month() + " " + e.name()).containsExactly(
+                "2024-12 Alpha Fund", "2025-01 Alpha Fund", "2025-01 Zeta Fund");
+    }
+
+    @Test
+    void income_unknownPortfolioThrowsNotFound() {
+        assertThatThrownBy(() -> adapter.income(999L)).isInstanceOf(NotFoundException.class);
+    }
+
     private SecurityId persistSecurity(String isin, String currency, String name) {
         return securities.save(Security.create(isin, currency, name, null, null, null, null)).id();
+    }
+
+    private InvestmentTransaction tax(PortfolioId portfolio, SecurityId security,
+                                      LocalDate date, String amount) {
+        return InvestmentTransaction.builder()
+                .portfolio(portfolio).security(security)
+                .type(InvestmentTransactionType.TAX)
+                .tradeDate(date)
+                .amount(CurrencyMoney.of(amount, "EUR"))
+                .build();
+    }
+
+    private InvestmentTransaction feeRow(PortfolioId portfolio, LocalDate date, String amount) {
+        return InvestmentTransaction.builder()
+                .portfolio(portfolio)
+                .type(InvestmentTransactionType.FEE)
+                .tradeDate(date)
+                .amount(CurrencyMoney.of(amount, "EUR"))
+                .build();
     }
 
     private InvestmentTransaction buy(PortfolioId portfolio, SecurityId security, LocalDate date,

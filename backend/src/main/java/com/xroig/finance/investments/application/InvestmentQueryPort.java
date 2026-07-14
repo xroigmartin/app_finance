@@ -19,6 +19,9 @@ public interface InvestmentQueryPort {
     /** Value vs cumulative contributions series for the evolution chart (§6/§7). */
     List<ValuationHistoryView> valuationHistory(long portfolioId);
 
+    /** Dividends/interest per instrument and month + fees/withholdings paid (RF-7). */
+    IncomeView income(long portfolioId);
+
     /** Aggregate wealth of every portfolio in EUR, for the dashboard card (RF-10). */
     InvestmentsSummaryView globalSummary();
 }

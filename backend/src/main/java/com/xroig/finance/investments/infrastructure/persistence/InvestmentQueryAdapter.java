@@ -1,5 +1,8 @@
 package com.xroig.finance.investments.infrastructure.persistence;
 
+import com.xroig.finance.investments.application.IncomeView;
+import com.xroig.finance.investments.application.IncomeView.IncomeEntryView;
+import com.xroig.finance.investments.application.IncomeView.MonthAmountView;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
 import com.xroig.finance.investments.application.InvestmentsSummaryView.PortfolioValueView;
@@ -10,6 +13,9 @@ import com.xroig.finance.investments.domain.CurrencyConverter;
 import com.xroig.finance.investments.domain.CurrencyMoney;
 import com.xroig.finance.investments.domain.ExchangeRate;
 import com.xroig.finance.investments.domain.ExchangeRateRepository;
+import com.xroig.finance.investments.domain.IncomeCalculator;
+import com.xroig.finance.investments.domain.IncomeStatement;
+import com.xroig.finance.investments.domain.InstrumentIncome;
 import com.xroig.finance.investments.domain.InvestmentTransaction;
 import com.xroig.finance.investments.domain.InvestmentTransactionRepository;
 import com.xroig.finance.investments.domain.InvestmentTransactionType;
@@ -29,6 +35,8 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -152,6 +160,38 @@ public class InvestmentQueryAdapter implements InvestmentQueryPort {
             history.add(new ValuationHistoryView(date, valuation.total().amount(), contributed.amount()));
         }
         return history;
+    }
+
+    @Override
+    public IncomeView income(long portfolioId) {
+        Portfolio portfolio = requirePortfolio(portfolioId);
+        Context ctx = load(portfolio, converter());
+        IncomeStatement statement = new IncomeCalculator().calculate(
+                portfolio.baseCurrency(), ctx.transactions(), ctx.converter());
+
+        List<IncomeEntryView> incomes = statement.incomes().stream()
+                .map(income -> toIncomeEntry(income, ctx))
+                .sorted(Comparator.comparing(IncomeEntryView::month)
+                        .thenComparing(entry -> entry.name() == null ? "" : entry.name()))
+                .toList();
+        return new IncomeView(portfolioId, portfolio.baseCurrency(), incomes,
+                monthAmounts(statement.feesByMonth()), monthAmounts(statement.taxesByMonth()));
+    }
+
+    private IncomeEntryView toIncomeEntry(InstrumentIncome income, Context ctx) {
+        Security security = income.securityId() == null ? null : ctx.security(income.securityId());
+        return new IncomeEntryView(
+                income.securityId() == null ? null : income.securityId().value(),
+                security == null ? null : security.name(),
+                income.month().toString(),
+                income.gross().amount(), income.withheld().amount(), income.net().amount());
+    }
+
+    private static List<MonthAmountView> monthAmounts(Map<YearMonth, CurrencyMoney> byMonth) {
+        return byMonth.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> new MonthAmountView(entry.getKey().toString(), entry.getValue().amount()))
+                .toList();
     }
 
     @Override

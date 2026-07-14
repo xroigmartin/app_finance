@@ -2,6 +2,7 @@ package com.xroig.finance.investments.infrastructure.web;
 
 import com.xroig.finance.investments.application.FlexImportResult;
 import com.xroig.finance.investments.application.FlexRowError;
+import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
 import com.xroig.finance.investments.application.InvestmentsSummaryView.PortfolioValueView;
@@ -73,6 +74,32 @@ class PortfolioControllerMvcTest {
                 .hasStatusOk()
                 .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
                 .bodyJson().extractingPath("$[0].name").isEqualTo("IBKR");
+    }
+
+    @Test
+    void income_returns200WithTheIncomeView() {
+        when(queries.income(7L)).thenReturn(new IncomeView(7L, "EUR",
+                List.of(new IncomeView.IncomeEntryView(42L, "Vanguard FTSE All-World", "2025-03",
+                        new BigDecimal("100"), new BigDecimal("15"), new BigDecimal("85"))),
+                List.of(new IncomeView.MonthAmountView("2025-03", new BigDecimal("5"))),
+                List.of(new IncomeView.MonthAmountView("2025-03", new BigDecimal("15")))));
+
+        var result = mvc.get().uri("/api/investments/portfolios/7/income").exchange();
+
+        assertThat(result).hasStatusOk().hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON);
+        assertThat(result).bodyJson().extractingPath("$.baseCurrency").isEqualTo("EUR");
+        assertThat(result).bodyJson().extractingPath("$.incomes[0].month").isEqualTo("2025-03");
+        assertThat(result).bodyJson().extractingPath("$.incomes[0].net").asNumber().isEqualTo(85);
+        assertThat(result).bodyJson().extractingPath("$.fees[0].amount").asNumber().isEqualTo(5);
+        assertThat(result).bodyJson().extractingPath("$.taxes[0].amount").asNumber().isEqualTo(15);
+    }
+
+    @Test
+    void income_unknownPortfolio_returns404() {
+        when(queries.income(99L)).thenThrow(new NotFoundException("Cartera no encontrada"));
+
+        assertThat(mvc.get().uri("/api/investments/portfolios/99/income"))
+                .hasStatus(HttpStatus.NOT_FOUND);
     }
 
     @Test
