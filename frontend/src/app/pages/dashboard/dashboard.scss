@@ -75,6 +75,21 @@ h2 {
   }
 }
 
+.portfolio-breakdown {
+  margin: .25rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: .8rem;
+  font-variant-numeric: tabular-nums;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: .75rem;
+    line-height: 1.4;
+  }
+}
+
 .charts {
   display: grid;
   grid-template-columns: 1.6fr 1fr;

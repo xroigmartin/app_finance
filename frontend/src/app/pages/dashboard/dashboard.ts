@@ -9,7 +9,7 @@ import { ApiService } from '../../api.service';
 import { ThemeService } from '../../theme.service';
 import {
   Account, AccountComparison, BalancePoint, BudgetStatus, CategoryAmount,
-  MonthlyPoint, Summary, Transaction
+  InvestmentsSummary, MonthlyPoint, Summary, Transaction
 } from '../../models';
 
 Chart.register(...registerables);
@@ -32,6 +32,12 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
   recent: Transaction[] = [];
   budgets: BudgetStatus[] = [];
   accounts: Account[] = [];
+
+  // Tarjeta de patrimonio invertido (RF-10 del PRD Inversiones): informativa e
+  // independiente de los filtros; se oculta sin carteras y degrada a "—" si la
+  // API de inversiones falla, sin tumbar el resto del dashboard.
+  investments: InvestmentsSummary | null = null;
+  investmentsError = false;
 
   year = new Date().getFullYear();
   month = new Date().getMonth() + 1;
@@ -70,6 +76,10 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.api.getAccounts().subscribe(a => this.accounts = a);
     this.api.getRecentTransactions().subscribe(t => this.recent = t);
+    this.api.getInvestmentsSummary().subscribe({
+      next: s => this.investments = s,
+      error: () => this.investmentsError = true
+    });
     this.load();
   }
 

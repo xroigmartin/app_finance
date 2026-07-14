@@ -38,7 +38,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.11 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ✅ Completa (H1.1–H1.12) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -184,14 +184,14 @@ Tests: build + revisión manual.
 - [x] Actualizar PRD Inversiones (§13 referencias de código, estado) — obligatorio.
 - [x] Commit del hito.
 
-### H1.12 — Tarjeta de patrimonio en el dashboard doméstico ⬜
+### H1.12 — Tarjeta de patrimonio en el dashboard doméstico ✅
 
 Tests: build + revisión manual.
 
-- [ ] Tarjeta con patrimonio agregado de todas las carteras + fecha de valoración; desglose por cartera si hay >1 (`GET /api/investments/summary`) — RF-10.
-- [ ] Degradación: oculta sin carteras/valor; "—" ante error de API sin romper el dashboard — RF-10.
-- [ ] Actualizar **PRD Dashboard** (`docs/prd/dashboard.md`) — obligatorio.
-- [ ] Commit del hito. **→ Cierra F1**: actualizar estado en PRD Inversiones y `docs/README.md`.
+- [x] Tarjeta con patrimonio agregado de todas las carteras + fecha de valoración (o "valorado a coste"); desglose por cartera si hay >1 (`GET /api/investments/summary`) — RF-10. En el grid de KPIs anuales, independiente de los filtros.
+- [x] Degradación: oculta sin carteras; "—" (no disponible) ante error de API sin romper el dashboard — RF-10.
+- [x] Actualizar **PRD Dashboard** (`docs/prd/dashboard.md`, RF-8 + §7) — obligatorio.
+- [x] Commit del hito. **→ Cierra F1**: estado actualizado en PRD Inversiones y `docs/README.md`.
 
 ---
 

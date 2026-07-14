@@ -18,7 +18,7 @@ Los PRD son de **creación y actualización obligatoria**. Cualquier cambio de c
 | Dashboard | [prd/dashboard.md](prd/dashboard.md) | ✅ Implementado |
 | Importación de extractos | [prd/importacion.md](prd/importacion.md) | ✅ Implementado |
 | Reglas de categorización | [prd/reglas-categorizacion.md](prd/reglas-categorizacion.md) | ✅ Implementado |
-| Inversiones | [prd/inversiones.md](prd/inversiones.md) | 🚧 En implementación (F1: dominio + persistencia, H1.1–H1.9) |
+| Inversiones | [prd/inversiones.md](prd/inversiones.md) | 🚧 En implementación (F1 ✅ completa: import Flex + posiciones/valoración + UI; F2 rentas/alta manual y F3 TWR/XIRR pendientes) |
 
 ## Estructura de un PRD
 

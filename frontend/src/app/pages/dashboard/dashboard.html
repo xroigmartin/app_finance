@@ -61,6 +61,32 @@
       </span>
       <span class="kpi-sub">ingresos − gastos sobre saldo inicial</span>
     </div>
+    @if (investmentsError) {
+      <div class="card kpi">
+        <span class="kpi-label">Patrimonio invertido</span>
+        <span class="kpi-value">—</span>
+        <span class="kpi-sub">no disponible</span>
+      </div>
+    } @else if (investments && investments.portfolios.length > 0) {
+      <div class="card kpi">
+        <span class="kpi-label">Patrimonio invertido</span>
+        <span class="kpi-value">{{ investments.totalValue | currency:'EUR' }}</span>
+        <span class="kpi-sub">
+          @if (investments.valuationDate) {
+            valorado a {{ investments.valuationDate | date:'dd/MM/yyyy' }}
+          } @else {
+            sin cotizaciones: valorado a coste
+          }
+        </span>
+        @if (investments.portfolios.length > 1) {
+          <ul class="portfolio-breakdown">
+            @for (p of investments.portfolios; track p.portfolioId) {
+              <li><span class="muted">{{ p.name }}</span> {{ p.value | currency:'EUR' }}</li>
+            }
+          </ul>
+        }
+      </div>
+    }
   </div>
 
   <h2 class="section-title">{{ monthLabel }} · {{ accountLabel }}</h2>
