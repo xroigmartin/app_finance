@@ -39,7 +39,7 @@ Prompt sugerido para continuar en una sesión nueva:
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
 | F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ✅ Completa (H1.1–H1.12) |
-| F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | 🔨 En curso (H2.1–H2.2 ✅) |
+| F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | 🔨 En curso (H2.1–H2.3 ✅) |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
 
@@ -215,15 +215,15 @@ Tests: `@DataJpaTest` + `@WebMvcTest`.
 - [x] Refactor + suite verde (671 tests).
 - [x] Commit del hito.
 
-### H2.3 — Alta/edición manual de operaciones ⬜
+### H2.3 — Alta/edición manual de operaciones ✅
 
 Tests: aplicación + `@WebMvcTest`.
 
-- [ ] Casos de uso crear/editar/eliminar operación (RF-2): invariantes de signos (§8), venta sin posición → `400` (RN-4 dura en manual).
-- [ ] Endpoints `GET/POST /portfolios/{id}/transactions` (listado filtrable por tipo/fechas/instrumento, sin paginación) + `PUT/DELETE /transactions/{id}` (§6).
-- [ ] Formulario de alta/edición en la UI.
-- [ ] Refactor + suite verde + PRD si hay desviaciones.
-- [ ] Commit del hito.
+- [x] Casos de uso crear/editar/eliminar operación (RF-2): `InvestmentTransactionService` — invariantes de signos en el agregado (§8), venta sin posición a su fecha → `400` (RN-4 dura en manual, adquisiciones del mismo día cuentan, edición excluye la propia fila); la edición preserva identidad y `external_id`.
+- [x] Endpoints `GET/POST /portfolios/{id}/transactions` (filtros tipo/fechas/instrumento, sin paginación, descendente) + `PUT/DELETE /transactions/{id}` (§6) — `InvestmentTransactionController`.
+- [x] Formulario de alta/edición en la UI (`components/investment-transaction-dialog.ts`, campos condicionales por tipo, botón en la página de inversión; `edit(tx)` reutilizable desde el listado de H2.4).
+- [x] Refactor + suite verde (689 tests + build frontend).
+- [x] Commit del hito.
 
 ### H2.4 — Frontend: pestañas de operaciones y dividendos ⬜
 

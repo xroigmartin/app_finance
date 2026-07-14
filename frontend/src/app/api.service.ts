@@ -4,10 +4,11 @@ import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
   Account, AccountComparison, AnnualBudget, BalancePoint, Budget, BudgetRequest, BudgetStatus,
-  Category, CategoryAmount, CategoryRule, FlexImportResult, ImportResult, InvestmentsSummary,
-  MonthlyPoint, Portfolio, PortfolioSummary, PositionView, RecurringBudget, RuleRequest,
-  RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer, TransferRequest,
-  ValuationPoint
+  Category, CategoryAmount, CategoryRule, FlexImportResult, ImportResult, InvestmentSecurity,
+  InvestmentTransactionFilter, InvestmentTransactionRequest, InvestmentTransactionView,
+  InvestmentsSummary, MonthlyPoint, Portfolio, PortfolioSummary, PositionView, RecurringBudget,
+  RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer,
+  TransferRequest, ValuationPoint
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -241,6 +242,36 @@ export class ApiService {
 
   getInvestmentsSummary(): Observable<InvestmentsSummary> {
     return this.http.get<InvestmentsSummary>(`${this.base}/investments/summary`);
+  }
+
+  getSecurities(): Observable<InvestmentSecurity[]> {
+    return this.http.get<InvestmentSecurity[]>(`${this.base}/investments/securities`);
+  }
+
+  getInvestmentTransactions(portfolioId: number,
+                            filter: InvestmentTransactionFilter = {}): Observable<InvestmentTransactionView[]> {
+    const params: Record<string, string | number> = {};
+    if (filter.type) params['type'] = filter.type;
+    if (filter.from) params['from'] = filter.from;
+    if (filter.to) params['to'] = filter.to;
+    if (filter.securityId) params['securityId'] = filter.securityId;
+    return this.http.get<InvestmentTransactionView[]>(
+      `${this.base}/investments/portfolios/${portfolioId}/transactions`, { params });
+  }
+
+  createInvestmentTransaction(portfolioId: number,
+                              req: InvestmentTransactionRequest): Observable<InvestmentTransactionView> {
+    return this.http.post<InvestmentTransactionView>(
+      `${this.base}/investments/portfolios/${portfolioId}/transactions`, req);
+  }
+
+  updateInvestmentTransaction(id: number,
+                              req: InvestmentTransactionRequest): Observable<InvestmentTransactionView> {
+    return this.http.put<InvestmentTransactionView>(`${this.base}/investments/transactions/${id}`, req);
+  }
+
+  deleteInvestmentTransaction(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/investments/transactions/${id}`);
   }
 
   importFlexReport(portfolioId: number, file: File): Observable<FlexImportResult> {

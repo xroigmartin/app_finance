@@ -285,6 +285,70 @@ export interface PortfolioValue {
   valuationDate: string | null;
 }
 
+export type InvestmentTransactionType =
+  | 'BUY' | 'SELL' | 'DIVIDEND' | 'INTEREST' | 'FEE' | 'TAX' | 'TRADE_TAX'
+  | 'SPLIT' | 'DEPOSIT' | 'WITHDRAWAL' | 'FX_TRADE';
+
+/** Instrumento del catálogo (identidad ISIN+divisa; alta automática en import). */
+export interface InvestmentSecurity {
+  id: number;
+  isin: string;
+  currency: string;
+  name: string;
+  ticker: string | null;
+  type: string | null;
+  exchange: string | null;
+  figi: string | null;
+}
+
+/** Una operación de cartera (listado y formulario de alta/edición, RF-2). */
+export interface InvestmentTransactionView {
+  id: number;
+  type: InvestmentTransactionType;
+  tradeDate: string;
+  securityId: number | null;
+  securityName: string | null;
+  quantity: number | null;
+  price: number | null;
+  amount: number;
+  currency: string;
+  counterAmount: number | null;
+  counterCurrency: string | null;
+  fee: number | null;
+  feeCurrency: string | null;
+  tax: number | null;
+  taxCurrency: string | null;
+  fxRateToBase: number | null;
+  description: string | null;
+  /** Nulo en apuntes manuales; prefijado ORD-/CT-/FTT-/CA- en importados (RN-10). */
+  externalId: string | null;
+}
+
+export interface InvestmentTransactionRequest {
+  type: InvestmentTransactionType;
+  tradeDate: string;
+  securityId?: number | null;
+  quantity?: number | null;
+  price?: number | null;
+  amount: number;
+  currency: string;
+  counterAmount?: number | null;
+  counterCurrency?: string | null;
+  fee?: number | null;
+  feeCurrency?: string | null;
+  tax?: number | null;
+  taxCurrency?: string | null;
+  fxRateToBase?: number | null;
+  description?: string | null;
+}
+
+export interface InvestmentTransactionFilter {
+  type?: InvestmentTransactionType;
+  from?: string;
+  to?: string;
+  securityId?: number;
+}
+
 /** Fila ilegible/no soportada/inválida del import Flex (§8). */
 export interface FlexRowError {
   section: string;

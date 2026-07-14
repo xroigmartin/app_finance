@@ -27,7 +27,11 @@
     }
   </div>
   @if (portfolioId != null) {
-    <app-flex-import-dialog [portfolioId]="portfolioId" (done)="load()" />
+    <div class="toolbar-actions">
+      <app-investment-transaction-dialog [portfolioId]="portfolioId"
+                                         [baseCurrency]="baseCurrency" (done)="load()" />
+      <app-flex-import-dialog [portfolioId]="portfolioId" (done)="load()" />
+    </div>
   }
 </div>
 

@@ -8,6 +8,7 @@ import { forkJoin } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ThemeService } from '../../theme.service';
 import { FlexImportDialog } from '../../components/flex-import-dialog';
+import { InvestmentTransactionDialog } from '../../components/investment-transaction-dialog';
 import { Portfolio, PortfolioSummary, PositionView, ValuationPoint } from '../../models';
 
 Chart.register(...registerables);
@@ -18,7 +19,7 @@ const CASH_COLOR = '#94a3b8';
 
 @Component({
   selector: 'app-investments',
-  imports: [CommonModule, FormsModule, FlexImportDialog],
+  imports: [CommonModule, FormsModule, FlexImportDialog, InvestmentTransactionDialog],
   templateUrl: './investments.html',
   styleUrl: './investments.scss'
 })

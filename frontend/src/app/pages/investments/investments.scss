@@ -13,6 +13,12 @@ h2 {
   flex-wrap: wrap;
 }
 
+.toolbar-actions {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
 .portfolio-nav {
   display: flex;
   align-items: center;
