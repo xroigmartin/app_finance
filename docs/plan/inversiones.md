@@ -38,7 +38,7 @@ Prompt sugerido para continuar en una sesión nueva:
 
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
-| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.10 ✅) |
+| F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | 🔨 En curso (H1.1–H1.11 ✅) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ⬜ Pendiente |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
@@ -169,19 +169,20 @@ Tests: aplicación mockeada + `@WebMvcTest`.
 - [x] Refactor + suite verde (656 tests).
 - [x] Commit del hito.
 
-### H1.11 — Frontend: página de inversión ⬜
+### H1.11 — Frontend: página de inversión ✅
 
 Tests: build + revisión manual.
 
-- [ ] Ruta lazy `pages/investments` + entrada "Inversión" en el menú lateral; modelos en `models.ts`, llamadas en `api.service.ts`.
-- [ ] Cabecera de KPIs (§7): valor total + fecha de valoración, aportado neto, P&L latente (€ y %), efectivo por divisa.
-- [ ] Donut de asignación (posiciones + efectivo) y gráfico evolución valor vs aportado (Chart.js + `ThemeService`).
-- [ ] Barras divergentes de P&L por posición.
-- [ ] Tabla de posiciones (cantidades negativas en rojo, RN-4; aviso "a coste" sin cotización, RN-6).
-- [ ] Diálogo de import Flex (adaptación del patrón `components/import-dialog.ts`) con resumen ok/duplicadas/errores/warnings.
-- [ ] `npm run build` verde + revisión manual.
-- [ ] Actualizar PRD Inversiones (§13 referencias de código, estado) — obligatorio.
-- [ ] Commit del hito.
+- [x] Ruta lazy `pages/investments` + entrada "Inversión" en el menú lateral; modelos en `models.ts`, llamadas en `api.service.ts`.
+- [x] Cabecera de KPIs (§7): valor total + fecha de valoración (o aviso "a coste"), aportado neto, P&L latente (€ y %), efectivo por divisa, dividendos del año (bruto).
+- [x] Donut de asignación (posiciones + efectivo) y gráfico evolución valor vs aportado (Chart.js + `ThemeService`, aportado escalonado).
+- [x] Barras divergentes de P&L por posición (horizontales, ordenadas de mejor a peor).
+- [x] Tabla de posiciones (cantidades negativas en rojo, RN-4; badge "a coste" sin cotización, RN-6).
+- [x] Diálogo de import Flex (`components/flex-import-dialog.ts`, adaptación del patrón `import-dialog.ts`) con resumen ok/duplicadas/errores/warnings.
+- [x] Extra no previsto: selector de cartera + alta inline (nombre + divisa base) y estado vacío guiado — sin cartera no hay dónde importar.
+- [x] `npm run build` verde + smoke de endpoints en local (revisión visual: usuario).
+- [x] Actualizar PRD Inversiones (§13 referencias de código, estado) — obligatorio.
+- [x] Commit del hito.
 
 ### H1.12 — Tarjeta de patrimonio en el dashboard doméstico ⬜
 

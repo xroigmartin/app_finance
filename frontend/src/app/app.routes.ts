@@ -13,6 +13,10 @@ export const routes: Routes = [
   // La gestión de transferencias se hace ahora desde Movimientos.
   { path: 'transfers', redirectTo: 'transactions' },
   {
+    path: 'investments',
+    loadComponent: () => import('./pages/investments/investments').then(m => m.InvestmentsPage)
+  },
+  {
     path: 'budgets',
     loadComponent: () => import('./pages/budgets/budgets').then(m => m.BudgetsPage)
   },

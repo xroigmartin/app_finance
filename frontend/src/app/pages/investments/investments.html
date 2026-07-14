@@ -1,0 +1,182 @@
+<h1>Inversión</h1>
+
+<div class="card toolbar">
+  <div class="portfolio-nav">
+    @if (portfolios.length > 0) {
+      <label class="portfolio-filter">Cartera
+        <select [(ngModel)]="portfolioId" (ngModelChange)="onPortfolioChange()">
+          @for (p of portfolios; track p.id) {
+            <option [ngValue]="p.id">{{ p.name }} ({{ p.baseCurrency }})</option>
+          }
+        </select>
+      </label>
+    }
+    @if (!creating) {
+      <button class="btn small" (click)="startCreate()">Nueva cartera</button>
+    } @else {
+      <form class="create-form" (ngSubmit)="createPortfolio()">
+        <input name="name" [(ngModel)]="newName" placeholder="Nombre de la cartera" required>
+        <input name="currency" class="currency" [(ngModel)]="newCurrency" maxlength="3"
+               placeholder="EUR" required title="Divisa base (ISO 4217); inmutable tras la creación">
+        <button class="btn small primary" type="submit" [disabled]="!newName.trim()">Crear</button>
+        <button class="btn small" type="button" (click)="cancelCreate()">Cancelar</button>
+      </form>
+      @if (createError) {
+        <span class="amount-expense">{{ createError }}</span>
+      }
+    }
+  </div>
+  @if (portfolioId != null) {
+    <app-flex-import-dialog [portfolioId]="portfolioId" (done)="load()" />
+  }
+</div>
+
+@if (loaded && portfolios.length === 0) {
+  <div class="card empty-state">
+    <h2>Sin carteras todavía</h2>
+    <p class="muted">
+      Crea una cartera con la misma divisa base que tu cuenta del broker y después importa
+      el informe Flex Query anual (XML) de Interactive Brokers. La divisa base no se puede
+      cambiar después.
+    </p>
+  </div>
+}
+
+@if (summary) {
+  <div class="kpis">
+    <div class="card kpi">
+      <span class="kpi-label">Valor total</span>
+      <span class="kpi-value">{{ summary.totalValue | currency:baseCurrency }}</span>
+      <span class="kpi-sub">
+        @if (summary.valuationDate) {
+          valorado a {{ summary.valuationDate | date:'dd/MM/yyyy' }}
+        } @else {
+          sin cotizaciones: valorado a coste
+        }
+      </span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Aportado neto</span>
+      <span class="kpi-value">{{ summary.netContributions | currency:baseCurrency }}</span>
+      <span class="kpi-sub">aportaciones − retiradas</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">P&amp;L latente</span>
+      <span class="kpi-value" [class.amount-income]="summary.latentPnl >= 0"
+            [class.amount-expense]="summary.latentPnl < 0">
+        {{ summary.latentPnl | currency:baseCurrency }}
+      </span>
+      <span class="kpi-sub">
+        @if (summary.latentPnlPercent !== null) {
+          {{ summary.latentPnlPercent | number:'1.2-2' }}% sobre el coste de adquisición
+        } @else {
+          —
+        }
+      </span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Efectivo disponible</span>
+      @if (cashEntries.length > 0) {
+        <span class="kpi-value cash-list">
+          @for (c of cashEntries; track c.currency) {
+            <span class="cash-line">{{ c.amount | currency:c.currency }}</span>
+          }
+        </span>
+      } @else {
+        <span class="kpi-value">—</span>
+      }
+      <span class="kpi-sub">por divisa</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Dividendos {{ currentYear }}</span>
+      <span class="kpi-value amount-income">{{ summary.dividendsThisYear | currency:baseCurrency }}</span>
+      <span class="kpi-sub">en bruto, antes de retenciones</span>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="card chart-card">
+      <h2>Evolución: valor vs aportado</h2>
+      <div class="chart-wrap"><canvas #evolutionChart></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <h2>Asignación de la cartera</h2>
+      <div class="chart-wrap"><canvas #allocationChart></canvas></div>
+    </div>
+  </div>
+
+  <div class="card chart-card full">
+    <h2>P&amp;L latente por posición</h2>
+    <div class="chart-wrap"><canvas #pnlChart></canvas></div>
+  </div>
+
+  <div class="card positions-card">
+    <h2>Posiciones</h2>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Instrumento</th>
+          <th class="num">Títulos</th>
+          <th class="num">Coste medio</th>
+          <th class="num">Precio</th>
+          <th class="num">Valor</th>
+          <th class="num">P&amp;L</th>
+          <th class="num">P&amp;L %</th>
+          <th class="num">Peso</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of positions; track p.securityId) {
+          <tr>
+            <td>
+              <div class="instrument">
+                <span>{{ p.name }}</span>
+                <span class="muted small-text">{{ p.ticker || p.isin }} · {{ p.currency }}</span>
+              </div>
+            </td>
+            <td class="num" [class.amount-expense]="p.quantity < 0">{{ p.quantity | number:'1.0-8' }}</td>
+            <td class="num">
+              @if (p.averageCost !== null) {
+                {{ p.averageCost | currency:baseCurrency }}
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="num">
+              @if (p.pricedAtCost) {
+                <span class="badge cost-badge" title="Sin cotización disponible: posición valorada a coste (RN-6)">a coste</span>
+              } @else if (p.marketPrice !== null) {
+                {{ p.marketPrice | currency:p.currency }}
+                <span class="muted small-text block">{{ p.quoteDate | date:'dd/MM/yyyy' }}</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="num">{{ p.marketValue | currency:baseCurrency }}</td>
+            <td class="num" [class.amount-income]="p.latentPnl >= 0"
+                [class.amount-expense]="p.latentPnl < 0">
+              {{ p.latentPnl | currency:baseCurrency }}
+            </td>
+            <td class="num" [class.amount-income]="(p.latentPnlPercent ?? 0) > 0"
+                [class.amount-expense]="(p.latentPnlPercent ?? 0) < 0">
+              @if (p.latentPnlPercent !== null) {
+                {{ p.latentPnlPercent | number:'1.2-2' }}%
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="num">
+              @if (p.weight !== null) {
+                {{ p.weight | number:'1.1-1' }}%
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="8" class="muted">Sin posiciones: importa un informe Flex para empezar.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

@@ -215,3 +215,87 @@ export interface AccountComparison {
   months: string[];
   accounts: AccountSeries[];
 }
+
+// ── Inversiones ────────────────────────────────────────────────────────────
+
+export interface Portfolio {
+  id?: number;
+  name: string;
+  /** ISO 4217; inmutable tras la creación (los snapshots RN-7a apuntan a ella). */
+  baseCurrency: string;
+}
+
+/** Posición valorada (view CQRS). Importes monetarios en la divisa base de la cartera. */
+export interface PositionView {
+  securityId: number;
+  isin: string;
+  name: string;
+  ticker: string | null;
+  /** Divisa de cotización del instrumento (la de marketPrice). */
+  currency: string;
+  quantity: number;
+  /** Null en posiciones cerradas o negativas (RN-4). */
+  averageCost: number | null;
+  costBasis: number;
+  marketPrice: number | null;
+  quoteDate: string | null;
+  marketValue: number;
+  latentPnl: number;
+  latentPnlPercent: number | null;
+  /** Peso sobre el valor total (posiciones + efectivo); null si el total es 0. */
+  weight: number | null;
+  /** True cuando no hay cotización y la posición se valora a coste (aviso RN-6). */
+  pricedAtCost: boolean;
+}
+
+/** KPIs de cabecera de una cartera; importes en su divisa base salvo cashByCurrency. */
+export interface PortfolioSummary {
+  portfolioId: number;
+  name: string;
+  baseCurrency: string;
+  totalValue: number;
+  /** Fecha de valoración (la cotización más antigua usada); null sin cotizaciones. */
+  valuationDate: string | null;
+  netContributions: number;
+  latentPnl: number;
+  latentPnlPercent: number | null;
+  cashByCurrency: Record<string, number>;
+  dividendsThisYear: number;
+}
+
+/** Punto de la serie de evolución: valor y aportado acumulado a una fecha. */
+export interface ValuationPoint {
+  date: string;
+  value: number;
+  contributed: number;
+}
+
+/** Resumen global multi-cartera en EUR (tarjeta del dashboard, RF-10). */
+export interface InvestmentsSummary {
+  totalValue: number;
+  valuationDate: string | null;
+  portfolios: PortfolioValue[];
+}
+
+export interface PortfolioValue {
+  portfolioId: number;
+  name: string;
+  baseCurrency: string;
+  value: number;
+  valuationDate: string | null;
+}
+
+/** Fila ilegible/no soportada/inválida del import Flex (§8). */
+export interface FlexRowError {
+  section: string;
+  reference: string | null;
+  message: string;
+}
+
+/** Resumen del import Flex: ok / duplicadas / errores / warnings (RF-4, RN-4). */
+export interface FlexImportResult {
+  imported: number;
+  duplicated: number;
+  errors: FlexRowError[];
+  warnings: string[];
+}

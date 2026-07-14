@@ -4,8 +4,10 @@ import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
   Account, AccountComparison, AnnualBudget, BalancePoint, Budget, BudgetRequest, BudgetStatus,
-  Category, CategoryAmount, CategoryRule, ImportResult, MonthlyPoint, RecurringBudget, RuleRequest,
-  RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer, TransferRequest
+  Category, CategoryAmount, CategoryRule, FlexImportResult, ImportResult, InvestmentsSummary,
+  MonthlyPoint, Portfolio, PortfolioSummary, PositionView, RecurringBudget, RuleRequest,
+  RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer, TransferRequest,
+  ValuationPoint
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -206,6 +208,46 @@ export class ApiService {
 
   deleteRecurrence(categoryId: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/categories/${categoryId}/recurrence`);
+  }
+
+  // Investments
+  getPortfolios(): Observable<Portfolio[]> {
+    return this.http.get<Portfolio[]>(`${this.base}/investments/portfolios`);
+  }
+
+  createPortfolio(portfolio: Portfolio): Observable<Portfolio> {
+    return this.http.post<Portfolio>(`${this.base}/investments/portfolios`, portfolio);
+  }
+
+  updatePortfolio(id: number, portfolio: Portfolio): Observable<Portfolio> {
+    return this.http.put<Portfolio>(`${this.base}/investments/portfolios/${id}`, portfolio);
+  }
+
+  deletePortfolio(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/investments/portfolios/${id}`);
+  }
+
+  getPositions(portfolioId: number): Observable<PositionView[]> {
+    return this.http.get<PositionView[]>(`${this.base}/investments/portfolios/${portfolioId}/positions`);
+  }
+
+  getPortfolioSummary(portfolioId: number): Observable<PortfolioSummary> {
+    return this.http.get<PortfolioSummary>(`${this.base}/investments/portfolios/${portfolioId}/summary`);
+  }
+
+  getValuationHistory(portfolioId: number): Observable<ValuationPoint[]> {
+    return this.http.get<ValuationPoint[]>(`${this.base}/investments/portfolios/${portfolioId}/valuation-history`);
+  }
+
+  getInvestmentsSummary(): Observable<InvestmentsSummary> {
+    return this.http.get<InvestmentsSummary>(`${this.base}/investments/summary`);
+  }
+
+  importFlexReport(portfolioId: number, file: File): Observable<FlexImportResult> {
+    const data = new FormData();
+    data.append('file', file);
+    return this.http.post<FlexImportResult>(
+      `${this.base}/investments/portfolios/${portfolioId}/import`, data);
   }
 
   // Category rules

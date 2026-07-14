@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | 🚧 En implementación — F1 en curso (H1.1–H1.10 completados) |
-| Versión | 0.31 |
-| Última actualización | 2026-07-12 |
+| Estado | 🚧 En implementación — F1 en curso (H1.1–H1.11 completados) |
+| Versión | 0.32 |
+| Última actualización | 2026-07-14 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -296,7 +296,7 @@ La multidivisa ya no es una fase: `exchange_rate`, el parser de *Conversion Rate
 
 ## 13. Referencias de código
 
-Implementado hasta H1.10 (`backend/src/main/java/com/xroig/finance/investments/`):
+Implementado hasta H1.11 (backend en `backend/src/main/java/com/xroig/finance/investments/`, frontend en `frontend/src/app/`):
 
 - **Dominio** (`domain/`, puro): agregados `Portfolio`, `Security`, `InvestmentTransaction` (builder + invariantes de signos por tipo vía `InvestmentTransactionType`); values `CurrencyMoney`, `Quantity`, `PriceQuote`, `ExchangeRate`, ids `PortfolioId`/`SecurityId`/`InvestmentTransactionId`, helper `IsoCurrency`; servicios `PositionCalculator` (→ `PortfolioPositions`, `Position`, `PositionWarning`) y `CurrencyConverter`; puertos de salida `PortfolioRepository`, `SecurityRepository`, `InvestmentTransactionRepository`, `PriceQuoteRepository`/`ExchangeRateRepository` (contrato upsert RN-9) y `PriceProviderPort` (sin adaptador, backlog F4).
 - **Aplicación** (`application/`): `PortfolioService` y `SecurityService` (`@Service`/`@Transactional`) implementando los puertos de entrada de `application/port/` (`CreateX`/`FindX`/`UpdateX`/`DeleteX`); read-side CQRS `InvestmentQueryPort` + views `PositionView`, `PortfolioSummaryView`, `ValuationHistoryView`, `InvestmentsSummaryView` (resumen global en EUR, RF-10); `FlexImportService` implementando `ImportFlexReport` (H1.10): valida la divisa base cuenta↔cartera antes de tocar filas (§8, rechazo entero), deduplica por `external_id` contra la BD **y dentro del propio fichero** (RN-10), resuelve/da de alta el `Security` por ISIN+divisa refrescando metadatos no identitarios (RN-9, una vez por identidad y fichero), traduce cada `FlexRow` al builder de `InvestmentTransaction` (los invariantes de §3 revalidan cada fila; fila inválida → `FlexRowError` sin abortar el resto), upsert de cotizaciones y tipos de cambio (RN-9) y, al final, recalcula posiciones con `PositionCalculator` para reportar *warnings* (venta sin posición RN-4, tipos de cambio ausentes) en el `FlexImportResult` (ok/duplicadas/errores/*warnings*).
@@ -304,4 +304,6 @@ Implementado hasta H1.10 (`backend/src/main/java/com/xroig/finance/investments/`
 - **Infraestructura** (`infrastructure/web/`): `PortfolioController` (CRUD `/api/investments/portfolios`, `POST .../{id}/import` multipart —campo `file`; límite subido a 10 MB en `application.properties`, los Flex anuales rondan 1,5 MB—, `GET .../positions|summary|valuation-history`, `GET /api/investments/summary`) y `SecurityController` (CRUD `/api/investments/securities`) con DTOs `PortfolioRequest`/`PortfolioResponse`/`SecurityRequest`/`SecurityResponse`; las views CQRS se serializan tal cual. Errores vía `shared.web.DomainExceptionHandler` (400/404/409 `problem+json`).
 - **Infraestructura** (`infrastructure/flex/`): ACL `FlexReportParser` implementando el puerto `FlexReportReader` (application) → `FlexReport` con `FlexRow`/`FlexInstrument`/`FlexQuote`/`FlexRowError` (application): traduce el Flex XML de IBKR según la configuración validada de §9 (Trades→`ORDER` con `FX_TRADE` por signos, Cash→`DETAIL`, Corporate Actions→`DETAIL` FS/RS, FTT→`ORDER_SUMMARY`, Open Positions→cotizaciones a `toDate`, Conversion Rates filtrados divisa→EUR), `external_id` prefijado `ORD-/CT-/FTT-/CA-` (RN-10) y errores por fila sin abortar el resto (§8). Fixture `flex-sample.xml` + smoke test condicional contra los informes reales.
 
-Pendiente (estructura prevista): views `IncomeView` — F2 y `PerformanceView` + `PerformanceCalculator` — F3; frontend `pages/investments/`, modelos en `models.ts`, llamadas en `api.service.ts` — H1.11.
+- **Frontend** (H1.11): página lazy `pages/investments/` ("Inversión" en el menú lateral, ruta `/investments`): selector de cartera + alta inline (nombre + divisa base, con aviso de inmutabilidad), cabecera de KPIs (valor total con fecha de valoración o aviso "a coste", aportado neto, P&L latente € y %, efectivo por divisa, dividendos del año en bruto), gráficos Chart.js integrados con `ThemeService` (evolución valor vs aportado —aportado escalonado—, donut de asignación con el efectivo como porción, barras horizontales divergentes de P&L por posición) y tabla de posiciones (cantidades negativas en rojo RN-4, badge "a coste" sin cotización RN-6); diálogo `components/flex-import-dialog.ts` (adaptación del patrón `import-dialog.ts`): sube el XML y muestra el resumen ok/duplicadas/errores/warnings. Modelos en `models.ts` (`Portfolio`, `PositionView`, `PortfolioSummary`, `ValuationPoint`, `InvestmentsSummary`, `FlexImportResult`…) y llamadas en `api.service.ts`.
+
+Pendiente (estructura prevista): views `IncomeView` — F2 y `PerformanceView` + `PerformanceCalculator` — F3; tarjeta de patrimonio en el dashboard doméstico — H1.12.

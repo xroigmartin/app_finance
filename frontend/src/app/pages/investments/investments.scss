@@ -1,0 +1,144 @@
+h2 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+  color: var(--heading);
+}
+
+.toolbar {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.portfolio-nav {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.portfolio-filter {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .85rem;
+  color: var(--heading);
+
+  select {
+    min-width: 14rem;
+  }
+}
+
+.create-form {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+
+  input {
+    padding: .35rem .6rem;
+  }
+
+  .currency {
+    width: 4.5rem;
+    text-transform: uppercase;
+  }
+}
+
+.empty-state {
+  h2 {
+    margin-bottom: .5rem;
+  }
+
+  p {
+    margin: 0;
+    max-width: 60ch;
+  }
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+
+  .kpi-label {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .kpi-value {
+    font-family: var(--serif);
+    font-size: 1.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--heading);
+  }
+
+  .kpi-sub {
+    font-size: .72rem;
+    color: var(--muted);
+  }
+}
+
+.cash-list {
+  display: flex;
+  flex-direction: column;
+
+  .cash-line {
+    line-height: 1.25;
+  }
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 1000px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-card.full {
+  margin-bottom: 1.5rem;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 300px;
+}
+
+.positions-card {
+  margin-bottom: 1.5rem;
+}
+
+.instrument {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+}
+
+.small-text {
+  font-size: .72rem;
+}
+
+.block {
+  display: block;
+}
+
+.cost-badge {
+  background: var(--gold);
+}
