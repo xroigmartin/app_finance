@@ -96,6 +96,30 @@
       <span class="kpi-value amount-income">{{ summary.dividendsThisYear | currency:baseCurrency }}</span>
       <span class="kpi-sub">en bruto, antes de retenciones</span>
     </div>
+    <div class="card kpi">
+      <span class="kpi-label">Rentabilidad (TWR)</span>
+      <span class="kpi-value" [class.amount-income]="(performance?.twrPercent ?? 0) > 0"
+            [class.amount-expense]="(performance?.twrPercent ?? 0) < 0">
+        @if (performance?.twrPercent !== null && performance?.twrPercent !== undefined) {
+          {{ performance!.twrPercent | number:'1.2-2' }}%
+        } @else {
+          —
+        }
+      </span>
+      <span class="kpi-sub">acumulada del periodo, neutraliza aportaciones</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Rentabilidad (XIRR)</span>
+      <span class="kpi-value" [class.amount-income]="(performance?.xirrPercent ?? 0) > 0"
+            [class.amount-expense]="(performance?.xirrPercent ?? 0) < 0">
+        @if (performance?.xirrPercent !== null && performance?.xirrPercent !== undefined) {
+          {{ performance!.xirrPercent | number:'1.2-2' }}%
+        } @else {
+          —
+        }
+      </span>
+      <span class="kpi-sub">anualizada, sobre tus flujos reales</span>
+    </div>
   </div>
 
   <div class="charts">
@@ -109,9 +133,15 @@
     </div>
   </div>
 
-  <div class="card chart-card full">
-    <h2>P&amp;L latente por posición</h2>
-    <div class="chart-wrap"><canvas #pnlChart></canvas></div>
+  <div class="charts two">
+    <div class="card chart-card">
+      <h2>P&amp;L latente por posición</h2>
+      <div class="chart-wrap"><canvas #pnlChart></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <h2>Rentabilidad por posición (%)</h2>
+      <div class="chart-wrap"><canvas #performanceChart></canvas></div>
+    </div>
   </div>
 
   <div class="card positions-card">
@@ -126,6 +156,8 @@
           <th class="num">Valor</th>
           <th class="num">P&amp;L</th>
           <th class="num">P&amp;L %</th>
+          <th class="num">TWR</th>
+          <th class="num">XIRR</th>
           <th class="num">Peso</th>
         </tr>
       </thead>
@@ -169,6 +201,22 @@
                 <span class="muted">—</span>
               }
             </td>
+            <td class="num" [class.amount-income]="(perfOf(p.securityId)?.twrPercent ?? 0) > 0"
+                [class.amount-expense]="(perfOf(p.securityId)?.twrPercent ?? 0) < 0">
+              @if (perfOf(p.securityId)?.twrPercent !== null && perfOf(p.securityId)?.twrPercent !== undefined) {
+                {{ perfOf(p.securityId)!.twrPercent | number:'1.2-2' }}%
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="num" [class.amount-income]="(perfOf(p.securityId)?.xirrPercent ?? 0) > 0"
+                [class.amount-expense]="(perfOf(p.securityId)?.xirrPercent ?? 0) < 0">
+              @if (perfOf(p.securityId)?.xirrPercent !== null && perfOf(p.securityId)?.xirrPercent !== undefined) {
+                {{ perfOf(p.securityId)!.xirrPercent | number:'1.2-2' }}%
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
             <td class="num">
               @if (p.weight !== null) {
                 {{ p.weight | number:'1.1-1' }}%
@@ -178,7 +226,7 @@
             </td>
           </tr>
         } @empty {
-          <tr><td colspan="8" class="muted">Sin posiciones: importa un informe Flex para empezar.</td></tr>
+          <tr><td colspan="10" class="muted">Sin posiciones: importa un informe Flex para empezar.</td></tr>
         }
       </tbody>
     </table>

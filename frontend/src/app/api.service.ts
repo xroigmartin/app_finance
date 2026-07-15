@@ -4,7 +4,7 @@ import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
   Account, AccountComparison, AnnualBudget, BalancePoint, Budget, BudgetRequest, BudgetStatus,
-  Category, CategoryAmount, CategoryRule, FlexImportResult, ImportResult, InvestmentIncome,
+  Category, CategoryAmount, CategoryRule, FlexImportResult, ImportResult, InvestmentIncome, InvestmentPerformance,
   InvestmentSecurity,
   InvestmentTransactionFilter, InvestmentTransactionRequest, InvestmentTransactionView,
   InvestmentsSummary, MonthlyPoint, Portfolio, PortfolioSummary, PositionView, RecurringBudget,
@@ -243,6 +243,11 @@ export class ApiService {
 
   getInvestmentIncome(portfolioId: number): Observable<InvestmentIncome> {
     return this.http.get<InvestmentIncome>(`${this.base}/investments/portfolios/${portfolioId}/income`);
+  }
+
+  getInvestmentPerformance(portfolioId: number): Observable<InvestmentPerformance> {
+    return this.http.get<InvestmentPerformance>(
+      `${this.base}/investments/portfolios/${portfolioId}/performance`);
   }
 
   getInvestmentsSummary(): Observable<InvestmentsSummary> {

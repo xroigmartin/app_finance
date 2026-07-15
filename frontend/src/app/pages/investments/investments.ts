@@ -10,9 +10,9 @@ import { ThemeService } from '../../theme.service';
 import { FlexImportDialog } from '../../components/flex-import-dialog';
 import { InvestmentTransactionDialog } from '../../components/investment-transaction-dialog';
 import {
-  INVESTMENT_TYPE_LABELS, InvestmentIncome, InvestmentSecurity, InvestmentTransactionFilter,
-  InvestmentTransactionType, InvestmentTransactionView, Portfolio, PortfolioSummary,
-  PositionView, ValuationPoint
+  INVESTMENT_TYPE_LABELS, InvestmentIncome, InvestmentPerformance, InvestmentSecurity,
+  InvestmentTransactionFilter, InvestmentTransactionType, InvestmentTransactionView, Portfolio,
+  PortfolioSummary, PositionPerformance, PositionView, ValuationPoint
 } from '../../models';
 
 Chart.register(...registerables);
@@ -38,6 +38,7 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
   summary: PortfolioSummary | null = null;
   positions: PositionView[] = [];
   history: ValuationPoint[] = [];
+  performance: InvestmentPerformance | null = null;
   loaded = false;
 
   // Alta de cartera (inline en la toolbar).
@@ -65,6 +66,7 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('allocationChart') allocationCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('evolutionChart') evolutionCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('pnlChart') pnlCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('performanceChart') performanceCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('dividendChart') dividendCanvas?: ElementRef<HTMLCanvasElement>;
 
   private charts: Chart[] = [];
@@ -115,11 +117,17 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
     this.load();
   }
 
+  /** Rentabilidad de una posición (para las columnas TWR/XIRR de la tabla). */
+  perfOf(securityId: number): PositionPerformance | null {
+    return this.performance?.positions.find(p => p.securityId === securityId) ?? null;
+  }
+
   load(): void {
     if (this.portfolioId == null) {
       this.summary = null;
       this.positions = [];
       this.history = [];
+      this.performance = null;
       this.transactions = [];
       this.income = null;
       this.renderCharts();
@@ -128,11 +136,13 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
     forkJoin({
       summary: this.api.getPortfolioSummary(this.portfolioId),
       positions: this.api.getPositions(this.portfolioId),
-      history: this.api.getValuationHistory(this.portfolioId)
+      history: this.api.getValuationHistory(this.portfolioId),
+      performance: this.api.getInvestmentPerformance(this.portfolioId)
     }).subscribe(r => {
       this.summary = r.summary;
       this.positions = r.positions;
       this.history = r.history;
+      this.performance = r.performance;
       // Los canvas viven dentro de @if (summary): esperar a que el DOM se actualice.
       setTimeout(() => this.renderCharts());
     });
@@ -266,7 +276,42 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
     this.renderAllocation(text);
     this.renderEvolution(text, grid);
     this.renderPnl(text, grid);
+    this.renderPerformance(text, grid);
     this.renderDividends(text, grid);
+  }
+
+  /** Barras horizontales de rentabilidad por posición: TWR acumulada y XIRR anual, en % (§7). */
+  private renderPerformance(text: string, grid: string): void {
+    const canvas = this.performanceCanvas?.nativeElement;
+    if (!canvas || !this.performance) return;
+    const sorted = [...this.performance.positions]
+      .sort((a, b) => (b.xirrPercent ?? -Infinity) - (a.xirrPercent ?? -Infinity));
+    this.charts.push(new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: sorted.map(p => p.name),
+        datasets: [
+          { label: 'XIRR anual', data: sorted.map(p => p.xirrPercent), backgroundColor: '#2563eb' },
+          { label: 'TWR acumulada', data: sorted.map(p => p.twrPercent), backgroundColor: '#96762a' }
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: text } },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${(ctx.parsed as { x: number }).x?.toFixed(2) ?? '—'} %`
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: text, callback: value => `${value} %` }, grid: { color: grid } },
+          y: { ticks: { color: text }, grid: { display: false } }
+        }
+      }
+    }));
   }
 
   /**

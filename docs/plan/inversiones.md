@@ -40,7 +40,7 @@ Prompt sugerido para continuar en una sesión nueva:
 |---|---|---|---|
 | F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ✅ Completa (H1.1–H1.12) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ✅ Completa (H2.1–H2.4) |
-| F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | 🔨 En curso (H3.1–H3.3 ✅) |
+| F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ✅ Completa (H3.1–H3.4) |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
 
 Leyenda: ⬜ pendiente · 🔨 en curso · ✅ hecho (commit creado) · 🗄️ backlog
@@ -265,14 +265,14 @@ Tests: `@DataJpaTest` + `@WebMvcTest`.
 - [x] Refactor + suite verde (713 tests).
 - [x] Commit del hito.
 
-### H3.4 — Frontend: rentabilidad ⬜
+### H3.4 — Frontend: rentabilidad ✅
 
 Tests: build + revisión manual.
 
-- [ ] TWR/XIRR en KPIs de cabecera y por posición en la tabla (§7).
-- [ ] Gráfico de rentabilidad por posición (barras horizontales, %).
-- [ ] Build verde + revisión manual + PRD actualizado.
-- [ ] Commit del hito. **→ Cierra F3**: actualizar estado en PRD y `docs/README.md`.
+- [x] TWR/XIRR en KPIs de cabecera (tarjetas «Rentabilidad (TWR)» acumulada y «Rentabilidad (XIRR)» anualizada, «—» si no calculable) y por posición en la tabla (columnas TWR/XIRR con color por signo) (§7).
+- [x] Gráfico de rentabilidad por posición (barras horizontales, %): XIRR y TWR por instrumento ordenado por XIRR, junto al gráfico de P&L.
+- [x] Build verde + smoke del endpoint en local (revisión visual: usuario) + PRD actualizado.
+- [x] Commit del hito. **→ Cierra F3**: estado actualizado en PRD (✅ Implementado, F4 backlog) y `docs/README.md`.
 
 ---
 

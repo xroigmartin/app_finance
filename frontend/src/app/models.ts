@@ -383,6 +383,26 @@ export interface InvestmentIncome {
   taxes: MonthAmount[];
 }
 
+/** Rentabilidad de una posición abierta (RN-8); porcentajes, null si no calculable. */
+export interface PositionPerformance {
+  securityId: number;
+  name: string;
+  /** TWR acumulada del periodo observado, en %. */
+  twrPercent: number | null;
+  /** XIRR anualizada, en %. */
+  xirrPercent: number | null;
+}
+
+/** Rentabilidad de la cartera (RN-8): TWR acumulada y XIRR anual, total y por posición. */
+export interface InvestmentPerformance {
+  portfolioId: number;
+  baseCurrency: string;
+  valuationDate: string | null;
+  twrPercent: number | null;
+  xirrPercent: number | null;
+  positions: PositionPerformance[];
+}
+
 /** Fila ilegible/no soportada/inválida del import Flex (§8). */
 export interface FlexRowError {
   section: string;
