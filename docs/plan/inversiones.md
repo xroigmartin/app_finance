@@ -40,7 +40,7 @@ Prompt sugerido para continuar en una sesión nueva:
 |---|---|---|---|
 | F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ✅ Completa (H1.1–H1.12) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ✅ Completa (H2.1–H2.4) |
-| F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | 🔨 En curso (H3.1 ✅) |
+| F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | 🔨 En curso (H3.1–H3.2 ✅) |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
 
 Leyenda: ⬜ pendiente · 🔨 en curso · ✅ hecho (commit creado) · 🗄️ backlog
@@ -248,13 +248,13 @@ Tests: unitarios de dominio (casos conocidos, convergencia, extremos).
 - [x] Refactor + suite verde (700 tests): conversión de importes fijados extraída a `CurrencyConverter.fixedToBase` (compartida por rentas, rentabilidad y read-side; la variante con warnings queda en `PositionCalculator`).
 - [x] Commit del hito.
 
-### H3.2 — `PerformanceCalculator`: TWR ⬜
+### H3.2 — `PerformanceCalculator`: TWR ✅
 
 Tests: unitarios de dominio.
 
-- [ ] TWR encadenado por subperiodos delimitados por `DEPOSIT`/`WITHDRAWAL` sobre la serie de valoraciones disponible (RN-8).
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] TWR encadenado por subperiodos delimitados por `DEPOSIT`/`WITHDRAWAL` sobre la serie de valoraciones (RN-8): `portfolioTwr(base, transacciones, rates, List<ValuationPoint>)` — acumulada sin anualizar; el valor de un punto ya incluye el flujo del día → subperiodo `(V_i − F_i) / V_(i−1)`; flujos convertidos RN-7a; neutraliza aportaciones y retiradas (tests a 21 % con flujo intermedio), `FX_TRADE` ni delimita ni cuenta, vacío con <2 puntos o arranque no positivo.
+- [x] Refactor + suite verde (707 tests): `isExternalFlow` compartido entre XIRR y TWR.
+- [x] Commit del hito.
 
 ### H3.3 — `PerformanceView` + adapter + endpoint ⬜
 

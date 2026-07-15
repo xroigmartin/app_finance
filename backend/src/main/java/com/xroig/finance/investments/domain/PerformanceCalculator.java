@@ -31,6 +31,59 @@ public class PerformanceCalculator {
     public record Cashflow(LocalDate date, BigDecimal amount) {
     }
 
+    /** The portfolio's value at a date, in the base currency (a valuation-series point). */
+    public record ValuationPoint(LocalDate date, BigDecimal value) {
+    }
+
+    /**
+     * Cumulative TWR (RN-8): chains the sub-period returns of the valuation
+     * series, neutralizing the external flows ({@code DEPOSIT}/{@code WITHDRAWAL},
+     * portfolio sign, converted RN-7a). The series' value at a flow date already
+     * includes that day's flow, so each sub-period return is
+     * {@code (V_i − F_i) / V_(i−1)} with {@code F_i} the net flow in
+     * {@code (d_(i−1), d_i]}. {@code FX_TRADE} neither delimits sub-periods nor
+     * counts as a flow. Empty with fewer than two points or a non-positive
+     * sub-period start value. Not annualized: it is the period's return.
+     */
+    public Optional<BigDecimal> portfolioTwr(String baseCurrency,
+                                             List<InvestmentTransaction> transactions,
+                                             CurrencyConverter rates,
+                                             List<ValuationPoint> valuations) {
+        String base = IsoCurrency.require(baseCurrency);
+        List<ValuationPoint> series = valuations.stream()
+                .sorted(java.util.Comparator.comparing(ValuationPoint::date))
+                .toList();
+        if (series.size() < 2) {
+            return Optional.empty();
+        }
+        List<Cashflow> flows = transactions.stream()
+                .filter(PerformanceCalculator::isExternalFlow)
+                .map(tx -> new Cashflow(tx.tradeDate(), rates.fixedToBase(tx.amount(), tx, base).amount()))
+                .toList();
+
+        double factor = 1;
+        for (int i = 1; i < series.size(); i++) {
+            LocalDate from = series.get(i - 1).date();
+            LocalDate to = series.get(i).date();
+            double flow = flows.stream()
+                    .filter(f -> f.date().isAfter(from) && !f.date().isAfter(to))
+                    .mapToDouble(f -> f.amount().doubleValue())
+                    .sum();
+            double start = series.get(i - 1).value().doubleValue();
+            if (start <= 0) {
+                return Optional.empty();
+            }
+            factor *= (series.get(i).value().doubleValue() - flow) / start;
+        }
+        return Optional.of(new BigDecimal(factor - 1, MathContext.DECIMAL64)
+                .setScale(RESULT_SCALE, java.math.RoundingMode.HALF_UP));
+    }
+
+    private static boolean isExternalFlow(InvestmentTransaction tx) {
+        return tx.type() == InvestmentTransactionType.DEPOSIT
+                || tx.type() == InvestmentTransactionType.WITHDRAWAL;
+    }
+
     /**
      * XIRR of the portfolio (RN-8): the external flows — {@code DEPOSIT}/
      * {@code WITHDRAWAL} with the investor's sign (a contribution is money the
@@ -45,14 +98,11 @@ public class PerformanceCalculator {
                                               CurrencyMoney currentValue,
                                               LocalDate valuationDate) {
         String base = IsoCurrency.require(baseCurrency);
-        List<Cashflow> flows = new ArrayList<>();
-        for (InvestmentTransaction tx : transactions) {
-            if (tx.type() == InvestmentTransactionType.DEPOSIT
-                    || tx.type() == InvestmentTransactionType.WITHDRAWAL) {
-                CurrencyMoney inBase = rates.fixedToBase(tx.amount(), tx, base);
-                flows.add(new Cashflow(tx.tradeDate(), inBase.amount().negate()));
-            }
-        }
+        List<Cashflow> flows = new ArrayList<>(transactions.stream()
+                .filter(PerformanceCalculator::isExternalFlow)
+                .map(tx -> new Cashflow(tx.tradeDate(),
+                        rates.fixedToBase(tx.amount(), tx, base).amount().negate()))
+                .toList());
         flows.add(new Cashflow(valuationDate, currentValue.amount()));
         return xirr(flows);
     }
