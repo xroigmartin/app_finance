@@ -3,6 +3,7 @@ package com.xroig.finance.investments.infrastructure.persistence;
 import com.xroig.finance.PostgresTestBase;
 import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
+import com.xroig.finance.investments.application.PerformanceView;
 import com.xroig.finance.investments.application.PortfolioSummaryView;
 import com.xroig.finance.investments.application.PositionView;
 import com.xroig.finance.investments.application.ValuationHistoryView;
@@ -315,6 +316,73 @@ class InvestmentQueryAdapterTest extends PostgresTestBase {
     }
 
     // ---- helpers ----
+
+    // ---- performance (H3.3, RN-8) ----
+
+    @Test
+    void performance_totalAndPerPositionOnAKnownScenario() {
+        // Aportación 1000 y compra 10×100 hace un año; cotización 100 entonces y 110 hoy:
+        // XIRR anual 10 % y TWR acumulada 10 %, en total y en la posición.
+        PortfolioId portfolio = portfolios.save(Portfolio.create("IBKR", "EUR")).id();
+        SecurityId vwce = persistSecurity("IE00BK5BQT80", "EUR", "Vanguard FTSE All-World");
+        LocalDate start = TODAY.minusDays(365);
+        transactions.save(deposit(portfolio, start, "1000"));
+        transactions.save(buy(portfolio, vwce, start, "10", "100", "-1000", null));
+        quotes.upsert(PriceQuote.of(vwce, start, "100"));
+        quotes.upsert(PriceQuote.of(vwce, TODAY, "110"));
+
+        PerformanceView view = adapter.performance(portfolio.value());
+
+        assertThat(view.portfolioId()).isEqualTo(portfolio.value());
+        assertThat(view.baseCurrency()).isEqualTo("EUR");
+        assertThat(view.twrPercent()).isEqualByComparingTo("10.00");
+        assertThat(view.xirrPercent()).isEqualByComparingTo("10.00");
+        assertThat(view.positions()).hasSize(1);
+        var position = view.positions().getFirst();
+        assertThat(position.securityId()).isEqualTo(vwce.value());
+        assertThat(position.name()).isEqualTo("Vanguard FTSE All-World");
+        assertThat(position.twrPercent()).isEqualByComparingTo("10.00");
+        assertThat(position.xirrPercent()).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void performance_dividendsCountAsReturn() {
+        // Como el anterior, más un dividendo de 110 hoy: 1210 recuperados sobre 1000 → 21 %.
+        PortfolioId portfolio = portfolios.save(Portfolio.create("IBKR", "EUR")).id();
+        SecurityId vwce = persistSecurity("IE00BK5BQT80", "EUR", "Vanguard FTSE All-World");
+        LocalDate start = TODAY.minusDays(365);
+        transactions.save(deposit(portfolio, start, "1000"));
+        transactions.save(buy(portfolio, vwce, start, "10", "100", "-1000", null));
+        transactions.save(dividend(portfolio, vwce, TODAY, "110", null));
+        quotes.upsert(PriceQuote.of(vwce, start, "100"));
+        quotes.upsert(PriceQuote.of(vwce, TODAY, "110"));
+
+        PerformanceView view = adapter.performance(portfolio.value());
+
+        assertThat(view.twrPercent()).isEqualByComparingTo("21.00");
+        assertThat(view.xirrPercent()).isEqualByComparingTo("21.00");
+        var position = view.positions().getFirst();
+        assertThat(position.twrPercent()).isEqualByComparingTo("21.00");
+        assertThat(position.xirrPercent()).isEqualByComparingTo("21.00");
+    }
+
+    @Test
+    void performance_notComputableYieldsNulls() {
+        // Solo una aportación hoy: sin recorrido ni cotizaciones no hay tasa que calcular.
+        PortfolioId portfolio = portfolios.save(Portfolio.create("IBKR", "EUR")).id();
+        transactions.save(deposit(portfolio, TODAY, "1000"));
+
+        PerformanceView view = adapter.performance(portfolio.value());
+
+        assertThat(view.twrPercent()).isNull();
+        assertThat(view.xirrPercent()).isNull();
+        assertThat(view.positions()).isEmpty();
+    }
+
+    @Test
+    void performance_unknownPortfolioThrowsNotFound() {
+        assertThatThrownBy(() -> adapter.performance(999L)).isInstanceOf(NotFoundException.class);
+    }
 
     // ---- income (H2.2, RF-7) ----
 

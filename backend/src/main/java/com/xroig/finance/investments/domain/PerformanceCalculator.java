@@ -50,17 +50,26 @@ public class PerformanceCalculator {
                                              CurrencyConverter rates,
                                              List<ValuationPoint> valuations) {
         String base = IsoCurrency.require(baseCurrency);
+        List<Cashflow> flows = transactions.stream()
+                .filter(PerformanceCalculator::isExternalFlow)
+                .map(tx -> new Cashflow(tx.tradeDate(), rates.fixedToBase(tx.amount(), tx, base).amount()))
+                .toList();
+        return twr(valuations, flows);
+    }
+
+    /**
+     * Núcleo del TWR: encadena los subperiodos de la serie con flujos ya en
+     * "signo entidad valorada" (dinero que entra en lo valorado, positivo). Lo
+     * usa {@link #portfolioTwr} y el read-side para el TWR por posición, donde
+     * el flujo es el efecto de caja de cada operación negado.
+     */
+    public Optional<BigDecimal> twr(List<ValuationPoint> valuations, List<Cashflow> flows) {
         List<ValuationPoint> series = valuations.stream()
                 .sorted(java.util.Comparator.comparing(ValuationPoint::date))
                 .toList();
         if (series.size() < 2) {
             return Optional.empty();
         }
-        List<Cashflow> flows = transactions.stream()
-                .filter(PerformanceCalculator::isExternalFlow)
-                .map(tx -> new Cashflow(tx.tradeDate(), rates.fixedToBase(tx.amount(), tx, base).amount()))
-                .toList();
-
         double factor = 1;
         for (int i = 1; i < series.size(); i++) {
             LocalDate from = series.get(i - 1).date();

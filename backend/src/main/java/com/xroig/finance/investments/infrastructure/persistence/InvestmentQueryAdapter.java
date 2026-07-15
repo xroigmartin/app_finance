@@ -5,6 +5,8 @@ import com.xroig.finance.investments.application.IncomeView.IncomeEntryView;
 import com.xroig.finance.investments.application.IncomeView.MonthAmountView;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
+import com.xroig.finance.investments.application.PerformanceView;
+import com.xroig.finance.investments.application.PerformanceView.PositionPerformanceView;
 import com.xroig.finance.investments.application.InvestmentsSummaryView.PortfolioValueView;
 import com.xroig.finance.investments.application.PortfolioSummaryView;
 import com.xroig.finance.investments.application.PositionView;
@@ -23,6 +25,9 @@ import com.xroig.finance.investments.domain.Portfolio;
 import com.xroig.finance.investments.domain.PortfolioId;
 import com.xroig.finance.investments.domain.PortfolioPositions;
 import com.xroig.finance.investments.domain.PortfolioRepository;
+import com.xroig.finance.investments.domain.PerformanceCalculator;
+import com.xroig.finance.investments.domain.PerformanceCalculator.Cashflow;
+import com.xroig.finance.investments.domain.PerformanceCalculator.ValuationPoint;
 import com.xroig.finance.investments.domain.Position;
 import com.xroig.finance.investments.domain.PositionCalculator;
 import com.xroig.finance.investments.domain.Quantity;
@@ -192,6 +197,106 @@ public class InvestmentQueryAdapter implements InvestmentQueryPort {
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> new MonthAmountView(entry.getKey().toString(), entry.getValue().amount()))
                 .toList();
+    }
+
+    @Override
+    public PerformanceView performance(long portfolioId) {
+        Portfolio portfolio = requirePortfolio(portfolioId);
+        Context ctx = load(portfolio, converter());
+        LocalDate today = LocalDate.now();
+        String base = portfolio.baseCurrency();
+        Valuation valuation = valueAt(ctx, ctx.transactions(), today);
+        PerformanceCalculator performance = new PerformanceCalculator();
+
+        List<ValuationPoint> series = valuationHistory(portfolioId).stream()
+                .map(point -> new ValuationPoint(point.date(), point.value()))
+                .toList();
+        BigDecimal twr = ratePercent(performance.portfolioTwr(
+                base, ctx.transactions(), ctx.converter(), series));
+        BigDecimal xirr = ratePercent(performance.portfolioXirr(
+                base, ctx.transactions(), ctx.converter(), valuation.total(), today));
+
+        List<PositionPerformanceView> positions = valuation.positions().stream()
+                .map(valued -> positionPerformance(valued, ctx, today, performance))
+                .toList();
+        return new PerformanceView(portfolioId, base, valuation.valuationDate(), twr, xirr, positions);
+    }
+
+    /**
+     * Rendimiento de una posición (RN-8): el XIRR usa los flujos de caja reales
+     * del instrumento (importe + comisión + retención de cada operación, con su
+     * signo) más el valor actual; el TWR encadena sus valoraciones en fechas de
+     * cotización, con el efecto de caja de cada operación negado como flujo
+     * "hacia" la posición — así compras/ventas se neutralizan y dividendos y
+     * costes cuentan como rendimiento.
+     */
+    private PositionPerformanceView positionPerformance(ValuedPosition valued, Context ctx,
+                                                        LocalDate today, PerformanceCalculator performance) {
+        String base = ctx.portfolio().baseCurrency();
+        SecurityId securityId = valued.position().securityId();
+        List<InvestmentTransaction> mine = ctx.transactions().stream()
+                .filter(tx -> securityId.equals(tx.securityId()))
+                .toList();
+        List<Cashflow> cashEffects = mine.stream()
+                .map(tx -> new Cashflow(tx.tradeDate(), cashEffectInBase(tx, base, ctx.converter()).amount()))
+                .toList();
+
+        List<Cashflow> xirrFlows = new ArrayList<>(cashEffects);
+        xirrFlows.add(new Cashflow(today, valued.marketValue().amount()));
+        BigDecimal xirr = ratePercent(performance.xirr(xirrFlows));
+
+        BigDecimal twr = ratePercent(performance.twr(
+                positionValuations(mine, securityId, ctx, today),
+                cashEffects.stream()
+                        .map(flow -> new Cashflow(flow.date(), flow.amount().negate()))
+                        .toList()));
+
+        Security security = ctx.security(securityId);
+        return new PositionPerformanceView(securityId.value(), security.name(), twr, xirr);
+    }
+
+    /** Efecto de caja total de una operación (importe + comisión + retención), en base (RN-7a). */
+    private CurrencyMoney cashEffectInBase(InvestmentTransaction tx, String base, CurrencyConverter converter) {
+        CurrencyMoney sum = fixedToBase(tx.amount(), tx, base, converter);
+        if (tx.fee() != null) {
+            sum = sum.add(fixedToBase(tx.fee(), tx, base, converter));
+        }
+        if (tx.tax() != null) {
+            sum = sum.add(fixedToBase(tx.tax(), tx, base, converter));
+        }
+        return sum;
+    }
+
+    /** Serie de valoración de una posición: cantidad acumulada × cotización, en base, por fecha de cotización. */
+    private List<ValuationPoint> positionValuations(List<InvestmentTransaction> mine,
+                                                    SecurityId securityId, Context ctx, LocalDate today) {
+        NavigableMap<LocalDate, BigDecimal> quoteSeries = ctx.quoteSeries().get(securityId.value());
+        if (quoteSeries == null || mine.isEmpty()) {
+            return List.of();
+        }
+        LocalDate firstTrade = mine.stream()
+                .map(InvestmentTransaction::tradeDate)
+                .min(LocalDate::compareTo).orElseThrow();
+        String currency = ctx.security(securityId).currency();
+        String base = ctx.portfolio().baseCurrency();
+        List<ValuationPoint> series = new ArrayList<>();
+        for (Map.Entry<LocalDate, BigDecimal> quote
+                : quoteSeries.subMap(firstTrade, true, today, true).entrySet()) {
+            BigDecimal quantity = mine.stream()
+                    .filter(tx -> tx.quantity() != null && !tx.tradeDate().isAfter(quote.getKey()))
+                    .map(tx -> tx.quantity().value())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            CurrencyMoney raw = CurrencyMoney.of(quantity.multiply(quote.getValue()), currency);
+            series.add(new ValuationPoint(quote.getKey(),
+                    valueToCurrency(raw, base, quote.getKey(), ctx.converter()).amount()));
+        }
+        return series;
+    }
+
+    /** Tasa (fracción) → porcentaje escala 2, o null si no es calculable. */
+    private static BigDecimal ratePercent(java.util.Optional<BigDecimal> rate) {
+        return rate.map(r -> r.multiply(HUNDRED).setScale(PERCENT_SCALE, RoundingMode.HALF_UP))
+                .orElse(null);
     }
 
     @Override

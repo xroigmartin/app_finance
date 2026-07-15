@@ -5,6 +5,7 @@ import com.xroig.finance.investments.application.FlexRowError;
 import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
+import com.xroig.finance.investments.application.PerformanceView;
 import com.xroig.finance.investments.application.InvestmentsSummaryView.PortfolioValueView;
 import com.xroig.finance.investments.application.PortfolioSummaryView;
 import com.xroig.finance.investments.application.PositionView;
@@ -74,6 +75,30 @@ class PortfolioControllerMvcTest {
                 .hasStatusOk()
                 .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
                 .bodyJson().extractingPath("$[0].name").isEqualTo("IBKR");
+    }
+
+    @Test
+    void performance_returns200WithTheView() {
+        when(queries.performance(7L)).thenReturn(new PerformanceView(7L, "EUR",
+                LocalDate.of(2025, 12, 31), new BigDecimal("21.00"), new BigDecimal("10.00"),
+                List.of(new PerformanceView.PositionPerformanceView(
+                        42L, "Vanguard FTSE All-World", new BigDecimal("21.00"), new BigDecimal("10.00")))));
+
+        var result = mvc.get().uri("/api/investments/portfolios/7/performance").exchange();
+
+        assertThat(result).hasStatusOk().hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON);
+        assertThat(result).bodyJson().extractingPath("$.twrPercent").asNumber().isEqualTo(21.00);
+        assertThat(result).bodyJson().extractingPath("$.xirrPercent").asNumber().isEqualTo(10.00);
+        assertThat(result).bodyJson().extractingPath("$.positions[0].name")
+                .isEqualTo("Vanguard FTSE All-World");
+    }
+
+    @Test
+    void performance_unknownPortfolio_returns404() {
+        when(queries.performance(99L)).thenThrow(new NotFoundException("Cartera no encontrada"));
+
+        assertThat(mvc.get().uri("/api/investments/portfolios/99/performance"))
+                .hasStatus(HttpStatus.NOT_FOUND);
     }
 
     @Test

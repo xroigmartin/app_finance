@@ -4,6 +4,7 @@ import com.xroig.finance.investments.application.FlexImportResult;
 import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
+import com.xroig.finance.investments.application.PerformanceView;
 import com.xroig.finance.investments.application.PortfolioSummaryView;
 import com.xroig.finance.investments.application.PositionView;
 import com.xroig.finance.investments.application.ValuationHistoryView;
@@ -106,6 +107,11 @@ public class PortfolioController {
     @GetMapping("/portfolios/{id}/income")
     public IncomeView income(@PathVariable Long id) {
         return queries.income(id);
+    }
+
+    @GetMapping("/portfolios/{id}/performance")
+    public PerformanceView performance(@PathVariable Long id) {
+        return queries.performance(id);
     }
 
     @GetMapping("/summary")

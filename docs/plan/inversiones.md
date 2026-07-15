@@ -40,7 +40,7 @@ Prompt sugerido para continuar en una sesión nueva:
 |---|---|---|---|
 | F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ✅ Completa (H1.1–H1.12) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ✅ Completa (H2.1–H2.4) |
-| F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | 🔨 En curso (H3.1–H3.2 ✅) |
+| F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | 🔨 En curso (H3.1–H3.3 ✅) |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
 
 Leyenda: ⬜ pendiente · 🔨 en curso · ✅ hecho (commit creado) · 🗄️ backlog
@@ -256,14 +256,14 @@ Tests: unitarios de dominio.
 - [x] Refactor + suite verde (707 tests): `isExternalFlow` compartido entre XIRR y TWR.
 - [x] Commit del hito.
 
-### H3.3 — `PerformanceView` + adapter + endpoint ⬜
+### H3.3 — `PerformanceView` + adapter + endpoint ✅
 
 Tests: `@DataJpaTest` + `@WebMvcTest`.
 
-- [ ] `PerformanceView` + query adapter (por posición y total).
-- [ ] Endpoint `GET /portfolios/{id}/performance` (§6).
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] `PerformanceView` + query adapter (por posición y total): porcentajes escala 2, null si no calculable; total = `portfolioTwr` (serie de valoración) + `portfolioXirr` (valor de hoy); por posición, XIRR con los flujos de caja reales del instrumento + valor actual y TWR sobre la serie cantidad×cotización con el efecto de caja negado como flujo (dividendos y costes cuentan como rendimiento). Núcleo `twr(valuaciones, flujos)` expuesto en `PerformanceCalculator` (refactor con delegación). Tests con escenarios exactos (10 % simple, 21 % con dividendo, en total y posición).
+- [x] Endpoint `GET /portfolios/{id}/performance` (§6) en `PortfolioController`; cartera inexistente → 404.
+- [x] Refactor + suite verde (713 tests).
+- [x] Commit del hito.
 
 ### H3.4 — Frontend: rentabilidad ⬜
 

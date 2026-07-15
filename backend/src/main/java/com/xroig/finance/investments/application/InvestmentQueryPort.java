@@ -22,6 +22,9 @@ public interface InvestmentQueryPort {
     /** Dividends/interest per instrument and month + fees/withholdings paid (RF-7). */
     IncomeView income(long portfolioId);
 
+    /** TWR (cumulative) and XIRR (annualized) of the total and per position (RN-8). */
+    PerformanceView performance(long portfolioId);
+
     /** Aggregate wealth of every portfolio in EUR, for the dashboard card (RF-10). */
     InvestmentsSummaryView globalSummary();
 }
