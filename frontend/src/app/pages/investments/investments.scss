@@ -148,3 +148,69 @@ h2 {
 .cost-badge {
   background: var(--gold);
 }
+
+.tabs-card {
+  margin-bottom: 1.5rem;
+  padding-top: 1rem;
+}
+
+.tabs {
+  display: flex;
+  gap: .25rem;
+  border-bottom: 1px solid var(--line-strong);
+  margin-bottom: 1rem;
+}
+
+.tab {
+  border: none;
+  background: none;
+  padding: .55rem 1.1rem;
+  font-size: .8rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+
+  &:hover {
+    color: var(--gold);
+  }
+
+  &.active {
+    color: var(--heading);
+    border-bottom-color: var(--gold);
+  }
+}
+
+.filters {
+  margin-bottom: 1rem;
+
+  .count {
+    font-size: .8rem;
+    padding-bottom: .5rem;
+  }
+}
+
+.row-actions {
+  white-space: nowrap;
+  text-align: right;
+
+  .btn + .btn {
+    margin-left: .35rem;
+  }
+}
+
+.income-table {
+  margin-top: 1.25rem;
+
+  tr.totals td {
+    font-weight: 700;
+    border-top: 1px solid var(--line-strong);
+  }
+}
+
+.paid-summary {
+  margin: .75rem 0 0;
+  font-size: .85rem;
+}

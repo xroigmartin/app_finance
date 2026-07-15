@@ -5,7 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ApiService } from '../api.service';
 import {
   InvestmentSecurity, InvestmentTransactionRequest, InvestmentTransactionType,
-  InvestmentTransactionView
+  InvestmentTransactionView, INVESTMENT_TYPE_LABELS
 } from '../models';
 
 /**
@@ -176,12 +176,7 @@ export class InvestmentTransactionDialog implements OnInit {
     'BUY', 'SELL', 'DIVIDEND', 'INTEREST', 'FEE', 'TAX', 'TRADE_TAX',
     'SPLIT', 'DEPOSIT', 'WITHDRAWAL', 'FX_TRADE'
   ];
-  readonly typeLabels: Record<InvestmentTransactionType, string> = {
-    BUY: 'Compra', SELL: 'Venta', DIVIDEND: 'Dividendo', INTEREST: 'Interés',
-    FEE: 'Comisión', TAX: 'Retención', TRADE_TAX: 'Tasa de compraventa',
-    SPLIT: 'Split', DEPOSIT: 'Aportación', WITHDRAWAL: 'Retirada',
-    FX_TRADE: 'Conversión de divisa'
-  };
+  readonly typeLabels = INVESTMENT_TYPE_LABELS;
 
   visible = false;
   loading = false;

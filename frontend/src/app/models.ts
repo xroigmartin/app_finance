@@ -289,6 +289,13 @@ export type InvestmentTransactionType =
   | 'BUY' | 'SELL' | 'DIVIDEND' | 'INTEREST' | 'FEE' | 'TAX' | 'TRADE_TAX'
   | 'SPLIT' | 'DEPOSIT' | 'WITHDRAWAL' | 'FX_TRADE';
 
+export const INVESTMENT_TYPE_LABELS: Record<InvestmentTransactionType, string> = {
+  BUY: 'Compra', SELL: 'Venta', DIVIDEND: 'Dividendo', INTEREST: 'Interés',
+  FEE: 'Comisión', TAX: 'Retención', TRADE_TAX: 'Tasa de compraventa',
+  SPLIT: 'Split', DEPOSIT: 'Aportación', WITHDRAWAL: 'Retirada',
+  FX_TRADE: 'Conversión de divisa'
+};
+
 /** Instrumento del catálogo (identidad ISIN+divisa; alta automática en import). */
 export interface InvestmentSecurity {
   id: number;
@@ -347,6 +354,33 @@ export interface InvestmentTransactionFilter {
   from?: string;
   to?: string;
   securityId?: number;
+}
+
+/** Renta de un instrumento en un mes (RF-7); importes en la divisa base de la cartera. */
+export interface IncomeEntry {
+  /** Nulos para intereses sin instrumento (interés del broker). */
+  securityId: number | null;
+  name: string | null;
+  /** Mes "YYYY-MM". */
+  month: string;
+  gross: number;
+  withheld: number;
+  net: number;
+}
+
+/** Agregado de un mes (comisiones o retenciones pagadas), magnitud positiva. */
+export interface MonthAmount {
+  month: string;
+  amount: number;
+}
+
+/** Rentas de la cartera (RF-7): dividendos/intereses + comisiones/retenciones por mes. */
+export interface InvestmentIncome {
+  portfolioId: number;
+  baseCurrency: string;
+  incomes: IncomeEntry[];
+  fees: MonthAmount[];
+  taxes: MonthAmount[];
 }
 
 /** Fila ilegible/no soportada/inválida del import Flex (§8). */

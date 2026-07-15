@@ -39,7 +39,7 @@ Prompt sugerido para continuar en una sesión nueva:
 | Fase | Contenido | Hitos | Estado |
 |---|---|---|---|
 | F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ✅ Completa (H1.1–H1.12) |
-| F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | 🔨 En curso (H2.1–H2.3 ✅) |
+| F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ✅ Completa (H2.1–H2.4) |
 | F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
 
@@ -225,15 +225,15 @@ Tests: aplicación + `@WebMvcTest`.
 - [x] Refactor + suite verde (689 tests + build frontend).
 - [x] Commit del hito.
 
-### H2.4 — Frontend: pestañas de operaciones y dividendos ⬜
+### H2.4 — Frontend: pestañas de operaciones y dividendos ✅
 
 Tests: build + revisión manual.
 
-- [ ] Pestaña operaciones: listado filtrable + alta manual (§7).
-- [ ] Pestaña dividendos: cobros por año/instrumento; gráfico mensual apilado por instrumento con selector de año; bruto con neto en tooltip (§7).
-- [ ] KPI de dividendos del año en la cabecera.
-- [ ] Build verde + revisión manual + PRD actualizado.
-- [ ] Commit del hito. **→ Cierra F2.**
+- [x] Pestaña operaciones: listado filtrable (tipo/fechas/instrumento) con origen manual/importado, editar (vía `investment-transaction-dialog.edit(tx)`) y borrar con confirmación; el alta manual sigue en la toolbar (§7).
+- [x] Pestaña dividendos: cobros por instrumento (tabla bruto/retenido/neto + total y comisiones/retenciones pagadas); gráfico mensual apilado por instrumento con selector de año y vista «Todo (por año)»; bruto con neto en tooltip (§7). Intereses sin instrumento agrupan como «Intereses».
+- [x] KPI de dividendos del año en la cabecera (ya presente desde H1.11; verificado).
+- [x] Build verde + smoke end-to-end vía API (rentas y listado filtrado con datos temporales, BD limpia después); revisión visual: usuario. PRD actualizado.
+- [x] Commit del hito. **→ Cierra F2**: estado actualizado en PRD Inversiones y `docs/README.md`.
 
 ---
 
