@@ -40,7 +40,7 @@ Prompt sugerido para continuar en una sesión nueva:
 |---|---|---|---|
 | F1 | Modelo + import Flex + posiciones/valoración multidivisa | H1.1 – H1.12 | ✅ Completa (H1.1–H1.12) |
 | F2 | Vistas de rentas y alta manual | H2.1 – H2.4 | ✅ Completa (H2.1–H2.4) |
-| F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | ⬜ Pendiente |
+| F3 | Rentabilidad TWR/XIRR | H3.1 – H3.4 | 🔨 En curso (H3.1 ✅) |
 | F4 | Automatización (precios online, Flex Web Service) | H4.1 – H4.3 | 🗄️ Backlog (sin planificar) |
 
 Leyenda: ⬜ pendiente · 🔨 en curso · ✅ hecho (commit creado) · 🗄️ backlog
@@ -239,14 +239,14 @@ Tests: build + revisión manual.
 
 ## F3 — Rentabilidad TWR/XIRR
 
-### H3.1 — `PerformanceCalculator`: XIRR ⬜
+### H3.1 — `PerformanceCalculator`: XIRR ✅
 
 Tests: unitarios de dominio (casos conocidos, convergencia, extremos).
 
-- [ ] XIRR por Newton-Raphson con fallback de bisección sobre flujos externos + valor actual (RN-8).
-- [ ] `FX_TRADE` no es flujo externo (RN-8).
-- [ ] Refactor + suite verde.
-- [ ] Commit del hito.
+- [x] XIRR por Newton-Raphson con fallback de bisección: `xirr(List<Cashflow>)` (TIR anualizada, base 365; `Optional` vacío con <2 flujos, mismo signo, mismo día o sin raíz) + `portfolioXirr` (flujos externos `DEPOSIT`/`WITHDRAWAL` con signo inversor convertidos RN-7a + valor actual) — RN-8. Casos conocidos (10 %, negativa, multi-flujo), extremos (4900 %, −95 %) y propiedad NPV≈0 en serie irregular.
+- [x] `FX_TRADE` no es flujo externo (RN-8) — test con FX_TRADE y compra por medio sin alterar la tasa.
+- [x] Refactor + suite verde (700 tests): conversión de importes fijados extraída a `CurrencyConverter.fixedToBase` (compartida por rentas, rentabilidad y read-side; la variante con warnings queda en `PositionCalculator`).
+- [x] Commit del hito.
 
 ### H3.2 — `PerformanceCalculator`: TWR ⬜
 

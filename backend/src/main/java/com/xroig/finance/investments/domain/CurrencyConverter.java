@@ -35,6 +35,23 @@ public class CurrencyConverter {
     }
 
     /** Converts to the target currency with the latest rate ≤ {@code date}; empty if a rate is missing. */
+    /**
+     * Conversión de un importe <b>fijado</b> de un apunte a la divisa base: el
+     * snapshot del propio apunte si aplica a su divisa (RN-7a), después el último
+     * tipo ≤ fecha de la tabla (RN-7b) y, en último término, 1:1 — la degradación
+     * silenciosa compartida por rentas, rentabilidad y read-side.
+     */
+    public CurrencyMoney fixedToBase(CurrencyMoney value, InvestmentTransaction tx, String baseCurrency) {
+        if (value.currency().equals(baseCurrency)) {
+            return value;
+        }
+        if (tx.fxRateToBase() != null && value.currency().equals(tx.currency())) {
+            return CurrencyMoney.of(value.amount().multiply(tx.fxRateToBase()), baseCurrency);
+        }
+        return convert(value, baseCurrency, tx.tradeDate())
+                .orElseGet(() -> CurrencyMoney.of(value.amount(), baseCurrency));
+    }
+
     public Optional<CurrencyMoney> convert(CurrencyMoney money, String toCurrency, LocalDate date) {
         String target = IsoCurrency.require(toCurrency);
         if (money.currency().equals(target)) {

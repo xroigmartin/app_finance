@@ -339,14 +339,7 @@ public class InvestmentQueryAdapter implements InvestmentQueryPort {
      */
     private CurrencyMoney fixedToBase(CurrencyMoney value, InvestmentTransaction tx,
                                       String base, CurrencyConverter converter) {
-        if (value.currency().equals(base)) {
-            return value;
-        }
-        if (tx.fxRateToBase() != null && value.currency().equals(tx.currency())) {
-            return CurrencyMoney.of(value.amount().multiply(tx.fxRateToBase()), base);
-        }
-        return converter.convert(value, base, tx.tradeDate())
-                .orElseGet(() -> CurrencyMoney.of(value.amount(), base));
+        return converter.fixedToBase(value, tx, base);
     }
 
     /** Valuation-at-a-date conversion (RN-7b), degrading to 1:1 when no rate exists. */

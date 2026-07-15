@@ -28,23 +28,23 @@ public class IncomeCalculator {
             IncomeKey key = new IncomeKey(tx.securityId(), YearMonth.from(tx.tradeDate()));
             switch (tx.type()) {
                 case DIVIDEND, INTEREST -> {
-                    gross.merge(key, toBase(tx.amount(), tx, base, rates), CurrencyMoney::add);
+                    gross.merge(key, rates.fixedToBase(tx.amount(), tx, base), CurrencyMoney::add);
                     // Retención embebida en el propio apunte de renta (p. ej. alta manual).
                     if (tx.tax() != null) {
                         addWithholding(withheld, taxesByMonth, key,
-                                toBase(tx.tax(), tx, base, rates).abs());
+                                rates.fixedToBase(tx.tax(), tx, base).abs());
                     }
                 }
                 case TAX -> addWithholding(withheld, taxesByMonth, key,
-                        toBase(tx.amount(), tx, base, rates).abs());
+                        rates.fixedToBase(tx.amount(), tx, base).abs());
                 case FEE -> feesByMonth.merge(key.month(),
-                        toBase(tx.amount(), tx, base, rates).abs(), CurrencyMoney::add);
+                        rates.fixedToBase(tx.amount(), tx, base).abs(), CurrencyMoney::add);
                 default -> { /* el resto no es renta (TRADE_TAX es coste de adquisición, §9) */ }
             }
             // La comisión de cualquier apunte es comisión pagada del periodo (RF-7).
             if (tx.fee() != null) {
                 feesByMonth.merge(key.month(),
-                        toBase(tx.fee(), tx, base, rates).abs(), CurrencyMoney::add);
+                        rates.fixedToBase(tx.fee(), tx, base).abs(), CurrencyMoney::add);
             }
         }
 
@@ -57,23 +57,6 @@ public class IncomeCalculator {
                 })
                 .toList();
         return new IncomeStatement(incomes, Map.copyOf(feesByMonth), Map.copyOf(taxesByMonth));
-    }
-
-    /**
-     * Convierte un importe fijado a la divisa base: snapshot del propio apunte si
-     * aplica a su divisa (RN-7a), después el último tipo ≤ fecha de la tabla
-     * (RN-7b) y, en último término, 1:1 (misma degradación que la capa de lectura).
-     */
-    private static CurrencyMoney toBase(CurrencyMoney value, InvestmentTransaction tx,
-                                        String base, CurrencyConverter rates) {
-        if (value.currency().equals(base)) {
-            return value;
-        }
-        if (tx.fxRateToBase() != null && value.currency().equals(tx.currency())) {
-            return CurrencyMoney.of(value.amount().multiply(tx.fxRateToBase()), base);
-        }
-        return rates.convert(value, base, tx.tradeDate())
-                .orElseGet(() -> CurrencyMoney.of(value.amount(), base));
     }
 
     /** Una retención suma al bucket del instrumento (si lo hay) y al total del mes. */
