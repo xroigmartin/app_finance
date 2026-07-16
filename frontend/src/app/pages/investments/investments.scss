@@ -92,6 +92,9 @@ h2 {
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
     color: var(--text);
+
+    &.amount-income { color: var(--pos); }
+    &.amount-expense { color: var(--neg); }
   }
 
   .kpi-sub {
