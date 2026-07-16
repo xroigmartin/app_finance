@@ -1,7 +1,7 @@
 h2 {
   font-size: 1rem;
   margin: 0 0 1rem;
-  color: var(--heading);
+  color: var(--text);
 }
 
 .toolbar {
@@ -18,7 +18,7 @@ h2 {
   align-items: center;
   gap: .5rem;
   font-size: .85rem;
-  color: var(--heading);
+  color: var(--text);
 
   select {
     min-width: 12rem;
@@ -31,7 +31,7 @@ h2 {
 
 .kpi-sub {
   font-size: .72rem;
-  color: var(--muted, #6f6a5c);
+  color: var(--text-muted);
 }
 
 .month-nav {
@@ -62,16 +62,16 @@ h2 {
     font-size: .7rem;
     text-transform: uppercase;
     letter-spacing: .1em;
-    color: var(--muted);
+    color: var(--text-muted);
     font-weight: 600;
   }
 
   .kpi-value {
-    font-family: var(--serif);
+    font-family: var(--mono);
     font-size: 1.7rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: var(--heading);
+    color: var(--text);
   }
 }
 
@@ -148,7 +148,7 @@ h2 {
 .progress {
   height: .55rem;
   border-radius: 999px;
-  background: var(--line);
+  background: var(--border);
   overflow: hidden;
 }
 
@@ -157,7 +157,7 @@ h2 {
   border-radius: 999px;
 
   &.over {
-    background: var(--expense);
+    background: var(--neg);
   }
 }
 

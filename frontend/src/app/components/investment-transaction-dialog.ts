@@ -127,7 +127,7 @@ import {
       h2 {
         font-size: 1.1rem;
         margin: 0 0 1rem;
-        color: var(--heading);
+        color: var(--text);
       }
     }
 
@@ -144,7 +144,7 @@ import {
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: .06em;
-        color: var(--muted);
+        color: var(--text-muted);
 
         &.wide {
           grid-column: 1 / -1;

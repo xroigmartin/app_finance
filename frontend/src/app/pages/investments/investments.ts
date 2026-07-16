@@ -16,9 +16,10 @@ import {
 } from '../../models';
 
 Chart.register(...registerables);
+Chart.defaults.font.family = "'JetBrains Mono', ui-monospace, monospace";
 
 /** Paleta para las porciones del donut de asignación (efectivo aparte, en gris). */
-const ALLOCATION_COLORS = ['#1d6b48', '#2563eb', '#96762a', '#7c3aed', '#0891b2', '#9c2a23', '#c2410c', '#4d7c0f'];
+const ALLOCATION_COLORS = ['#2563EB', '#16A06B', '#E8A33D', '#8B5CF6', '#0891B2', '#E0453A', '#C2410C', '#4D7C0F'];
 const CASH_COLOR = '#94a3b8';
 
 @Component({
@@ -291,8 +292,8 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
       data: {
         labels: sorted.map(p => p.name),
         datasets: [
-          { label: 'XIRR anual', data: sorted.map(p => p.xirrPercent), backgroundColor: '#2563eb' },
-          { label: 'TWR acumulada', data: sorted.map(p => p.twrPercent), backgroundColor: '#96762a' }
+          { label: 'XIRR anual', data: sorted.map(p => p.xirrPercent), backgroundColor: this.theme.chartAccent() },
+          { label: 'TWR acumulada', data: sorted.map(p => p.twrPercent), backgroundColor: this.theme.chartWarn() }
         ]
       },
       options: {
@@ -404,12 +405,12 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
         datasets: [
           {
             label: 'Valor', data: this.history.map(p => p.value),
-            borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.12)',
+            borderColor: this.theme.chartAccent(), backgroundColor: this.theme.chartAccentSoft(),
             fill: true, tension: 0, spanGaps: true
           },
           {
             label: 'Aportado', data: this.history.map(p => p.contributed),
-            borderColor: '#96762a', backgroundColor: '#96762a',
+            borderColor: this.theme.chartText(), backgroundColor: this.theme.chartText(),
             stepped: true, pointRadius: 0
           }
         ]
@@ -437,7 +438,7 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
         datasets: [{
           label: 'P&L latente',
           data: sorted.map(p => p.latentPnl),
-          backgroundColor: sorted.map(p => (p.latentPnl >= 0 ? '#1d6b48' : '#9c2a23'))
+          backgroundColor: sorted.map(p => (p.latentPnl >= 0 ? this.theme.chartPos() : this.theme.chartNeg()))
         }]
       },
       options: {

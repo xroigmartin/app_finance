@@ -33,6 +33,31 @@ export class ThemeService {
     return this.theme() === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(31,36,48,.07)';
   }
 
+  /** Primary series colour (--accent) for charts under the current theme. */
+  chartAccent(): string {
+    return this.theme() === 'dark' ? '#5B8DEF' : '#2563EB';
+  }
+
+  /** Soft accent fill (--accent-soft) for area charts under the current theme. */
+  chartAccentSoft(): string {
+    return this.theme() === 'dark' ? 'rgba(91,141,239,.16)' : 'rgba(37,99,235,.10)';
+  }
+
+  /** Positive/income colour (--pos) for charts under the current theme. */
+  chartPos(): string {
+    return this.theme() === 'dark' ? '#3DC78A' : '#16A06B';
+  }
+
+  /** Negative/expense colour (--neg) for charts under the current theme. */
+  chartNeg(): string {
+    return this.theme() === 'dark' ? '#F06A5E' : '#E0453A';
+  }
+
+  /** Warning colour (--warn) for charts under the current theme. */
+  chartWarn(): string {
+    return this.theme() === 'dark' ? '#F0B85A' : '#E8A33D';
+  }
+
   private apply(theme: Theme): void {
     document.documentElement.setAttribute('data-theme', theme);
   }

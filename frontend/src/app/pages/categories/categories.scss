@@ -1,7 +1,7 @@
 h2 {
   font-size: 1rem;
   margin: 0 0 1rem;
-  color: var(--heading);
+  color: var(--text);
 }
 
 .toolbar {
@@ -12,10 +12,10 @@ h2 {
   width: min(720px, 94vw);
   max-height: 90vh;
   overflow-y: auto;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 3px;
   background: var(--surface);
-  color: var(--ink);
+  color: var(--text);
   padding: 1.4rem 1.6rem;
   box-shadow: 0 10px 30px rgba(13, 29, 58, .18);
 
@@ -46,7 +46,7 @@ h2 {
     align-items: center;
     justify-content: space-between;
     padding: .55rem 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
 
     &:last-child {
       border-bottom: none;
@@ -61,7 +61,7 @@ h2 {
     padding-left: 1.5rem;
 
     .sub-mark {
-      color: var(--muted);
+      color: var(--text-muted);
       font-size: .9rem;
     }
   }
@@ -87,7 +87,7 @@ h2 {
   }
 
   code {
-    background: var(--paper);
+    background: var(--bg);
     padding: .1rem .35rem;
     border-radius: .3rem;
   }
@@ -124,20 +124,20 @@ input[type='color'] {
 
   &.global {
     background: transparent;
-    border: 1px dashed var(--line);
-    color: var(--muted, #94a3b8);
+    border: 1px dashed var(--border);
+    color: var(--text-muted);
   }
 }
 
 .recurrence {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 
   h3 {
     font-size: .92rem;
     margin: 0 0 .5rem;
-    color: var(--heading);
+    color: var(--text);
   }
 
   .rec-active {
@@ -158,7 +158,7 @@ input[type='color'] {
   .rec-label {
     font-size: .8rem;
     font-weight: 600;
-    color: var(--muted);
+    color: var(--text-muted);
   }
 
   .month-toggle {
@@ -168,9 +168,9 @@ input[type='color'] {
   }
 
   .month-btn {
-    border: 1px solid var(--line);
-    background: var(--paper);
-    color: var(--muted);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-muted);
     border-radius: .4rem;
     padding: .3rem .55rem;
     font-size: .8rem;

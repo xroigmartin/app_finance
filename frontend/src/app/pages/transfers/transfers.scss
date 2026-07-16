@@ -1,7 +1,7 @@
 h2 {
   font-size: 1rem;
   margin: 0 0 1rem;
-  color: var(--heading);
+  color: var(--text);
 }
 
 .toolbar {
@@ -23,7 +23,7 @@ h2 {
   font-size: .8rem;
 
   code {
-    background: var(--line);
+    background: var(--border);
     padding: .1rem .3rem;
     border-radius: .3rem;
   }

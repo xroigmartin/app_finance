@@ -13,10 +13,10 @@ import {
 } from '../../models';
 
 Chart.register(...registerables);
-Chart.defaults.font.family = "'IBM Plex Sans', 'Segoe UI', sans-serif";
+Chart.defaults.font.family = "'JetBrains Mono', ui-monospace, monospace";
 
-/** Palette for per-account comparison series. */
-const ACCOUNT_COLORS = ['#1d6b48', '#96762a', '#2563eb', '#9c2a23', '#7c3aed', '#0891b2', '#c2410c'];
+/** Palette for per-account comparison series (accent first, then distinguishable mid-tones). */
+const ACCOUNT_COLORS = ['#2563EB', '#16A06B', '#E8A33D', '#8B5CF6', '#0891B2', '#E0453A', '#C2410C'];
 
 @Component({
   selector: 'app-dashboard',
@@ -186,8 +186,8 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
       data: {
         labels: this.monthlyData.map(p => p.month),
         datasets: [
-          { label: 'Ingresos', data: this.monthlyData.map(p => p.income), backgroundColor: '#1d6b48' },
-          { label: 'Gastos', data: this.monthlyData.map(p => p.expense), backgroundColor: '#9c2a23' }
+          { label: 'Ingresos', data: this.monthlyData.map(p => p.income), backgroundColor: this.theme.chartPos() },
+          { label: 'Gastos', data: this.monthlyData.map(p => p.expense), backgroundColor: this.theme.chartNeg() }
         ]
       },
       options: {
@@ -211,11 +211,11 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
         datasets: [
           {
             type: 'bar', label: 'Ahorro mensual', data: savings,
-            backgroundColor: savings.map(s => (s >= 0 ? '#1d6b48' : '#9c2a23')), yAxisID: 'y'
+            backgroundColor: savings.map(s => (s >= 0 ? this.theme.chartPos() : this.theme.chartNeg())), yAxisID: 'y'
           },
           {
             type: 'line', label: 'Acumulado', data: cumulative,
-            borderColor: '#96762a', backgroundColor: '#96762a',
+            borderColor: this.theme.chartAccent(), backgroundColor: this.theme.chartAccent(),
             tension: .3, yAxisID: 'y1'
           }
         ]
@@ -237,7 +237,7 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
         labels: this.balanceData.map(p => p.month),
         datasets: [{
           label: 'Saldo', data: this.balanceData.map(p => p.balance),
-          borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.12)',
+          borderColor: this.theme.chartAccent(), backgroundColor: this.theme.chartAccentSoft(),
           fill: true, tension: .3
         }]
       },

@@ -103,7 +103,7 @@ import { Account, ImportResult } from '../models';
       h2 {
         font-size: 1.1rem;
         margin: 0 0 .75rem;
-        color: var(--heading);
+        color: var(--text);
       }
     }
 
@@ -112,8 +112,8 @@ import { Account, ImportResult } from '../models';
       margin: 0 0 1rem;
 
       code {
-        background: var(--paper);
-        border: 1px solid var(--line);
+        background: var(--bg);
+        border: 1px solid var(--border);
         padding: .1rem .3rem;
         border-radius: 2px;
       }
@@ -125,7 +125,7 @@ import { Account, ImportResult } from '../models';
       gap: .35rem;
       font-size: .85rem;
       font-weight: 600;
-      color: var(--muted);
+      color: var(--text-muted);
       margin-bottom: 1rem;
 
       select {
@@ -134,7 +134,7 @@ import { Account, ImportResult } from '../models';
     }
 
     .file-zone {
-      border: 1px dashed var(--line-strong);
+      border: 1px dashed var(--border-strong);
       border-radius: 2px;
       padding: 1.25rem;
       text-align: center;
@@ -142,8 +142,8 @@ import { Account, ImportResult } from '../models';
       font-weight: 400;
 
       &:hover {
-        border-color: var(--gold);
-        background: var(--paper);
+        border-color: var(--accent);
+        background: var(--bg);
       }
     }
 
@@ -157,7 +157,7 @@ import { Account, ImportResult } from '../models';
       max-height: 160px;
       overflow-y: auto;
       font-size: .85rem;
-      color: var(--expense);
+      color: var(--neg);
     }
 
     .dialog-actions {
