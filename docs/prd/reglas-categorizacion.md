@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 2.0 |
-| Última actualización | 2026-06-27 |
+| Última actualización | 2026-07-16 |
 | Dominio | Reglas de categorización (`category_rules`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -80,7 +80,7 @@ Base: `/api/category-rules`.
 
 La gestión de reglas vive en la **página de Categorías** (`pages/categories`), en la sección "Reglas de categorización automática".
 
-- Tabla de reglas con patrón y categoría (con su etiqueta de ámbito).
+- Tabla de reglas con patrón y categoría (con su etiqueta de ámbito). El patrón se muestra en JetBrains Mono 12px sobre `--surface-2` con radio 6px; la categoría, como **chip** con punto de color y su mini-pill de ámbito (sistema de diseño).
 - El formulario de alta/edición se abre en un **diálogo modal** (`<dialog>` nativo con `showModal()`), centrado en el viewport sin importar el scroll, con focus-trap, cierre con `Escape` (limpia el error) y devolución del foco al botón disparador. Campos: **Patrón** (placeholder `consum|lidl|spar`) y **Categoría** (desplegable ordenado padre→subcategoría con ámbito).
 - Tras guardar, se muestra un mensaje con el resultado: cuántos movimientos de "Otros gastos/ingresos" se recategorizaron, o que ninguno coincidió.
 - Texto de ayuda que explica la sintaxis del patrón y el uso de `\|` como separador de alternativas.

@@ -13,11 +13,11 @@ h2 {
   max-height: 90vh;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--r-lg);
   background: var(--surface);
   color: var(--text);
-  padding: 1.4rem 1.6rem;
-  box-shadow: 0 10px 30px rgba(13, 29, 58, .18);
+  padding: 20px;
+  box-shadow: var(--shadow);
 
   &::backdrop {
     background: rgba(15, 23, 42, .45);
@@ -87,9 +87,11 @@ h2 {
   }
 
   code {
-    background: var(--bg);
-    padding: .1rem .35rem;
-    border-radius: .3rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--surface-2);
+    padding: .15rem .45rem;
+    border-radius: var(--r-sm);
   }
 
   .actions {
@@ -114,19 +116,18 @@ input[type='color'] {
   gap: .5rem;
 }
 
+/* Etiqueta de ámbito: mini-pill mono sobre --surface-2 */
 .scope-tag {
-  font-size: .72rem;
-  padding: .1rem .45rem;
-  border-radius: 1rem;
-  background: #e2e8f0;
-  color: #475569;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--text-muted);
   white-space: nowrap;
-
-  &.global {
-    background: transparent;
-    border: 1px dashed var(--border);
-    color: var(--text-muted);
-  }
 }
 
 .recurrence {
@@ -171,14 +172,15 @@ input[type='color'] {
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text-muted);
-    border-radius: .4rem;
+    border-radius: var(--r-sm);
     padding: .3rem .55rem;
     font-size: .8rem;
+    font-family: var(--mono);
     cursor: pointer;
 
     &.on {
-      background: #4f46e5;
-      border-color: #4f46e5;
+      background: var(--accent);
+      border-color: var(--accent);
       color: #fff;
     }
   }
