@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.1 |
-| Última actualización | 2026-06-25 |
+| Última actualización | 2026-07-16 |
 | Dominio | Movimientos / transacciones (`transactions`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -114,6 +114,7 @@ Página `pages/transactions` (componente `TransactionsPage`).
 - **Conversión de tipo**: si al editar se cambia entre transacción y transferencia, el registro original se elimina y se crea el del otro tipo (no es una edición in situ).
 - **Devoluciones**: el selector de tipo incluye **Devolución**. Al elegirla (o con el botón **Devolver** de cada fila de gasto), se muestra un selector del **gasto a devolver** (gastos con importe pendiente) y, en solo lectura, la cuenta/categoría heredadas y el **pendiente por devolver**; el importe se precarga con el pendiente. Una devolución se muestra en el listado con la marca **↩ Devolución**, su importe en positivo/verde (dinero que vuelve) y la categoría del gasto original. El botón **Devolver** solo aparece en gastos con pendiente > 0. (El cálculo del pendiente en el front es orientativo sobre los movimientos cargados; el back es la fuente autoritativa.)
 - Botón de **importar** que abre el diálogo de importación (ver PRD Importación).
+- **Estilo (sistema de diseño)**: la categoría se muestra como **chip** (pill con borde, fondo `--surface` y un punto de 8px del color de la categoría); las transferencias usan el mismo chip con punto neutro (`--border-strong`) y texto «⇄ Transferencia», con el importe atenuado (`--text-muted`); la marca de devolución es el prefijo **↩** en `--pos` (sin fondo). Importes en JetBrains Mono con `tabular-nums`, coloreados `--pos`/`--neg` según signo.
 
 ## 8. Validaciones y errores
 

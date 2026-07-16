@@ -26,11 +26,11 @@ h2 {
 .form-dialog {
   width: min(720px, 94vw);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--r-lg);
   background: var(--surface);
   color: var(--text);
-  padding: 1.4rem 1.6rem;
-  box-shadow: 0 10px 30px rgba(13, 29, 58, .18);
+  padding: 20px;
+  box-shadow: var(--shadow);
 
   &::backdrop {
     background: rgba(15, 23, 42, .45);
@@ -46,21 +46,15 @@ h2 {
   }
 }
 
-.transfer-badge {
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  color: var(--text-muted);
+.chip .transfer-dot {
+  background: var(--border-strong);
 }
 
 .refund-mark {
   display: inline-block;
-  margin-right: .4rem;
-  padding: .05rem .4rem;
-  border-radius: 1rem;
-  font-size: .7rem;
-  font-weight: 600;
-  background: var(--pos);
-  color: #fff;
+  margin-right: .3rem;
+  font-weight: 500;
+  color: var(--pos);
 }
 
 .refund-info {

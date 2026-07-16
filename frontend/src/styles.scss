@@ -215,6 +215,27 @@ table.data {
   font-weight: 500;
 }
 
+/* Chip de categoría: pill neutra con punto del color de la categoría */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: 99px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+}
+
 .form-row {
   display: flex;
   flex-wrap: wrap;
