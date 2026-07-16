@@ -25,12 +25,12 @@ export class ThemeService {
 
   /** Axis/legend text colour for charts under the current theme. */
   chartText(): string {
-    return this.theme() === 'dark' ? '#9aa2b4' : '#6f6a5c';
+    return this.theme() === 'dark' ? '#A9AEB8' : '#6B7280';
   }
 
   /** Grid line colour for charts under the current theme. */
   chartGrid(): string {
-    return this.theme() === 'dark' ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)';
+    return this.theme() === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(31,36,48,.07)';
   }
 
   private apply(theme: Theme): void {
