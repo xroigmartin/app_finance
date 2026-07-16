@@ -19,7 +19,7 @@ import {
   selector: 'app-investment-transaction-dialog',
   imports: [CommonModule, FormsModule],
   template: `
-    <button class="btn" (click)="openNew()">{{ label }}</button>
+    <button class="btn primary" (click)="openNew()">{{ label }}</button>
 
     @if (visible) {
       <div class="overlay" (click)="close()">
@@ -169,7 +169,7 @@ export class InvestmentTransactionDialog implements OnInit {
 
   @Input({ required: true }) portfolioId!: number;
   @Input() baseCurrency = 'EUR';
-  @Input() label = 'Nueva operación';
+  @Input() label = '+ Operación';
   @Output() done = new EventEmitter<void>();
 
   readonly types: InvestmentTransactionType[] = [

@@ -4,7 +4,7 @@
 |---|---|
 | Estado | ✅ **Implementado** — F1, F2 y F3 completas (modelo + import Flex + posiciones/valoración multidivisa + rentas + alta manual + rentabilidad TWR/XIRR, con UI); F4 (automatización) en backlog |
 | Versión | 0.41 |
-| Última actualización | 2026-07-15 |
+| Última actualización | 2026-07-16 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -184,9 +184,9 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 4. **P&L por posición** (barras horizontales divergentes) — ganancia/pérdida latente en € por instrumento, ordenadas de mejor a peor, verde/rojo.
 5. **Rentabilidad por posición** (barras horizontales, %) — TWR/XIRR por instrumento (desde F3).
 
-**Tabla de posiciones**: instrumento, títulos, coste medio, precio, valor, P&L (€ y %), peso. Las cantidades negativas (falta histórico anterior, RN-4) se marcan en rojo.
+**Tabla de posiciones**: instrumento, títulos, coste medio, precio, valor, P&L (€ y %), peso. Las cantidades negativas (falta histórico anterior, RN-4) se marcan en rojo. Según el sistema de diseño, cada instrumento lleva un **cuadrado de ticker** de 30px (radio 6px, iniciales en mono 10px sobre el soft de su color, alineado con la paleta del donut de asignación) y las tarjetas-tabla anchas tienen `overflow-x: auto`.
 
-**Pestañas**: operaciones (listado filtrable + alta manual) y dividendos (cobros por año/instrumento).
+**Pestañas**: operaciones (listado filtrable + alta manual) y dividendos (cobros por año/instrumento). Se presentan como **control segmentado** (contenedor `--surface-2` con borde, segmento activo `--surface` + sombra, texto mono 12px). Las tarjetas KPI siguen el patrón del sistema: label mono 11px uppercase `--text-faint`, cifra mono 22px/600.
 
 **Botón Importar Flex**: reutiliza el patrón del diálogo de import existente (`components/import-dialog.ts`) adaptado al Flex.
 

@@ -77,24 +77,26 @@ h2 {
   gap: .4rem;
 
   .kpi-label {
-    font-size: .7rem;
+    font-family: var(--mono);
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: .1em;
-    color: var(--text-muted);
-    font-weight: 600;
+    letter-spacing: .05em;
+    color: var(--text-faint);
+    font-weight: 500;
   }
 
   .kpi-value {
     font-family: var(--mono);
-    font-size: 1.7rem;
+    font-size: 22px;
     font-weight: 600;
+    letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
     color: var(--text);
   }
 
   .kpi-sub {
-    font-size: .72rem;
-    color: var(--text-muted);
+    font-size: 12px;
+    color: var(--text-faint);
   }
 }
 
@@ -137,12 +139,33 @@ h2 {
 
 .positions-card {
   margin-bottom: 1.5rem;
+  overflow-x: auto;
 }
 
 .instrument {
   display: flex;
-  flex-direction: column;
-  gap: .15rem;
+  align-items: center;
+  gap: 10px;
+
+  .tk {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--r-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .instrument-text {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 0;
+  }
 }
 
 .small-text {
@@ -160,35 +183,39 @@ h2 {
 
 .tabs-card {
   margin-bottom: 1.5rem;
-  padding-top: 1rem;
+  overflow-x: auto;
 }
 
+/* Control segmentado (sistema de diseño): contenedor --surface-2, segmento activo --surface + sombra */
 .tabs {
-  display: flex;
-  gap: .25rem;
-  border-bottom: 1px solid var(--border-strong);
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   margin-bottom: 1rem;
 }
 
 .tab {
   border: none;
-  background: none;
-  padding: .55rem 1.1rem;
-  font-size: .8rem;
-  font-weight: 600;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  background: transparent;
+  padding: 7px 16px;
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-muted);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  transition: background .15s, color .15s;
 
   &:hover {
-    color: var(--accent);
+    color: var(--text);
   }
 
   &.active {
+    background: var(--surface);
     color: var(--text);
-    border-bottom-color: var(--accent);
+    box-shadow: var(--shadow);
   }
 }
 

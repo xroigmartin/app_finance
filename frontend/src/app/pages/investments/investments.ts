@@ -265,6 +265,21 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Etiqueta corta para el cuadrado de ticker de una posición. */
+  tickerLabel(p: PositionView): string {
+    return (p.ticker || p.name).slice(0, 4).toUpperCase();
+  }
+
+  /** Color del ticker de la posición i, alineado con la paleta del donut de asignación. */
+  tickerColor(i: number): string {
+    return ALLOCATION_COLORS[i % ALLOCATION_COLORS.length];
+  }
+
+  /** Fondo soft del ticker: el color de la posición con alfa suave. */
+  tickerSoft(i: number): string {
+    return `${this.tickerColor(i)}24`;
+  }
+
   private renderCharts(): void {
     if (!this.viewReady) return;
     this.charts.forEach(c => c.destroy());
