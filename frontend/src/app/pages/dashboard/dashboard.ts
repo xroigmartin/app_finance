@@ -139,6 +139,11 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
     return s.spent > s.budget;
   }
 
+  /** Fondo "soft" para el avatar de un movimiento: el color de su categoría con alfa suave. */
+  soft(color: string): string {
+    return /^#[0-9a-fA-F]{6}$/.test(color) ? `${color}24` : color;
+  }
+
   ngAfterViewInit(): void {
     this.viewReady = true;
     this.renderCharts();
