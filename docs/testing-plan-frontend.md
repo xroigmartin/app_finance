@@ -64,10 +64,18 @@ Dos capas de test, en este orden:
 
 ## CP2 — Andamiaje E2E: Playwright + entorno de datos determinista
 
-- [ ] Instalar `@playwright/test`, `playwright.config.ts`, proyecto headless Chromium.
-- [ ] `globalSetup` de Playwright: reset de BD (`docker compose down -v db && up -d db`, esperar Flyway/backend listos) + siembra de un dataset fijo **vía la API real** (no INSERT SQL, para no saltarse invariantes de dominio): cuentas, categorías, movimientos, cartera de inversión con títulos/operaciones.
-- [ ] Test de humo: la app carga y navega al dashboard.
+- [x] Instalar `@playwright/test`, `playwright.config.ts`, proyecto headless Chromium (`npx playwright install chromium`, descargado y funcionando).
+- [x] `globalSetup`/`globalTeardown` de Playwright + siembra de un dataset fijo vía la API real (no INSERT SQL): cuentas, movimientos en dos meses, cartera de inversión con un título y una posición.
+- [x] Test de humo: la app carga, muestra el dashboard con datos reales del seed, navega a Inversión y ve la cartera sembrada.
 - Commit: "añade infraestructura E2E con Playwright y seed determinista contra backend real".
+
+**Cambio de diseño importante sobre lo previsto (no se ejecutó el reset literal del plan original):** el `docker-compose.yml` de este repo solo tiene **un** servicio `db` (puerto 5432, volumen `finance-data`) — es el mismo Postgres de desarrollo que ya tenía datos reales (cartera "Interactive Broker", movimientos reales, etc.). Hacer `docker compose down -v db` ahí habría borrado esos datos en cada ejecución de la suite E2E. Se decidió con el usuario **aislar por completo el entorno E2E**:
+
+- **`docker-compose.e2e.yml`** nuevo en la raíz, fichero de compose *separado* (no un segundo servicio en el mismo `docker-compose.yml`) con `name: finance-e2e` explícito — así Docker Compose no comparte proyecto/red con el `docker-compose.yml` de dev (se comprobó en vivo: sin el `name:` explícito, ambos ficheros caían por defecto en el mismo nombre de proyecto derivado del directorio y Compose los veía como "contenedores huérfanos" el uno del otro). Servicio `db-e2e`, puerto **5434**, volumen propio `finance-e2e-data`.
+- **Backend e2e**: proceso `mvn spring-boot:run` propio lanzado por `e2e/global-setup.ts` con `FINANCE_DB_PORT=5434` y `SERVER_PORT=8081` (nunca toca el backend de dev en 8080). Se mata por grupo de proceso en `global-teardown.ts` (mismo patrón que `app.sh` con `mvn`).
+- **Frontend e2e**: el propio `webServer` de Playwright arranca `ng serve --port 4201 --proxy-config proxy.conf.e2e.json` (nuevo fichero, apunta a `:8081`), aislado del `ng serve` de dev en 4200.
+- **Reset real**: `global-setup.ts` hace `docker compose -f docker-compose.e2e.yml down -v && up -d --wait` antes de cada ejecución; `global-teardown.ts` hace `down -v` otra vez al terminar, dejando cero rastro. Verificado en vivo dos veces seguidas (con y sin el `name:` explícito) y confirmado con `docker ps`/`docker volume ls` que `finance-db`/`finance-data` (el stack de dev) no se tocan en ningún momento.
+- Fixture en `e2e/fixtures/seed.ts`: crea 2 cuentas, usa las categorías globales por defecto que ya siembra el `DataSeeder` del backend (Nómina/Vivienda/Alimentación), 5 movimientos en 2 meses, 1 cartera con 1 depósito + 1 compra de un valor de prueba.
 
 ## CP3 — Unit tests: núcleo transversal
 
@@ -121,5 +129,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **CP0 y CP1 cerrados.** Angular 22 en marcha y verificado. Vitest es el único runner (Karma y Jasmine desinstalados del todo), `npm test` corre verde con cobertura nativa activada y un umbral real (aunque bajo) que sí bloquea si baja: baseline documentada arriba (~1 % global).
-- **Próximo paso**: confirmar con el usuario y arrancar CP2 (andamiaje E2E con Playwright + seed/reset determinista).
+- **Estado**: **CP0, CP1 y CP2 cerrados.** `npm run test:e2e` corre un test de humo real contra backend+Postgres+frontend levantados y sembrados por el propio Playwright, totalmente aislado del stack de desarrollo (proyecto Docker Compose separado `finance-e2e`, puertos 5434/8081/4201). Verificado en vivo que el stack de dev (`finance-db`, volumen `finance-data`) no se toca.
+- **Próximo paso**: confirmar con el usuario y arrancar CP3 (unit tests del núcleo transversal: `api.service.ts`, `theme.service.ts`, utilidades).
