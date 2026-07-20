@@ -98,10 +98,12 @@ Dos capas de test, en este orden:
 
 ## CP5 — Unit tests: páginas complejas
 
-- [ ] `categories.ts` (357: jerarquía padre/subcategoría, recurrencia, chips por ámbito).
-- [ ] `transactions.ts` (381: filtros, import dialog, devoluciones).
-- [ ] Ratchet del umbral.
+- [x] `categories.ts` (jerarquía padre/subcategoría, ámbito global/cuenta, recurrencia, reglas de categorización): 98.2% statements.
+- [x] `transactions.ts` (fusión y orden de movimientos+transferencias, cálculo de pendiente de devolución, categorías válidas por tipo/ámbito, conversión transacción↔transferencia al editar, borrado en cascada de devoluciones): 97.9% statements.
+- [x] Ratchet del umbral: **61% statements / 56% branches / 62% functions / 61% lines** (medido: 61.29/56.42/62.81/61.67 — salto grande porque estas dos páginas son las más grandes del proyecto).
 - Commit: "tests unitarios de Categorías y Movimientos".
+
+**Hallazgo de infraestructura de test (no un bug de producto):** `CategoriesPage` y `TransactionsPage` usan la API `viewChild()` de señales de Angular (no el decorador `@ViewChild` clásico) para sus `<dialog>`. A diferencia de lo asumido en CP4 con `AccountsPage`, aquí el componente **sí renderiza su plantilla al crearse en el test** (con `changeDetection: ChangeDetectionStrategy.Eager`, aplicado por el codemod de la subida a Angular 22, el árbol se pinta sin esperar a un `fixture.detectChanges()` explícito) — así que el `<dialog>` real de jsdom queda resuelto y sus métodos imperativos `showModal()`/`close()` se invocan de verdad. jsdom no los implementa (`TypeError: ... is not a function`). Se añadió un stub mínimo de ambos en `src/test-setup.ts` (mismo patrón que el mock de `matchMedia`), reutilizable por cualquier página con `<dialog>` a partir de ahora.
 
 ## CP6 — Unit tests: Dashboard e Inversión
 
@@ -134,5 +136,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **CP0–CP4 cerrados.** 140 tests unitarios verdes, cobertura real 35/27.14/34.64/33.99% (statements/branches/functions/lines), umbral fijado a ese nivel. De paso, un bug real corregido en `budgets.ts` (ver nota en CP4).
-- **Próximo paso**: confirmar con el usuario y arrancar CP5 (unit tests de páginas complejas: `categories.ts`, `transactions.ts`).
+- **Estado**: **CP0–CP5 cerrados.** 217 tests unitarios verdes, cobertura real 61.29/56.42/62.81/61.67% (statements/branches/functions/lines), umbral fijado a ese nivel. Ya solo quedan por cubrir dashboard/inversión (con gráficos) y los diálogos.
+- **Próximo paso**: confirmar con el usuario y arrancar CP6 (unit tests de Dashboard e Inversión, con el mock de Chart.js).
