@@ -11,13 +11,14 @@ Dos capas de test, en este orden:
 1. **Vitest** — unitarios de componentes/servicios Angular (sustituye a Karma/Jasmine, que se elimina por completo).
 2. **Playwright** — E2E contra la **app real** (backend Spring Boot + Postgres reales, con reset/seed determinista antes de cada suite — nada de mocks de red).
 
-**Cobertura mínima exigida: 80–85 % global** (Vitest + `@vitest/coverage-v8`), excluyendo del cómputo lo intrínsecamente no cubrible (`main.ts`, `environments/**`, `**/*.spec.ts`, interfaces puras de `models.ts` sin código ejecutable). El umbral se **ratchetea** progresivamente por checkpoint (se sube según avanza la suite), no se fija al final de golpe.
+**Cobertura mínima exigida: 80–85 % global**, excluyendo del cómputo lo intrínsecamente no cubrible (`main.ts`, `**/*.spec.ts`, interfaces puras de `models.ts` sin código ejecutable). El umbral se **ratchetea** progresivamente por checkpoint (se sube según avanza la suite), no se fija al final de golpe.
 
 ## Decisiones ya tomadas (no reabrir sin motivo)
 
 - **E2E contra backend+Postgres reales**, no contra mocks: es coherente con cómo ya se verifica manualmente el proyecto ("captura headless contra la app real", ver commits `ade0dfd`/`997b1ed`) y es el único enfoque que habría detectado el bug real de gráficos en blanco que motivó esta suite.
 - **Karma se elimina**, no convive con Vitest.
 - Los tests unitarios de `dashboard.ts`/`investments.ts` **mockean el constructor `Chart`** y verifican solo el mapeo de datos (labels/datasets/colores); **no prueban que el canvas pinte de verdad** — eso lo cubre el E2E de CP8 con una assertion explícita sobre el `<canvas>` real.
+- **Angular se subió de 20.3.28 a 22.0.7 a mitad de este plan** (commits `ae96ea7`→21, `583cab4`→22, más `3f197ca` añadiendo `jsdom`), con Node en `24.18.0` (LTS Krypton) y TypeScript en `6.0.3`. Esto cambia CP1/CP7 de forma importante — ver notas ahí. La build de producción (`ng build`) y el `ng serve` real se verificaron tras la subida: correctos. El único fallo encontrado fue de test tooling (`matchMedia` no existe en jsdom), no de la migración de Angular en sí.
 
 ## Convenciones
 
@@ -31,18 +32,34 @@ Dos capas de test, en este orden:
 
 ## CP0 — Preparación
 
-- [ ] Confirmar contra la versión instalada (`@angular/cli` 20.3.28 / `@angular/build`) el schematic/flags reales para el builder de test con runner Vitest (`@angular/build:unit-test`, developer preview) — no asumir sintaxis sin verificarla.
-- [ ] Listar exclusiones de cobertura definitivas (`main.ts`, `environments/**`, `models.ts` si no aporta statements ejecutables).
+- [x] Confirmar contra la versión instalada el schematic/flags reales para el builder de test con runner Vitest (`@angular/build:unit-test`) — no asumir sintaxis sin verificarla.
+- [x] Listar exclusiones de cobertura definitivas (`main.ts`, `**/*.spec.ts`; no hay `environments/**` en este proyecto; `models.ts` no aporta statements ejecutables, no necesita exclusión explícita).
 - Commit: ninguno (solo investigación).
+
+**Hallazgos — ronda 1, contra Angular 20.3.28 (superados por la ronda 2 tras subir a Angular 22, ver más abajo):**
+
+- El builder `@angular/build:unit-test` con `runner: vitest` existía ya en 20.3.28 pero marcado `[EXPERIMENTAL]`, y su `schema.json` **no tenía ningún campo de umbral de cobertura** (`generateCoverageOption` en `builder.js` solo exponía `enabled/excludeAfterRemap/include/reporter`). Además invocaba a Vitest con `config: false`, ignorando a propósito cualquier `vitest.config.ts` del proyecto — así que ni siquiera un `vitest.config.ts` propio con `coverage.thresholds` se podía colar.
+
+**Hallazgos — ronda 2, contra Angular 22.0.7 (estado real actual, verificado en `node_modules/@angular/build@22.0.7/src/builders/unit-test/schema.json` ya instalado, no solo en el registro):**
+
+- El schema del builder creció mucho: ahora incluye `coverage`, `coverageInclude`, `coverageExclude`, `coverageReporters`, `coverageWatermarks` y, la pieza que faltaba, **`coverageThresholds`** (objeto con `statements/branches/functions/lines` + `perFile`), cuya descripción dice literalmente: *"If thresholds are not met, the builder will exit with an error."* Es un gate real y nativo — **ya no hace falta el script propio que se había planteado para CP7**.
+- Ojo con el **rename de propiedades entre v20 y v22**: `codeCoverage`→`coverage`, `codeCoverageExclude`→`coverageExclude`, `codeCoverageReporters`→`coverageReporters`. Cualquier ejemplo o doc que se consulte sobre la v20 usa los nombres viejos.
+- Sigue marcado `[EXPERIMENTAL]` en `builders.json` incluso en 22.0.7 — más maduro, pero formalmente Angular no lo da por estable todavía.
+- `ng update` **ya migró `angular.json` solo** al subir a Angular 22: el target `test` pasó de `@angular/build:karma` a `@angular/build:unit-test` con `runner: "vitest"` y `buildTarget: ":build:testing"` (una configuración `testing` nueva añadida a `architect.build.configurations` con los polyfills de zone.js). Es decir, **buena parte de CP1 ya está hecha por el propio `ng update`**, sin que lo hiciéramos nosotros a propósito.
+- `ng update` instaló `vitest` pero **no `jsdom`** (sin él, `ng test` falla con *"A DOM environment is required"*) — ya instalado y comiteado (`3f197ca`).
+- Los paquetes `karma`, `karma-chrome-launcher`, `karma-coverage`, `karma-jasmine`, `karma-jasmine-html-reporter` siguen en `package.json` como huérfanos (nadie los usa ya) — pendiente desinstalarlos en CP1.
+- Al ejecutar `npm test` de verdad (con Node 24.18.0), el único test existente falla con `TypeError: matchMedia is not a function` — jsdom no implementa `window.matchMedia`, que usa `ThemeService`. No es un problema de la migración de Angular; es exactamente el hueco de entorno de test que toca tapar en CP1 con un `setupFiles`.
 
 ## CP1 — Migración del runner: Karma → Vitest
 
-- [ ] Cambiar builder `test` en `angular.json` a Vitest; instalar `vitest` + `@vitest/coverage-v8`.
-- [ ] Desinstalar `karma`, `karma-chrome-launcher`, `karma-jasmine`, `karma-jasmine-html-reporter`, `karma-coverage`.
-- [ ] Migrar `app.spec.ts` a Vitest (TestBed se mantiene, solo cambia el runner).
-- [ ] Configurar `vitest.config` con umbral de cobertura bajo (la baseline real de hoy, ~0 %) y exclusiones de CP0.
+- [x] Cambiar builder `test` en `angular.json` a Vitest — **ya hecho por `ng update` al subir a Angular 22**, no hace falta tocarlo.
+- [x] Instalar `jsdom` (`3f197ca`); `vitest` ya lo instaló `ng update`. **No hace falta `@vitest/coverage-v8` como paquete aparte** — la cobertura la gestiona el propio builder (`coverage: true` en `angular.json`), no un provider de Vitest instalado a mano.
+- [ ] Desinstalar `karma`, `karma-chrome-launcher`, `karma-jasmine`, `karma-jasmine-html-reporter`, `karma-coverage` (huérfanos, confirmado en CP0 ronda 2).
+- [ ] Añadir un `setupFiles` (referenciado desde `architect.test.options.setupFiles` en `angular.json`) que mockee `window.matchMedia` — es lo único que hace fallar `app.spec.ts` hoy.
+- [ ] Confirmar que `app.spec.ts` pasa tal cual con ese mock (probablemente no necesite más cambios de sintaxis: Jasmine/Vitest comparten API `describe/it/expect` y el builder ya expone `globals: true`).
+- [ ] Fijar en `angular.json` (`architect.test.options`) `"coverage": true` + `coverageThresholds` con la baseline real de hoy (~0 %) y `coverageExclude` de CP0 — **umbral nativo, sin script propio**.
 - [ ] `npm test` verde con un solo test.
-- Commit: "migra runner de tests unitarios de Karma a Vitest".
+- Commit: "termina la migración del runner de tests unitarios a Vitest (jsdom, mock de matchMedia, limpieza de Karma, umbral nativo)".
 
 ## CP2 — Andamiaje E2E: Playwright + entorno de datos determinista
 
@@ -81,7 +98,7 @@ Dos capas de test, en este orden:
 ## CP7 — Unit tests: diálogos + puerta de cobertura definitiva
 
 - [ ] `import-dialog.ts`, `flex-import-dialog.ts`, `investment-transaction-dialog.ts`: validación de formulario, alta/edición, errores de API.
-- [ ] Fijar el umbral definitivo de Vitest en **80–85 %** (gate real: `npm test` falla por debajo).
+- [ ] Subir `coverageThresholds` en `angular.json` (`architect.test.options`) al valor definitivo **80–85 %** en `statements/branches/functions/lines`. Es un gate nativo del builder (confirmado en CP0: "if thresholds are not met, the builder will exit with an error") — `npm test` falla solo, sin script propio de por medio.
 - Commit: "tests unitarios de diálogos CRUD y fija el umbral de cobertura al 80-85 %".
 
 ## CP8 — E2E: recorridos críticos por dominio
@@ -103,5 +120,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: plan aprobado, sin empezar. Ningún checkpoint iniciado.
-- **Próximo paso**: confirmar con el usuario y arrancar por CP0.
+- **Estado**: **CP0 cerrado** (dos rondas: hallazgos iniciales contra Angular 20.3.28 quedaron superados al subir a Angular 22.0.7 a mitad del plan — ver notas en CP0). Angular 22 ya en marcha, verificado (`ng build` y `ng serve` reales, backend+Postgres respondiendo). **CP1 arrancado y parcialmente completado**: `ng update` migró solo el builder a Vitest, `jsdom` instalado y comiteado (`3f197ca`). Queda por hacer: limpiar paquetes Karma huérfanos, mock de `matchMedia`, y fijar `coverageThresholds` nativo con la baseline actual.
+- **Próximo paso**: terminar CP1 (ver checklist) y confirmar con el usuario antes de pasar a CP2.
