@@ -122,9 +122,20 @@ Dos capas de test, en este orden:
 
 ## CP8 — E2E: recorridos críticos por dominio
 
-- [ ] Un spec Playwright por dominio: dashboard, inversión, movimientos, categorías, presupuestos, cuentas, transferencias — navegación, alta/edición/borrado vía UI real, cambio de tema, sidebar colapsable.
-- [ ] **Regresión del bug original**: assertion explícita en dashboard e inversión de que cada `<canvas>` tiene contenido real (bounding box > 0, o inspección de que la instancia Chart.js registrada tiene datasets no vacíos).
+- [x] Un spec Playwright por dominio: `dashboard.spec.ts` (sustituye al smoke de CP2), `investments.spec.ts`, `transactions.spec.ts` (incluye transferencias: no hay página propia, se gestionan desde Movimientos con `kind='TRANSFER'`), `categories.spec.ts`, `budgets.spec.ts`, `accounts.spec.ts`. Navegación, alta/edición/borrado vía UI real contra backend real, cambio de tema y sidebar colapsable cubiertos en `dashboard.spec.ts` (son conceptos transversales del layout, no de un dominio; repetirlos en cada fichero sería redundante).
+- [x] **Regresión del bug original**: en `dashboard.spec.ts` (7 canvases) e `investments.spec.ts` (4 canvases siempre visibles + el de dividendos al cambiar de pestaña), assertion de `boundingBox().width/height > 0` en cada `<canvas>`.
+- 23 tests E2E, todos verdes, dos ejecuciones seguidas para descartar inestabilidad.
 - Commit: "añade suite E2E de recorridos críticos por dominio".
+
+**Hallazgos durante la implementación (todos en los propios specs, no en la app):**
+
+- **`[ngValue]` con `selectOption`**: Angular codifica el `value` real de una `<option [ngValue]="x">` como `"<índice>: <x>"` (p. ej. `"8: DEPOSIT"`), no como `x` literal. `selectOption('DEPOSIT')` esperaba indefinidamente sin encontrar coincidencia. Con la mayoría de selects esto se evitó usando `selectOption({ label: '...' })` (la etiqueta visible, no el value); en el selector de tipo del diálogo de operación de inversión ese enfoque además chocó con timeouts intermitentes de accesibilidad, así que se resolvió apuntando directamente al atributo `name` (`select[name="type"]`), más estable que depender de `getByLabel`.
+- **Los `<dialog>` nativos sí, pero los overlays con `@if` propios no**: `import-dialog`/`categories`/`accounts`/`transactions` usan `<dialog>` real (fácil de escopar por `aria-labelledby`); `investment-transaction-dialog` y `flex-import-dialog` son un `<div class="overlay">` construido a mano, sin ese atributo — se escopan mejor por el propio elemento custom de Angular (`app-investment-transaction-dialog`) que por clases CSS genéricas compartidas entre varios diálogos.
+- **`@empty` de un `@for` cuenta como una fila**: al filtrar Movimientos sin resultados, la plantilla renderiza una `<tr>` con "No hay movimientos en este periodo", no cero filas — el test esperaba `toHaveCount(0)` y hubo que corregirlo a `toHaveCount(1)`.
+- **Dos diálogos nativos en cadena**: borrar una categoría con subcategorías dispara primero un `confirm()` y, si se acepta y el backend rechaza el borrado (409), un `alert()` con el error. Encadenar dos `page.once('dialog', ...)` sucesivos tiene una condición de carrera real (el segundo handler puede consumir el diálogo equivocado si el primero aún no ha disparado su segundo diálogo asíncrono); se resolvió con un único `page.on('dialog', ...)` persistente que acumula mensajes y `expect.poll(...)` para esperar a que lleguen los que se esperan.
+- **`allTextContents()` no reintenta**: a diferencia de los `expect(locator).toHaveText(...)` con auto-retry, es una lectura puntual; usarlo justo tras un cambio de filtro (antes de que la recarga real termine) da una lectura obsoleta. Se envolvió en `expect.poll(...)`.
+- **Siembra incompleta**: la pestaña "Dividendos" de Inversión solo pinta su gráfico si hay rentas registradas (`@if (income && incomeRows.length > 0)`); el dataset de CP2 no incluía ninguna, así que ese test colgaba esperando un `<canvas>` que nunca se creaba. Se añadió una operación `DIVIDEND` a `e2e/fixtures/seed.ts`.
+- **Encontrado y limpiado durante la depuración, ajeno a la app**: un backend/BD de depuración manual (levantados a mano contra `docker-compose.e2e.yml` para inspeccionar el DOM real) se quedaron vivos en el puerto 8081 tras un intento de limpieza fallido, y la siguiente ejecución automática de la suite acabó hablando con ese proceso zombi en vez del suyo propio — contra una BD ya reseteada pero sin las categorías por defecto (el `DataSeeder` del backend solo siembra una vez al arrancar, no en cada reconexión). Nada que ver con el producto; ya limpiado.
 
 ## CP9 — Documentación
 
@@ -139,5 +150,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **CP0–CP7 cerrados — toda la parte de unitarios del plan está completa.** 312 tests unitarios verdes, cobertura real 96.07/86.78/93.3/97.88% (statements/branches/functions/lines), umbral definitivo fijado al 85% uniforme. De paso, un bug de infraestructura de test (no de la app) encontrado y corregido en `app.routes.spec.ts` (ver nota en CP7).
-- **Próximo paso**: confirmar con el usuario y arrancar CP8 (E2E: recorridos críticos por dominio, incluida la regresión del bug original de gráficos en blanco).
+- **Estado**: **CP0–CP8 cerrados.** Unitarios: 312 tests verdes, cobertura real 96.07/86.78/93.3/97.88% (statements/branches/functions/lines), umbral al 85% uniforme. E2E: 23 tests verdes (2 ejecuciones seguidas sin inestabilidad) cubriendo los 6 dominios con página propia, incluida la regresión explícita del bug original de gráficos en blanco (bounding box de cada canvas). Solo queda CP9 (documentación: `CLAUDE.md`).
+- **Próximo paso**: confirmar con el usuario y arrancar CP9 (actualizar `CLAUDE.md` con la nueva infraestructura de tests).
