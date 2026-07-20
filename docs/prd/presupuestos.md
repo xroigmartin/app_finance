@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.4 |
-| Última actualización | 2026-06-27 |
+| Última actualización | 2026-07-16 |
 | Dominio | Presupuestos (`monthly_budgets`, `recurring_budgets`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -155,6 +155,7 @@ Página `pages/budgets` (componente `BudgetsPage`).
 - Selector de **cuenta** y navegación de **año** (anterior/siguiente).
 - **Edición en línea** de cada celda hoja **solo** cuando hay una cuenta concreta seleccionada (`editable = accountId !== null`) y la fila es hoja (`row.editable`). Reusa los endpoints por mes: crea (`POST`) si la celda no tenía presupuesto, actualiza (`PUT`) si lo tenía, y elimina (`DELETE`) si se deja vacío o a `0`. Las filas agregadas del padre no son editables.
 - Coloreado de la diferencia: gastar menos de lo previsto o ingresar más es "bueno" (verde); lo contrario, "malo" (rojo). Los ceros se ocultan para mantener la rejilla legible.
+- **Estilo (sistema de diseño)**: cabecera de meses en JetBrains Mono 10px uppercase `--text-faint` sobre `--surface` (sticky); cifras y celdas editables en mono con `tabular-nums`; solo separadores horizontales (`--border`); filas de sección INGRESOS/GASTOS y filas de totales sobre `--surface-2`; fila AHORRO sobre `--accent-soft` con texto `--accent-hover`; punto de color de 8px junto al nombre de la categoría; subcategorías con sangría y marca `↳`; el input de celda adopta el estilo de input del sistema (borde `--accent` al foco, fondo `--surface`).
 
 ## 8. Validaciones y errores
 

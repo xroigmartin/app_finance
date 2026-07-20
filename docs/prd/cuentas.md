@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.1 |
-| Última actualización | 2026-06-25 |
+| Última actualización | 2026-07-16 |
 | Dominio | Cuentas (`accounts`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -83,11 +83,14 @@ No existe `GET /api/accounts/{id}` individual.
 
 ## 7. UI/UX
 
-Página `pages/accounts` (componente `AccountsPage`).
+Página `pages/accounts` (componente `AccountsPage`), rediseñada según el sistema de diseño (`Cuentas.dc.html` del handoff).
 
-- Tabla con columnas **Nombre**, **Tipo**, **Saldo inicial** (formateado en EUR) y acciones **Editar** / **Eliminar**.
-- Botón **＋ Nueva cuenta** que abre un formulario en línea (compartido entre alta y edición).
-- Campo **Tipo**: selector con valores `Banco`, `Efectivo`, `Tarjeta`, `Inversión`, `Otro` (por defecto `Banco`). Nota: el backend acepta cualquier texto no vacío; la lista cerrada es solo de la UI.
+- **Hero de patrimonio** (tarjeta): patrimonio neto (cifra mono 30px/600), badge pill de **variación mensual** (▲/▼ % sobre `--pos-soft`/`--neg-soft`), cifras de **Activos** y **Pasivos**, y **barra de distribución** de 7px (pill, segmentos por grupo de activo) con leyenda en mono.
+- **Tarjetas agrupadas por tipo** (sustituyen a la tabla), con subtotal por grupo en la cabecera: `Banco` → Cuentas corrientes (`--accent`), `Efectivo` (`--pos`), `Inversión` (`--warn`), `Otro` → Otras cuentas (neutro) y `Tarjeta` → Tarjetas y crédito (`--neg`, **pasivo**). Cada tarjeta: avatar 38px (inicial sobre el soft del grupo), nombre + meta (tipo · saldo inicial), **saldo actual** en mono (negativo en `--neg`) y botón Eliminar; clic en la tarjeta abre la edición.
+- **Fuente de los saldos**: el **saldo actual** por cuenta (inicial + movimientos) se lee del read-side de reporting `GET /api/dashboard/summary` (campo `accounts[]`, saldo a fin del mes en curso), en `forkJoin` con `GET /api/accounts`; no se añadió un endpoint nuevo. La variación mensual reutiliza `monthGrowthPct`. Si el summary falla, la página degrada: sin hero y con «—» como saldo.
+- **Activos/pasivos**: activos = suma de saldos de los grupos de activo; pasivos = suma del grupo Tarjeta; patrimonio neto = activos + pasivos. La barra de distribución reparte solo los grupos de activo con saldo positivo.
+- Botón **+ Nueva cuenta**; el formulario de alta/edición se abre en un **diálogo modal** (`<dialog>` nativo con `showModal()`, como en Movimientos), compartido entre alta y edición.
+- Campo **Tipo**: selector con valores `Banco`, `Efectivo`, `Tarjeta`, `Inversión`, `Otro` (por defecto `Banco`). Nota: el backend acepta cualquier texto no vacío; la lista cerrada es solo de la UI (y determina el grupo visual).
 - Campo **Saldo inicial**: entrada de texto con `inputmode="decimal"` y patrón `-?\d{1,12}([.,]\d{1,2})?`; se normaliza con `parseAmount` antes de enviar.
 - Eliminar pide confirmación (`confirm`). Si el backend responde 409 se muestra "La cuenta tiene movimientos asociados y no se puede eliminar".
 

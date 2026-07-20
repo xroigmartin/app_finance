@@ -1,7 +1,7 @@
 h2 {
   font-size: 1rem;
   margin: 0 0 1rem;
-  color: var(--heading);
+  color: var(--text);
 }
 
 .toolbar {
@@ -12,12 +12,12 @@ h2 {
   width: min(720px, 94vw);
   max-height: 90vh;
   overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   background: var(--surface);
-  color: var(--ink);
-  padding: 1.4rem 1.6rem;
-  box-shadow: 0 10px 30px rgba(13, 29, 58, .18);
+  color: var(--text);
+  padding: 20px;
+  box-shadow: var(--shadow);
 
   &::backdrop {
     background: rgba(15, 23, 42, .45);
@@ -46,7 +46,7 @@ h2 {
     align-items: center;
     justify-content: space-between;
     padding: .55rem 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
 
     &:last-child {
       border-bottom: none;
@@ -61,7 +61,7 @@ h2 {
     padding-left: 1.5rem;
 
     .sub-mark {
-      color: var(--muted);
+      color: var(--text-muted);
       font-size: .9rem;
     }
   }
@@ -87,9 +87,11 @@ h2 {
   }
 
   code {
-    background: var(--paper);
-    padding: .1rem .35rem;
-    border-radius: .3rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--surface-2);
+    padding: .15rem .45rem;
+    border-radius: var(--r-sm);
   }
 
   .actions {
@@ -114,30 +116,29 @@ input[type='color'] {
   gap: .5rem;
 }
 
+/* Etiqueta de ámbito: mini-pill mono sobre --surface-2 */
 .scope-tag {
-  font-size: .72rem;
-  padding: .1rem .45rem;
-  border-radius: 1rem;
-  background: #e2e8f0;
-  color: #475569;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--text-muted);
   white-space: nowrap;
-
-  &.global {
-    background: transparent;
-    border: 1px dashed var(--line);
-    color: var(--muted, #94a3b8);
-  }
 }
 
 .recurrence {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 
   h3 {
     font-size: .92rem;
     margin: 0 0 .5rem;
-    color: var(--heading);
+    color: var(--text);
   }
 
   .rec-active {
@@ -158,7 +159,7 @@ input[type='color'] {
   .rec-label {
     font-size: .8rem;
     font-weight: 600;
-    color: var(--muted);
+    color: var(--text-muted);
   }
 
   .month-toggle {
@@ -168,17 +169,18 @@ input[type='color'] {
   }
 
   .month-btn {
-    border: 1px solid var(--line);
-    background: var(--paper);
-    color: var(--muted);
-    border-radius: .4rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-muted);
+    border-radius: var(--r-sm);
     padding: .3rem .55rem;
     font-size: .8rem;
+    font-family: var(--mono);
     cursor: pointer;
 
     &.on {
-      background: #4f46e5;
-      border-color: #4f46e5;
+      background: var(--accent);
+      border-color: var(--accent);
       color: #fff;
     }
   }

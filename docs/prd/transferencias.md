@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.1 |
-| Última actualización | 2026-06-26 |
+| Última actualización | 2026-07-16 |
 | Dominio | Transferencias (`transfers`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -90,7 +90,7 @@ Base: `/api/transfers`.
 ## 7. UI/UX
 
 - La gestión de transferencias se hace **desde la pantalla de Movimientos** (`pages/transactions`): al crear/editar un movimiento se elige el tipo "Transferencia", que muestra los selectores de cuenta de origen y destino en lugar de categoría.
-- En la lista unificada de movimientos, las transferencias aparecen mezcladas con las transacciones, ordenadas por fecha. Un filtro por categoría las oculta.
+- En la lista unificada de movimientos, las transferencias aparecen mezcladas con las transacciones, ordenadas por fecha. Un filtro por categoría las oculta. Visualmente se identifican con un **chip** neutro «⇄ Transferencia» (punto `--border-strong`) y el importe atenuado en `--text-muted` (sistema de diseño).
 - Cambiar un movimiento de transferencia a transacción (o viceversa) elimina el registro original y crea el del otro tipo (ver PRD Movimientos, §7).
 - **Legado**: existe un componente `pages/transfers/` (`TransfersPage`) con su propia pantalla, pero la ruta `transfers` redirige a `transactions` (`app.routes.ts`), por lo que ya **no se usa**. Es código a retirar (ver backlog).
 

@@ -1,4 +1,4 @@
-<h1>Dashboard</h1>
+<h1>Panel general</h1>
 
 <div class="card toolbar">
   <div class="month-nav">
@@ -182,14 +182,13 @@
       @for (s of budgets; track s.budgetId) {
         <div class="budget-item">
           <div class="budget-head">
-            <span class="badge" [style.background]="s.color">{{ s.category }}@if (accountId === null) {<span class="muted"> · {{ s.account }}</span>}</span>
-            <span class="budget-figures" [class.amount-expense]="overBudget(s)">
+            <span class="chip"><span class="dot" [style.background]="s.color"></span>{{ s.category }}@if (accountId === null) {<span class="muted"> · {{ s.account }}</span>}</span>
+            <span class="budget-figures" [class.over]="overBudget(s)">
               {{ s.spent | currency:'EUR' }} <span class="muted">/ {{ s.budget | currency:'EUR' }}</span>
             </span>
           </div>
           <div class="progress">
-            <div class="progress-bar" [style.width.%]="percent(s)"
-                 [class.over]="overBudget(s)" [style.background]="overBudget(s) ? '' : s.color"></div>
+            <div class="progress-bar" [style.width.%]="percent(s)" [class.over]="overBudget(s)"></div>
           </div>
         </div>
       }
@@ -219,25 +218,23 @@
   }
   <div class="card">
     <h2>Últimos movimientos</h2>
-    <table class="data">
-      <thead>
-        <tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th class="num">Importe</th></tr>
-      </thead>
-      <tbody>
-        @for (t of recent; track t.id) {
-          <tr>
-            <td>{{ t.date | date:'dd/MM/yyyy' }}</td>
-            <td>{{ t.description }}</td>
-            <td><span class="badge" [style.background]="t.category.color">{{ t.category.name }}</span></td>
-            <td class="num" [class.amount-income]="t.type === 'INCOME'"
+    <div class="tx-list">
+      @for (t of recent; track t.id) {
+        <div class="tx-row">
+          <span class="avatar" [style.background]="soft(t.category.color)"
+                [style.color]="t.category.color">{{ (t.description || t.category.name).charAt(0) }}</span>
+          <span class="tx-main">
+            <span class="tx-concept">{{ t.description || t.category.name }}</span>
+            <span class="tx-meta">{{ t.date | date:'dd/MM/yyyy' }} · {{ t.category.name }}</span>
+          </span>
+          <span class="tx-amount" [class.amount-income]="t.type === 'INCOME'"
                 [class.amount-expense]="t.type === 'EXPENSE'">
-              {{ (t.type === 'EXPENSE' ? -t.amount : t.amount) | currency:'EUR' }}
-            </td>
-          </tr>
-        } @empty {
-          <tr><td colspan="4" class="muted">Sin movimientos</td></tr>
-        }
-      </tbody>
-    </table>
+            {{ (t.type === 'EXPENSE' ? -t.amount : t.amount) | currency:'EUR' }}
+          </span>
+        </div>
+      } @empty {
+        <p class="muted">Sin movimientos</p>
+      }
+    </div>
   </div>
 </div>

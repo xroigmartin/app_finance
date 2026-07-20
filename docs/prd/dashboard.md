@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.2 |
-| Última actualización | 2026-07-14 |
+| Última actualización | 2026-07-16 |
 | Dominio | Dashboard / agregaciones (`/api/dashboard`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -95,9 +95,10 @@ Página `pages/dashboard` (componente `DashboardPage`), con **Chart.js** directa
 - **Tarjetas de resumen**: saldo total, ingresos/gastos/ahorro del mes y del año, con sus porcentajes.
 - **Gráficos**: barras de ingresos/gastos mensuales; doughnut de gastos por categoría; doughnut de ingresos por categoría; línea de ahorro mensual; línea de evolución del patrimonio; barras comparativas de ingresos por cuenta y de gastos por cuenta.
 - **Tarjeta de patrimonio invertido** (RF-8): en el grid de KPIs anuales; muestra el total en EUR con "valorado a <fecha>" (o "valorado a coste" sin cotizaciones) y, con más de una cartera, el desglose nombre → valor. Degradación: se **oculta** si no hay carteras; ante error de la API de inversiones muestra **"—" (no disponible)** sin afectar al resto del dashboard.
-- **Progreso de presupuestos**: lista con barra de porcentaje gastado por categoría.
-- **Últimos movimientos**: las 10 transacciones recientes (`/api/transactions/recent`).
-- **Tema**: los gráficos leen colores de `ThemeService` (`chartText()` / `chartGrid()`) y se redibujan mediante un `effect` al cambiar de tema claro/oscuro.
+- **Progreso de presupuestos**: lista con barra de porcentaje gastado por categoría; según el sistema de diseño, la categoría es un **chip** con punto de color, la cifra `gastado / límite` va en mono y la barra es un track de 7px sobre `--surface-2` con relleno `--accent` (relleno y cifra en `--warn` al superar el límite).
+- **Últimos movimientos**: las 10 transacciones recientes (`/api/transactions/recent`), como **filas con avatar** de 38px (inicial del concepto sobre el color soft de su categoría), concepto + meta (fecha · categoría) y el importe en mono coloreado por signo.
+- **Tarjetas KPI** (sistema de diseño): label en JetBrains Mono 11px uppercase `--text-faint`, cifra en mono 22px/600 y sub-etiqueta 12px `--text-faint`.
+- **Tema**: los gráficos leen colores de `ThemeService` (`chartText()` / `chartGrid()` y los semánticos `chartAccent()/chartAccentSoft()/chartPos()/chartNeg()/chartWarn()`) y se redibujan mediante un `effect` al cambiar de tema claro/oscuro.
 
 ## 8. Validaciones y errores
 

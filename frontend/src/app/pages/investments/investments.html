@@ -162,12 +162,15 @@
         </tr>
       </thead>
       <tbody>
-        @for (p of positions; track p.securityId) {
+        @for (p of positions; track p.securityId; let i = $index) {
           <tr>
             <td>
               <div class="instrument">
-                <span>{{ p.name }}</span>
-                <span class="muted small-text">{{ p.ticker || p.isin }} · {{ p.currency }}</span>
+                <span class="tk" [style.background]="tickerSoft(i)" [style.color]="tickerColor(i)">{{ tickerLabel(p) }}</span>
+                <div class="instrument-text">
+                  <span>{{ p.name }}</span>
+                  <span class="muted small-text">{{ p.ticker || p.isin }} · {{ p.currency }}</span>
+                </div>
               </div>
             </td>
             <td class="num" [class.amount-expense]="p.quantity < 0">{{ p.quantity | number:'1.0-8' }}</td>
@@ -288,10 +291,12 @@
               <td>{{ typeLabels[tx.type] }}</td>
               <td>
                 <div class="instrument">
-                  <span>{{ tx.securityName ?? '—' }}</span>
-                  @if (tx.description) {
-                    <span class="muted small-text">{{ tx.description }}</span>
-                  }
+                  <div class="instrument-text">
+                    <span>{{ tx.securityName ?? '—' }}</span>
+                    @if (tx.description) {
+                      <span class="muted small-text">{{ tx.description }}</span>
+                    }
+                  </div>
                 </div>
               </td>
               <td class="num" [class.amount-expense]="(tx.quantity ?? 0) < 0">

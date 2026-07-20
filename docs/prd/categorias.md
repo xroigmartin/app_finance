@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.2 |
-| Última actualización | 2026-06-25 |
+| Última actualización | 2026-07-16 |
 | Dominio | Categorías (`categories`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -140,8 +140,8 @@ El backend fuerza `type` al del padre; si el padre fuese de cuenta, ignoraría e
 
 Página `pages/categories` (componente `CategoriesPage`).
 
-- Dos columnas: **Gastos** e **Ingresos**. Cada categoría principal muestra su insignia de color y una etiqueta de ámbito (**Global** o nombre de cuenta); sus subcategorías cuelgan debajo con marca `↳` y su propia etiqueta de ámbito.
-- Acciones por fila: **＋ Sub** (solo en principales), **Editar**, **Eliminar**.
+- Dos columnas: **Gastos** e **Ingresos**. Cada categoría principal se muestra como **chip** del sistema de diseño (pill con borde, fondo `--surface` y punto de 8px de su color) más una etiqueta de ámbito (**Global** o nombre de cuenta) como **mini-pill** en JetBrains Mono 10px uppercase sobre `--surface-2`; sus subcategorías cuelgan debajo con marca `↳` y su propia etiqueta de ámbito.
+- Acciones por fila: **+ Sub** (solo en principales), **Editar**, **Eliminar** (botones outline pequeños).
 - El formulario de alta/edición se abre en un **diálogo modal** (`<dialog>` nativo con `showModal()`): se centra en el viewport sin importar el scroll, con focus-trap, cierre con `Escape` (limpia el error) y devolución del foco al botón disparador; tiene `max-height` con scroll interno porque incluye la sección de recurrencia. Campos: **Nombre**, **Categoría principal** (selector; "Ninguna" = principal), **Tipo** (deshabilitado si es subcategoría, se hereda), **Ámbito** (Global o una cuenta) y **Color**.
 - El selector de **Ámbito** se bloquea **solo** para subcategorías cuyo padre está acotado a una cuenta (`scopeLocked`). Bajo un padre global, el ámbito de la subcategoría es elegible.
 - Texto de ayuda contextual que explica la herencia de tipo y, según el caso, la herencia o libertad de ámbito.
