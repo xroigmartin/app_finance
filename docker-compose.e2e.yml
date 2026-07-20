@@ -1,0 +1,22 @@
+name: finance-e2e
+
+services:
+  db-e2e:
+    image: postgres:17-alpine
+    container_name: finance-db-e2e
+    environment:
+      POSTGRES_DB: finance
+      POSTGRES_USER: finance
+      POSTGRES_PASSWORD: finance
+    ports:
+      - "5434:5432"
+    volumes:
+      - finance-e2e-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance -d finance"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  finance-e2e-data:
