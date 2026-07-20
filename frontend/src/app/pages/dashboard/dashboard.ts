@@ -59,6 +59,7 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
 
   private charts: Chart[] = [];
   private viewReady = false;
+  private dataLoaded = false;
 
   // Latest fetched data, kept so charts can be redrawn on a theme change.
   private monthlyData: MonthlyPoint[] = [];
@@ -169,12 +170,16 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
       this.incomeCatData = r.incomeCat;
       this.balanceData = r.balance;
       this.comparison = r.comparison;
+      this.dataLoaded = true;
       this.renderCharts();
     });
   }
 
   private renderCharts(): void {
-    if (!this.viewReady) return;
+    // ngAfterViewInit se dispara antes de que resuelvan las peticiones HTTP (asíncronas);
+    // sin esta guarda se crean los gráficos con datasets vacíos y se destruyen/recrean
+    // en cuanto llegan los datos reales, lo que a veces deja el canvas en blanco.
+    if (!this.viewReady || !this.dataLoaded) return;
     this.charts.forEach(c => c.destroy());
     this.charts = [];
 

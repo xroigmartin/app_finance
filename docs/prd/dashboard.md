@@ -4,7 +4,7 @@
 |---|---|
 | Estado | Implementado |
 | Versión | 1.2 |
-| Última actualización | 2026-07-16 |
+| Última actualización | 2026-07-20 |
 | Dominio | Dashboard / agregaciones (`/api/dashboard`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -99,6 +99,7 @@ Página `pages/dashboard` (componente `DashboardPage`), con **Chart.js** directa
 - **Últimos movimientos**: las 10 transacciones recientes (`/api/transactions/recent`), como **filas con avatar** de 38px (inicial del concepto sobre el color soft de su categoría), concepto + meta (fecha · categoría) y el importe en mono coloreado por signo.
 - **Tarjetas KPI** (sistema de diseño): label en JetBrains Mono 11px uppercase `--text-faint`, cifra en mono 22px/600 y sub-etiqueta 12px `--text-faint`.
 - **Tema**: los gráficos leen colores de `ThemeService` (`chartText()` / `chartGrid()` y los semánticos `chartAccent()/chartAccentSoft()/chartPos()/chartNeg()/chartWarn()`) y se redibujan mediante un `effect` al cambiar de tema claro/oscuro.
+- **Carga inicial de los gráficos**: `renderCharts()` no dibuja nada hasta que la vista está lista (`ngAfterViewInit`) **y** han llegado los datos de `fetchChartData()` (flag `dataLoaded`). `ngAfterViewInit` se dispara siempre antes de que resuelvan las peticiones HTTP (asíncronas); sin esta guarda se creaban los 7 gráficos con datasets vacíos nada más montar la vista y se destruían/recreaban en cuanto llegaban los datos reales, lo que en algunos navegadores dejaba el canvas en blanco de forma intermitente.
 
 ## 8. Validaciones y errores
 

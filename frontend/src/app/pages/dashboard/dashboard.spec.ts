@@ -1,6 +1,6 @@
 import { ElementRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ThemeService } from '../../theme.service';
 import {
@@ -282,6 +282,24 @@ describe('DashboardPage', () => {
       page.ngOnInit();
       const charts = (page as unknown as { charts: unknown[] }).charts;
       expect(charts.length).toBe(0);
+    });
+
+    it('no dibuja gráficos vacíos si la vista está lista antes de que lleguen los datos', () => {
+      // En producción las peticiones HTTP son asíncronas y ngAfterViewInit se dispara
+      // antes de que resuelvan: renderCharts() no debe crear gráficos con datasets
+      // vacíos (parpadeo en blanco) sino esperar a que lleguen los datos reales.
+      const monthly$ = new Subject<MonthlyPoint[]>();
+      const page = create({ getMonthly: vi.fn().mockReturnValue(monthly$) });
+      withCanvases(page);
+      page.ngOnInit();
+      page.ngAfterViewInit();
+      let charts = (page as unknown as { charts: unknown[] }).charts;
+      expect(charts.length).toBe(0);
+
+      monthly$.next(monthly);
+      monthly$.complete();
+      charts = (page as unknown as { charts: unknown[] }).charts;
+      expect(charts.length).toBe(7);
     });
 
     it('ngOnDestroy destruye todos los gráficos', () => {
