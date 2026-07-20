@@ -126,6 +126,7 @@ Dos capas de test, en este orden:
 - [x] **Regresión del bug original**: en `dashboard.spec.ts` (7 canvases) e `investments.spec.ts` (4 canvases siempre visibles + el de dividendos al cambiar de pestaña), assertion de `boundingBox().width/height > 0` en cada `<canvas>`.
 - 23 tests E2E, todos verdes, dos ejecuciones seguidas para descartar inestabilidad.
 - Commit: "añade suite E2E de recorridos críticos por dominio".
+- **2026-07-20 — hallazgo posterior:** `boundingBox() > 0` solo comprueba que el `<canvas>` tiene tamaño de layout, no que Chart.js haya pintado algo dentro. Investigando un reporte de gráficos del dashboard en blanco de forma intermitente en Brave (no reproducido en Chromium vía Playwright ni en builds locales), se confirmó que ese "bug original" era en realidad otro distinto (pestaña de dividendos de Inversión sin datos sembrados) y que el check nunca habría cazado un fallo de pintado real. Se reforzó `dashboard.spec.ts` con una comprobación de contenido real (`getImageData`, alfa > 0 en al menos un píxel) en los 7 canvases, verde contra el stack E2E aislado. Pendiente: reproducir la causa real del bug en Brave (candidato: Shields/gestión de recursos del navegador, no descartado ni confirmado).
 
 **Hallazgos durante la implementación (todos en los propios specs, no en la app):**
 

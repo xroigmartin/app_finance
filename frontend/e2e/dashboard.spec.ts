@@ -21,6 +21,19 @@ test.describe('Dashboard', () => {
       expect(box?.width ?? 0).toBeGreaterThan(0);
       expect(box?.height ?? 0).toBeGreaterThan(0);
     }
+    // La geometría no basta: un canvas correctamente maquetado pero con el draw
+    // de Chart.js fallado sigue teniendo box > 0. Se comprueba que cada canvas
+    // tiene píxeles pintados de verdad (no todo alfa=0).
+    for (let i = 0; i < count; i++) {
+      const paintedPixels = await canvases.nth(i).evaluate((el: HTMLCanvasElement) => {
+        const ctx = el.getContext('2d')!;
+        const { data } = ctx.getImageData(0, 0, el.width, el.height);
+        let painted = 0;
+        for (let j = 3; j < data.length; j += 4) if (data[j] !== 0) painted++;
+        return painted;
+      });
+      expect(paintedPixels, `canvas #${i} no tiene ningún píxel pintado`).toBeGreaterThan(0);
+    }
   });
 
   test('navegación de mes: adelante/atrás cambia la etiqueta del periodo', async ({ page }) => {
