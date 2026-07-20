@@ -119,4 +119,11 @@ export async function seed(): Promise<void> {
     amount: -1500,
     currency: 'EUR',
   });
+  await post(`/api/investments/portfolios/${portfolio.id}/transactions`, {
+    type: 'DIVIDEND',
+    tradeDate: '2026-03-15',
+    securityId: security.id,
+    amount: 20,
+    currency: 'EUR',
+  });
 }
