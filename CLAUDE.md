@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular 20 frontend + PostgreSQL 17. UI text, README, and commit context are in Spanish.
+Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular 22 frontend + PostgreSQL 17. UI text, README, and commit context are in Spanish.
 
 ## Product docs (PRDs) — mandatory maintenance
 
@@ -47,7 +47,9 @@ cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (prox
 ```
 
 - Backend tests: `cd backend && mvn test` (single test: `mvn test -Dtest=ClassName#method`). The suite (domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence-adapter tests on real PostgreSQL via Testcontainers, `@WebMvcTest` contract tests, and an ArchUnit boundary test) is the migration's safety net; keep it green and coverage ≥ 99 %.
-- Frontend tests: `cd frontend && npm test` (Karma/Jasmine; only `app.spec.ts` exists).
+- Frontend requires **Node.js ≥ 24.15.0** (Angular 22's CLI hard-refuses to run on anything older, e.g. plain `24.0.x`); `nvm use 24.18.0` if the shell's default Node doesn't satisfy that.
+- Frontend unit tests: `cd frontend && npm test` (Vitest via the `@angular/build:unit-test` runner — still `[EXPERIMENTAL]` per Angular's own tooling, watch mode by default, `-- --watch=false` for a single run). Coverage gate is native (`coverageThresholds` in `angular.json`, not a custom script): 85 % statements/branches/functions/lines; keep it green — currently well above floor at 96/87/93/98 %.
+- Frontend E2E tests: `cd frontend && npm run test:e2e` (Playwright, one spec per domain page). Fully isolated from the dev stack: resets/seeds a dedicated `db-e2e` Postgres (`docker-compose.e2e.yml`, its own Compose project `finance-e2e`) and runs a throwaway backend on `:8081` + frontend on `:4201` — the dev stack on `:5432`/`:8080`/`:4200` is never touched. See `docs/testing-plan-frontend.md` for the full design (seed fixtures, per-domain specs, the canvas-content regression check for the dashboard/investment charts) and the gotchas found along the way (`[ngValue]`+`selectOption`, dialogs chained in a row, etc.).
 - Frontend build: `cd frontend && npm run build`.
 - Reset DB: `./app.sh stop && docker compose down -v`, then `./app.sh start` (seeds default categories only).
 
