@@ -4,7 +4,7 @@
 |---|---|
 | Estado | ✅ **Implementado** — F1, F2 y F3 completas (modelo + import Flex + posiciones/valoración multidivisa + rentas + alta manual + rentabilidad TWR/XIRR, con UI); F4 (automatización) en backlog |
 | Versión | 0.41 |
-| Última actualización | 2026-07-16 |
+| Última actualización | 2026-07-20 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -189,6 +189,8 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 **Pestañas**: operaciones (listado filtrable + alta manual) y dividendos (cobros por año/instrumento). Se presentan como **control segmentado** (contenedor `--surface-2` con borde, segmento activo `--surface` + sombra, texto mono 12px). Las tarjetas KPI siguen el patrón del sistema: label mono 11px uppercase `--text-faint`, cifra mono 22px/600.
 
 **Botón Importar Flex**: reutiliza el patrón del diálogo de import existente (`components/import-dialog.ts`) adaptado al Flex.
+
+**Carga de los gráficos**: los 4 canvas principales viven dentro de `@if (summary)` y el de dividendos dentro de `@if (activeTab === 'dividendos' && income && incomeRows.length > 0)`; `renderCharts()` (que destruye y recrea los `Chart` existentes) se difiere con `scheduleRenderCharts()` hasta comprobar que el DOM tiene realmente montados y con tamaño (`getBoundingClientRect().width > 0`) todos los canvas que deberían existir según el estado actual, reintentando por `requestAnimationFrame` (máx. 30 intentos) si no. Ni `setTimeout(0)` ni un número fijo de frames bastan: bajo carga, Chart.js puede medir el contenedor antes de que el navegador calcule su layout y quedarse con el tamaño por defecto del `<canvas>` (300×150, sin pintar nada). Las llamadas se coalescen (un solo render por ventana) porque `load()` dispara en paralelo el `forkJoin` principal y `loadIncome()`.
 
 **Tarjeta de patrimonio en el dashboard doméstico**: única presencia de la inversión fuera de su página — una tarjeta informativa con el patrimonio **agregado de todas las carteras** (y fecha de valoración, la más antigua de las usadas), desglosando el valor por cartera cuando hay más de una, leyendo `GET /api/investments/summary`. No mezcla agregados: los ingresos/gastos/saldos domésticos no incorporan nada de inversión (RN-1 intacta a nivel de datos). Degradación (RF-10): se **oculta** si no hay carteras o no hay valor que mostrar; ante error de la API muestra **"—"** sin tumbar el dashboard doméstico. Al implementarla se actualizará también el PRD Dashboard.
 

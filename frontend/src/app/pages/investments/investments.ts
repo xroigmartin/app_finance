@@ -74,6 +74,7 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
 
   private charts: Chart[] = [];
   private viewReady = false;
+  private renderScheduled = false;
 
   constructor() {
     // Redibuja los gráficos con los colores del tema al cambiarlo.
@@ -100,6 +101,52 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.charts.forEach(c => c.destroy());
+  }
+
+  /**
+   * Los canvas viven dentro de @if (summary): renderCharts() se difiere para
+   * esperar a que Angular actualice el DOM. Ni setTimeout(0) ni un número fijo
+   * de requestAnimationFrame garantizan que el navegador ya haya calculado el
+   * layout del canvas recién insertado bajo carga (más pestañas, CPU
+   * ocupada...): Chart.js mide entonces un contenedor todavía sin tamaño real
+   * y se queda con el tamaño por defecto del <canvas> (300×150, sin pintar
+   * nada). En vez de adivinar cuántos frames hacen falta, se espera hasta
+   * comprobar que el contenedor de verdad tiene tamaño (getBoundingClientRect
+   * fuerza un layout síncrono, así que la lectura es siempre fiable). Además
+   * se coalescen las llamadas: load() dispara en paralelo el forkJoin
+   * principal y loadIncome(), y sin coalescer, dos resoluciones casi
+   * simultáneas destruirían y recrearían los gráficos uno detrás de otro.
+   */
+  private scheduleRenderCharts(attempt = 0): void {
+    if (this.renderScheduled) return;
+    this.renderScheduled = true;
+    requestAnimationFrame(() => {
+      this.renderScheduled = false;
+      if (!this.chartsLayoutReady() && attempt < 30) {
+        this.scheduleRenderCharts(attempt + 1);
+        return;
+      }
+      this.renderCharts();
+    });
+  }
+
+  /**
+   * ¿Están montados y con tamaño real todos los canvas que deberían existir
+   * ahora mismo, según el estado actual (summary / pestaña de dividendos)?
+   * El de dividendos entra/sale del DOM con la pestaña y con income/incomeRows
+   * (§7): si aún no se ha resuelto el ViewChild, cuenta como no listo en vez
+   * de ignorarse, o se perdería su primer render tras cambiar de pestaña.
+   */
+  private chartsLayoutReady(): boolean {
+    const expected: (ElementRef<HTMLCanvasElement> | undefined)[] = [];
+    if (this.summary) {
+      expected.push(this.allocationCanvas, this.evolutionCanvas, this.pnlCanvas, this.performanceCanvas);
+    }
+    if (this.activeTab === 'dividendos' && this.income && this.incomeRows.length > 0) {
+      expected.push(this.dividendCanvas);
+    }
+    return expected.every(ref =>
+      !!ref && (ref.nativeElement.parentElement?.getBoundingClientRect().width ?? 0) > 0);
   }
 
   get portfolio(): Portfolio | null {
@@ -147,7 +194,7 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
       this.history = r.history;
       this.performance = r.performance;
       // Los canvas viven dentro de @if (summary): esperar a que el DOM se actualice.
-      setTimeout(() => this.renderCharts());
+      this.scheduleRenderCharts();
     });
     this.loadTransactions();
     this.loadIncome();
@@ -158,7 +205,7 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
   setTab(tab: 'operaciones' | 'dividendos'): void {
     this.activeTab = tab;
     // El canvas de dividendos entra/sale del DOM con la pestaña.
-    setTimeout(() => this.renderCharts());
+    this.scheduleRenderCharts();
   }
 
   loadTransactions(): void {
@@ -194,12 +241,12 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
       if (this.incomeYear !== 'all' && !this.incomeYears.includes(this.incomeYear)) {
         this.incomeYear = this.incomeYears[0] ?? new Date().getFullYear();
       }
-      setTimeout(() => this.renderCharts());
+      this.scheduleRenderCharts();
     });
   }
 
   onIncomeYearChange(): void {
-    setTimeout(() => this.renderCharts());
+    this.scheduleRenderCharts();
   }
 
   private inSelectedYear(month: string): boolean {
