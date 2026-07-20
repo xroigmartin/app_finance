@@ -53,12 +53,13 @@ Dos capas de test, en este orden:
 ## CP1 — Migración del runner: Karma → Vitest
 
 - [x] Cambiar builder `test` en `angular.json` a Vitest — **ya hecho por `ng update` al subir a Angular 22**, no hace falta tocarlo.
-- [x] Instalar `jsdom` (`3f197ca`); `vitest` ya lo instaló `ng update`. **No hace falta `@vitest/coverage-v8` como paquete aparte** — la cobertura la gestiona el propio builder (`coverage: true` en `angular.json`), no un provider de Vitest instalado a mano.
-- [ ] Desinstalar `karma`, `karma-chrome-launcher`, `karma-jasmine`, `karma-jasmine-html-reporter`, `karma-coverage` (huérfanos, confirmado en CP0 ronda 2).
-- [ ] Añadir un `setupFiles` (referenciado desde `architect.test.options.setupFiles` en `angular.json`) que mockee `window.matchMedia` — es lo único que hace fallar `app.spec.ts` hoy.
-- [ ] Confirmar que `app.spec.ts` pasa tal cual con ese mock (probablemente no necesite más cambios de sintaxis: Jasmine/Vitest comparten API `describe/it/expect` y el builder ya expone `globals: true`).
-- [ ] Fijar en `angular.json` (`architect.test.options`) `"coverage": true` + `coverageThresholds` con la baseline real de hoy (~0 %) y `coverageExclude` de CP0 — **umbral nativo, sin script propio**.
-- [ ] `npm test` verde con un solo test.
+- [x] Instalar `jsdom` (`3f197ca`); `vitest` ya lo instaló `ng update`.
+- [x] Desinstalar `karma`, `karma-chrome-launcher`, `karma-jasmine`, `karma-jasmine-html-reporter`, `karma-coverage`. **Además** se desinstalaron `@types/jasmine` y `jasmine-core`, huérfanos también: `ng update` ya había cambiado `tsconfig.spec.json` de `"types": ["jasmine"]` a `"types": ["vitest/globals"]` al subir a Angular 22, así que no los usaba nadie.
+- [x] Añadido `src/test-setup.ts` (mock de `window.matchMedia`, que jsdom no implementa) referenciado en `architect.test.options.setupFiles`; incluido también en `tsconfig.spec.json`.
+- [x] `app.spec.ts` pasa sin tocarlo — Jasmine/Vitest comparten la API `describe/it/expect` y el builder expone `globals: true`.
+- [x] Fijado `"coverage": true` + `coverageThresholds` + `coverageExclude` en `angular.json`. **Corrección sobre lo previsto en CP0**: sí hace falta instalar `@vitest/coverage-v8` como paquete aparte (el builder solo activa/desactiva y configura la cobertura; el provider v8 en sí no viene incluido) — sin él falla con *"Code coverage requires either @vitest/coverage-v8 or @vitest/coverage-istanbul to be installed"*.
+- [x] **`coverageInclude: ["src/app/**/*.ts"]`** — decisión no listada originalmente en el plan: sin esto, v8 solo cuenta los ficheros realmente importados por los tests que existen (con un solo test, eran 2 ficheros: `app.ts` y `theme.service.ts`, dando un falso "46 %"). Con `coverageInclude` forzando todo `src/app`, los ficheros nunca importados cuentan como 0 % — así el "global" del umbral es real y comparable al criterio de JaCoCo en el backend (cuenta todo el código, no solo lo tocado).
+- [x] `npm test` verde con un solo test. **Baseline real medida**: 1 % statements (13/1296), 0.71 % branches (4/560), 0.69 % functions (3/433), 0.99 % lines (11/1103). Umbral fijado a `{statements:1, branches:0, functions:0, lines:0}` — por debajo de la baseline real para que el gate exista y sea real desde ya (falla si alguien borra el único test), y se ratchetea al alza en cada checkpoint siguiente.
 - Commit: "termina la migración del runner de tests unitarios a Vitest (jsdom, mock de matchMedia, limpieza de Karma, umbral nativo)".
 
 ## CP2 — Andamiaje E2E: Playwright + entorno de datos determinista
@@ -120,5 +121,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **CP0 cerrado** (dos rondas: hallazgos iniciales contra Angular 20.3.28 quedaron superados al subir a Angular 22.0.7 a mitad del plan — ver notas en CP0). Angular 22 ya en marcha, verificado (`ng build` y `ng serve` reales, backend+Postgres respondiendo). **CP1 arrancado y parcialmente completado**: `ng update` migró solo el builder a Vitest, `jsdom` instalado y comiteado (`3f197ca`). Queda por hacer: limpiar paquetes Karma huérfanos, mock de `matchMedia`, y fijar `coverageThresholds` nativo con la baseline actual.
-- **Próximo paso**: terminar CP1 (ver checklist) y confirmar con el usuario antes de pasar a CP2.
+- **Estado**: **CP0 y CP1 cerrados.** Angular 22 en marcha y verificado. Vitest es el único runner (Karma y Jasmine desinstalados del todo), `npm test` corre verde con cobertura nativa activada y un umbral real (aunque bajo) que sí bloquea si baja: baseline documentada arriba (~1 % global).
+- **Próximo paso**: confirmar con el usuario y arrancar CP2 (andamiaje E2E con Playwright + seed/reset determinista).
