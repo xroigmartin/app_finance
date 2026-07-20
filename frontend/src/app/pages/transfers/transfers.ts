@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiService } from '../../api.service';
@@ -11,6 +11,7 @@ import { Account, Transfer, TransferRequest } from '../../models';
   selector: 'app-transfers',
   imports: [CommonModule, FormsModule, ImportDialog],
   templateUrl: './transfers.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './transfers.scss'
 })
 export class TransfersPage implements OnInit {

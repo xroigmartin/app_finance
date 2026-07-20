@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { forkJoin, of } from 'rxjs';
@@ -42,6 +42,7 @@ interface Group extends GroupDef {
   selector: 'app-accounts',
   imports: [CommonModule, FormsModule],
   templateUrl: './accounts.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './accounts.scss'
 })
 export class AccountsPage implements OnInit {

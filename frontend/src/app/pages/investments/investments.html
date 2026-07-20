@@ -100,7 +100,7 @@
       <span class="kpi-label">Rentabilidad (TWR)</span>
       <span class="kpi-value" [class.amount-income]="(performance?.twrPercent ?? 0) > 0"
             [class.amount-expense]="(performance?.twrPercent ?? 0) < 0">
-        @if (performance?.twrPercent !== null && performance?.twrPercent !== undefined) {
+        @if ($safeNavigationMigration(performance?.twrPercent) !== null && $safeNavigationMigration(performance?.twrPercent) !== undefined) {
           {{ performance!.twrPercent | number:'1.2-2' }}%
         } @else {
           —
@@ -112,7 +112,7 @@
       <span class="kpi-label">Rentabilidad (XIRR)</span>
       <span class="kpi-value" [class.amount-income]="(performance?.xirrPercent ?? 0) > 0"
             [class.amount-expense]="(performance?.xirrPercent ?? 0) < 0">
-        @if (performance?.xirrPercent !== null && performance?.xirrPercent !== undefined) {
+        @if ($safeNavigationMigration(performance?.xirrPercent) !== null && $safeNavigationMigration(performance?.xirrPercent) !== undefined) {
           {{ performance!.xirrPercent | number:'1.2-2' }}%
         } @else {
           —
@@ -206,7 +206,7 @@
             </td>
             <td class="num" [class.amount-income]="(perfOf(p.securityId)?.twrPercent ?? 0) > 0"
                 [class.amount-expense]="(perfOf(p.securityId)?.twrPercent ?? 0) < 0">
-              @if (perfOf(p.securityId)?.twrPercent !== null && perfOf(p.securityId)?.twrPercent !== undefined) {
+              @if ($safeNavigationMigration(perfOf(p.securityId)?.twrPercent) !== null && $safeNavigationMigration(perfOf(p.securityId)?.twrPercent) !== undefined) {
                 {{ perfOf(p.securityId)!.twrPercent | number:'1.2-2' }}%
               } @else {
                 <span class="muted">—</span>
@@ -214,7 +214,7 @@
             </td>
             <td class="num" [class.amount-income]="(perfOf(p.securityId)?.xirrPercent ?? 0) > 0"
                 [class.amount-expense]="(perfOf(p.securityId)?.xirrPercent ?? 0) < 0">
-              @if (perfOf(p.securityId)?.xirrPercent !== null && perfOf(p.securityId)?.xirrPercent !== undefined) {
+              @if ($safeNavigationMigration(perfOf(p.securityId)?.xirrPercent) !== null && $safeNavigationMigration(perfOf(p.securityId)?.xirrPercent) !== undefined) {
                 {{ perfOf(p.securityId)!.xirrPercent | number:'1.2-2' }}%
               } @else {
                 <span class="muted">—</span>

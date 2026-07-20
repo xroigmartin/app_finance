@@ -1,5 +1,5 @@
 
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, ChangeDetectionStrategy } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiService } from '../api.service';
 import { FlexImportResult } from '../models';
@@ -79,6 +79,7 @@ import { FlexImportResult } from '../models';
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .overlay {
       position: fixed;

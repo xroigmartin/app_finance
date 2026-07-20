@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
 import { parseAmount } from '../../amount';
@@ -17,6 +17,7 @@ interface Series {
   selector: 'app-budgets',
   imports: [CommonModule, FormsModule],
   templateUrl: './budgets.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './budgets.scss'
 })
 export class BudgetsPage implements OnInit {

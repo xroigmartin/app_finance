@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, OnInit, inject, viewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, inject, viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
 import { ApiService } from '../../api.service';
@@ -26,6 +26,7 @@ interface MovementRow {
   selector: 'app-transactions',
   imports: [CommonModule, FormsModule, ImportDialog],
   templateUrl: './transactions.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './transactions.scss'
 })
 export class TransactionsPage implements OnInit {

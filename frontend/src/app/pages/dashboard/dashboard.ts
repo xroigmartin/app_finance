@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import {
-  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, effect, inject
+  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, effect, inject,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Chart, registerables } from 'chart.js';
@@ -22,6 +23,7 @@ const ACCOUNT_COLORS = ['#2563EB', '#16A06B', '#E8A33D', '#8B5CF6', '#0891B2', '
   selector: 'app-dashboard',
   imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './dashboard.scss'
 })
 export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import {
-  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, effect, inject
+  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, effect, inject,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Chart, registerables } from 'chart.js';
@@ -26,6 +27,7 @@ const CASH_COLOR = '#94a3b8';
   selector: 'app-investments',
   imports: [CommonModule, FormsModule, FlexImportDialog, InvestmentTransactionDialog],
   templateUrl: './investments.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './investments.scss'
 })
 export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
