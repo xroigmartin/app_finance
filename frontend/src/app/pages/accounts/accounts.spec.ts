@@ -6,6 +6,8 @@ import { Account, Summary } from '../../models';
 import { AccountsPage } from './accounts';
 
 describe('AccountsPage', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   let api: {
     getAccounts: ReturnType<typeof vi.fn>;
     getSummary: ReturnType<typeof vi.fn>;

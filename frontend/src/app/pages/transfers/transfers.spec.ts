@@ -5,6 +5,8 @@ import { Account, Transfer } from '../../models';
 import { TransfersPage } from './transfers';
 
 describe('TransfersPage', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   let api: {
     getAccounts: ReturnType<typeof vi.fn>;
     getTransfers: ReturnType<typeof vi.fn>;
