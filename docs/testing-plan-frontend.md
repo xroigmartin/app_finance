@@ -89,9 +89,12 @@ Dos capas de test, en este orden:
 
 ## CP4 — Unit tests: páginas simples
 
-- [ ] `transfers.ts` (94 líneas), `accounts.ts` (168), `budgets.ts` (197): carga, filtros, CRUD contra `ApiService` mockeado, getters derivados.
-- [ ] Ratchet del umbral.
+- [x] `transfers.ts`, `accounts.ts`, `budgets.ts`: carga, filtros/validación, CRUD contra `ApiService` mockeado (`{ provide: ApiService, useValue: ... }`, sin `HttpClientTestingModule`), getters derivados. Los diálogos nativos (`<dialog>` de Cuentas) se stubean asignando un `ElementRef` falso a la propiedad `@ViewChild` directamente, sin renderizar la plantilla completa — coherente con la filosofía del plan de testear lógica, no rendering (eso es cosa del E2E).
+- [x] `accounts.ts` 100% statements, `budgets.ts` 99% statements tras el fix de abajo.
+- [x] Ratchet del umbral: **35% statements / 27% branches / 34% functions / 33% lines** (medido: 35/27.14/34.64/33.99).
 - Commit: "tests unitarios de Transferencias, Cuentas y Presupuestos".
+
+**Bug real encontrado y corregido (TDD real, no solo test-writing) en `budgets.ts#onCellEdit`:** en las dos ramas de error (importe inválido, y fallo al guardar), el código fijaba `this.error = '...'` y **luego** llamaba a `this.load()` — pero `load()` empieza con `this.error = ''` como primera línea, así que se borraba a sí mismo en el mismo tick, síncrono, sin ningún `await` de por medio. El usuario nunca llegaba a ver esos mensajes de error en la pantalla de Presupuestos (ni con importe no válido ni con fallo de guardado). Se detectó porque el test escrito para ese comportamiento (rojo) fallaba con `error` vacío en vez del mensaje esperado. Arreglo: invertir el orden (`this.load(); this.error = '...';`) en ambos sitios — `load()` sigue limpiando el error al arrancar una carga normal, pero ya no pisa el mensaje que se acaba de fijar justo después.
 
 ## CP5 — Unit tests: páginas complejas
 
@@ -131,5 +134,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **CP0–CP3 cerrados.** 88 tests unitarios verdes, cobertura real 18.16/14.28/18.93/16.72% (statements/branches/functions/lines), umbral fijado a ese nivel. `npm run test:e2e` sigue con su test de humo aislado del stack de dev.
-- **Próximo paso**: confirmar con el usuario y arrancar CP4 (unit tests de páginas simples: `transfers.ts`, `accounts.ts`, `budgets.ts`).
+- **Estado**: **CP0–CP4 cerrados.** 140 tests unitarios verdes, cobertura real 35/27.14/34.64/33.99% (statements/branches/functions/lines), umbral fijado a ese nivel. De paso, un bug real corregido en `budgets.ts` (ver nota en CP4).
+- **Próximo paso**: confirmar con el usuario y arrancar CP5 (unit tests de páginas complejas: `categories.ts`, `transactions.ts`).
