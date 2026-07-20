@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.4 |
-| Última actualización | 2026-07-16 |
+| Versión | 1.4.1 |
+| Última actualización | 2026-07-20 |
 | Dominio | Presupuestos (`monthly_budgets`, `recurring_budgets`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -164,7 +164,7 @@ Página `pages/budgets` (componente `BudgetsPage`).
 | Presupuestar una categoría con subcategorías | `400` "No se puede presupuestar una categoría con subcategorías; presupuesta sus subcategorías". |
 | Categoría de otra cuenta | `400` "La categoría pertenece a otra cuenta". |
 | Importe 0 o negativo (alta/edición vía API) | Rechazado (`@Positive`). En la matriz, vacío/`0` elimina la celda. |
-| Importe no numérico en la matriz | El front muestra "Importe no válido…" y recarga. |
+| Importe no numérico en la matriz | El front muestra "Importe no válido…" y recarga (fix 2026-07-20: `onCellEdit` recargaba antes de fijar el mensaje, y `load()` lo borraba en el mismo tick al arrancar; ahora se recarga primero y el mensaje se fija después, así sobrevive). |
 | Duplicado (cuenta+categoría+año+mes) | `409`. |
 | Cuenta o categoría inexistente | `400` "Cuenta no válida" / "Categoría no válida". |
 | Editar presupuesto inexistente | `404` "Presupuesto no encontrado". |

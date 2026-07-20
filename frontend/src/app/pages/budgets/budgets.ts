@@ -120,8 +120,10 @@ export class BudgetsPage implements OnInit {
     const amount = raw === '' ? 0 : parseAmount(raw);
 
     if (isNaN(amount) || amount < 0) {
-      this.error = 'Importe no válido. Usa coma o punto para los decimales (ej.: 1234,56).';
+      // load() limpia this.error como primer paso: fijar el mensaje después de
+      // llamarlo, no antes, para que no se borre a sí mismo en el mismo tick.
       this.load();
+      this.error = 'Importe no válido. Usa coma o punto para los decimales (ej.: 1234,56).';
       return;
     }
     this.error = '';
@@ -145,7 +147,7 @@ export class BudgetsPage implements OnInit {
       : this.api.createBudget(req);
     obs.subscribe({
       next: () => this.load(),
-      error: () => { this.error = 'Error al guardar el presupuesto.'; this.load(); }
+      error: () => { this.load(); this.error = 'Error al guardar el presupuesto.'; }
     });
   }
 
