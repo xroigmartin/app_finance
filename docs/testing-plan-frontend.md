@@ -114,9 +114,11 @@ Dos capas de test, en este orden:
 
 ## CP7 — Unit tests: diálogos + puerta de cobertura definitiva
 
-- [ ] `import-dialog.ts`, `flex-import-dialog.ts`, `investment-transaction-dialog.ts`: validación de formulario, alta/edición, errores de API.
-- [ ] Subir `coverageThresholds` en `angular.json` (`architect.test.options`) al valor definitivo **80–85 %** en `statements/branches/functions/lines`. Es un gate nativo del builder (confirmado en CP0: "if thresholds are not met, the builder will exit with an error") — `npm test` falla solo, sin script propio de por medio.
+- [x] `import-dialog.ts` (100% statements), `flex-import-dialog.ts`, `investment-transaction-dialog.ts`: validación de formulario, alta/edición, errores de API, reglas por tipo de operación (instrumento prohibido/opcional/requerido, cantidad/precio según tipo, importe/divisa entrantes solo en conversión de divisa).
+- [x] `coverageThresholds` fijado al valor definitivo: **85 % uniforme** en `statements/branches/functions/lines` — techo del rango prometido (80–85 %), con margen real de sobra tras lo medido (96.07/86.78/93.3/97.88 %). Gate nativo del builder, `npm test` falla solo por debajo.
 - Commit: "tests unitarios de diálogos CRUD y fija el umbral de cobertura al 80-85 %".
+
+**Bug de infraestructura de test encontrado y corregido (no de la app):** al correr la suite completa (15 ficheros), `investments.spec.ts` fallaba con `TypeError: Cannot read properties of undefined (reading 'BUY')` en `deleteTransaction` (`this.typeLabels[tx.type]`) — pero **solo** si `app.routes.spec.ts` también corría; en aislado o en subconjuntos más pequeños, `investments.spec.ts` pasaba siempre. Aislado con `--exclude`: quitando `app.routes.spec.ts` de la ejecución, la suite completa pasaba 303/303. Diagnóstico: `app.routes.spec.ts` (de CP3) importaba estáticamente las seis páginas *y además* invocaba `route.loadComponent()` (el `import()` dinámico real) sobre esas mismas páginas — con el número total de ficheros de test de la suite completa, el builder experimental de Vitest (`@angular/build:unit-test`) acaba creando dos instancias del mismo módulo (una vía el `import()` dinámico, otra vía el import estático de `investments.spec.ts`), y `INVESTMENT_TYPE_LABELS` (una `const` de `models.ts`) queda `undefined` en una de las dos copias. **Confirmado que no es un bug de la app**: `ng build` y `ng serve` funcionan bien, y ya se había navegado entre páginas reales sin problema en sesiones anteriores. Arreglo: `app.routes.spec.ts` ya no importa los componentes de página ni invoca `loadComponent()`; solo comprueba que cada ruta perezosa tiene un `loadComponent` (función) y los redirects — perder la comprobación de "resuelve exactamente a esa clase" es aceptable porque el E2E (CP2/CP8) ya navega de verdad y ve la página correcta renderizada, que es la capa apropiada para esa garantía.
 
 ## CP8 — E2E: recorridos críticos por dominio
 
@@ -137,5 +139,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **CP0–CP6 cerrados.** 269 tests unitarios verdes, cobertura real 85.96/73.39/89.83/86.38% (statements/branches/functions/lines) — **ya dentro del objetivo 80–85% en tres de las cuatro métricas.** Solo quedan los diálogos CRUD (CP7) para rematar branches y fijar el umbral definitivo.
-- **Próximo paso**: confirmar con el usuario y arrancar CP7 (unit tests de diálogos: `import-dialog.ts`, `flex-import-dialog.ts`, `investment-transaction-dialog.ts`).
+- **Estado**: **CP0–CP7 cerrados — toda la parte de unitarios del plan está completa.** 312 tests unitarios verdes, cobertura real 96.07/86.78/93.3/97.88% (statements/branches/functions/lines), umbral definitivo fijado al 85% uniforme. De paso, un bug de infraestructura de test (no de la app) encontrado y corregido en `app.routes.spec.ts` (ver nota en CP7).
+- **Próximo paso**: confirmar con el usuario y arrancar CP8 (E2E: recorridos críticos por dominio, incluida la regresión del bug original de gráficos en blanco).
