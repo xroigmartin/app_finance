@@ -95,10 +95,10 @@
             "coverageInclude": ["src/app/**/*.ts"],
             "coverageExclude": ["src/main.ts", "src/test-setup.ts", "src/app/**/*.spec.ts"],
             "coverageThresholds": {
-              "statements": 61,
-              "branches": 56,
-              "functions": 62,
-              "lines": 61
+              "statements": 85,
+              "branches": 73,
+              "functions": 89,
+              "lines": 86
             }
           }
         }
