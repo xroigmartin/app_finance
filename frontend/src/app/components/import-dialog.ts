@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -7,7 +7,7 @@ import { Account, ImportResult } from '../models';
 
 @Component({
   selector: 'app-import-dialog',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <button class="btn" (click)="open()">{{ label }}</button>
 

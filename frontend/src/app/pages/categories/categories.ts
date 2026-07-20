@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, ElementRef, OnInit, inject, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -9,7 +9,7 @@ import { Account, Category, CategoryRule, RecurringAmount, RecurringBudget, Rule
 
 @Component({
   selector: 'app-categories',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './categories.html',
   styleUrl: './categories.scss'
 })

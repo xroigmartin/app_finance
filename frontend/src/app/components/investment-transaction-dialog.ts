@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -17,7 +17,7 @@ import {
  */
 @Component({
   selector: 'app-investment-transaction-dialog',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <button class="btn primary" (click)="openNew()">{{ label }}</button>
 

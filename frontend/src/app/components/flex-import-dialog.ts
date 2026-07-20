@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiService } from '../api.service';
@@ -11,7 +11,7 @@ import { FlexImportResult } from '../models';
  */
 @Component({
   selector: 'app-flex-import-dialog',
-  imports: [CommonModule],
+  imports: [],
   template: `
     <button class="btn" (click)="open()">{{ label }}</button>
 
