@@ -79,10 +79,12 @@ Dos capas de test, en este orden:
 
 ## CP3 — Unit tests: núcleo transversal
 
-- [ ] `api.service.ts` (310 líneas): cada método HTTP, mapeo de parámetros, manejo de error.
-- [ ] `theme.service.ts`: toggle, persistencia en `localStorage`, `chartText/chartGrid/chartPos/...`.
-- [ ] `amount.ts`, `app.routes.ts`, `app.ts`.
-- [ ] Ratchet del umbral de cobertura al nivel alcanzado.
+- [x] `api.service.ts` (310 líneas): un test por método (URL, verbo, query params opcionales presentes/ausentes, body, `FormData` en las importaciones). Caso especial cubierto: `getRecurrence` traga el error (404 sin recurrencia) y emite `null` — es lógica real, no solo passthrough. Resultado: 95.9% statements / 72.2% branches en este fichero (quedan combinaciones de params opcionales sin agotar en algún método casi duplicado; se acepta el margen, no compensa test-a-test para los últimos puntos de rama).
+- [x] `theme.service.ts`: `initial()` (SO claro/oscuro, valor guardado válido/ inválido en localStorage), `toggle()` (alterna, persiste, aplica `data-theme`), los 7 getters de color de gráfico en ambos temas. `matchMedia` mockeado por test con `vi.spyOn`.
+- [x] `amount.ts`: número directo, coma/punto decimal, espacios, cadena vacía/inválida → `NaN`.
+- [x] `app.routes.ts`: los tres redirects (`''`→dashboard, `transfers`→transactions, `**`→dashboard) y que cada `loadComponent` resuelve a la clase de componente esperada (comparando la clase importada directamente, no por `.name`: el bundler renombra clases duplicadas en el grafo de módulos — p. ej. `DashboardPage2` — así que comparar por nombre de cadena es frágil).
+- [x] `app.ts`: estado inicial de `collapsed` según `localStorage`, `toggle()` alterna y persiste, `toggleTheme()` delega en `ThemeService` (inyectado con `TestBed.inject`, no accediendo al campo `protected theme` del componente).
+- [x] Ratchet del umbral de cobertura al nivel alcanzado: **18% statements / 14% branches / 18% functions / 16% lines** (medido: 18.16/14.28/18.93/16.72).
 - Commit: "tests unitarios de ApiService, ThemeService y utilidades del núcleo".
 
 ## CP4 — Unit tests: páginas simples
@@ -129,5 +131,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **CP0, CP1 y CP2 cerrados.** `npm run test:e2e` corre un test de humo real contra backend+Postgres+frontend levantados y sembrados por el propio Playwright, totalmente aislado del stack de desarrollo (proyecto Docker Compose separado `finance-e2e`, puertos 5434/8081/4201). Verificado en vivo que el stack de dev (`finance-db`, volumen `finance-data`) no se toca.
-- **Próximo paso**: confirmar con el usuario y arrancar CP3 (unit tests del núcleo transversal: `api.service.ts`, `theme.service.ts`, utilidades).
+- **Estado**: **CP0–CP3 cerrados.** 88 tests unitarios verdes, cobertura real 18.16/14.28/18.93/16.72% (statements/branches/functions/lines), umbral fijado a ese nivel. `npm run test:e2e` sigue con su test de humo aislado del stack de dev.
+- **Próximo paso**: confirmar con el usuario y arrancar CP4 (unit tests de páginas simples: `transfers.ts`, `accounts.ts`, `budgets.ts`).
