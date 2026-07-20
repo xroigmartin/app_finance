@@ -139,7 +139,7 @@ Dos capas de test, en este orden:
 
 ## CP9 — Documentación
 
-- [ ] Actualizar `CLAUDE.md`: la sección de frontend ya no dice "Karma/Jasmine; only app.spec.ts exists"; documentar `npm test` (Vitest), `npm run test:e2e` (Playwright), el mecanismo de seed/reset y el umbral de cobertura exigido.
+- [x] Actualizado `CLAUDE.md`: overview a Angular 22, requisito de Node ≥ 24.15.0, `npm test` (Vitest, umbral nativo 85%), `npm run test:e2e` (Playwright, aislado del stack de dev), con puntero a este documento para el detalle.
 - Commit: "actualiza CLAUDE.md con la nueva infraestructura de tests".
 
 ## Nota sobre TDD
@@ -150,5 +150,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **CP0–CP8 cerrados.** Unitarios: 312 tests verdes, cobertura real 96.07/86.78/93.3/97.88% (statements/branches/functions/lines), umbral al 85% uniforme. E2E: 23 tests verdes (2 ejecuciones seguidas sin inestabilidad) cubriendo los 6 dominios con página propia, incluida la regresión explícita del bug original de gráficos en blanco (bounding box de cada canvas). Solo queda CP9 (documentación: `CLAUDE.md`).
-- **Próximo paso**: confirmar con el usuario y arrancar CP9 (actualizar `CLAUDE.md` con la nueva infraestructura de tests).
+- **Estado**: **PLAN COMPLETO (CP0–CP9).** Unitarios: 312 tests verdes, cobertura real 96.07/86.78/93.3/97.88% (statements/branches/functions/lines), umbral nativo al 85% uniforme. E2E: 23 tests verdes (2 ejecuciones seguidas sin inestabilidad) cubriendo los 6 dominios con página propia, incluida la regresión explícita del bug original de gráficos en blanco. `CLAUDE.md` actualizado.
+- **Próximo paso**: nada pendiente del plan. El mantenimiento normal a partir de aquí es TDD real (CLAUDE.md) para cualquier código nuevo, más mantener el umbral de cobertura y los specs E2E al día según evolucione la app.
