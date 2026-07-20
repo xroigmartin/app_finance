@@ -107,8 +107,9 @@ Dos capas de test, en este orden:
 
 ## CP6 — Unit tests: Dashboard e Inversión
 
-- [ ] `dashboard.ts` y `investments.ts`: mock del constructor `Chart`, verificación de la lógica de mapeo de datos que se le pasa (labels, datasets, colores por signo/posición) — no el renderizado de píxeles.
-- [ ] Ratchet del umbral hacia el objetivo 80–85 %.
+- [x] `dashboard.ts` (96.6% statements) y `investments.ts` (92.5% statements): `vi.mock('chart.js', ...)` con una clase `MockChart` mínima (constructor guarda `config`, `destroy = vi.fn()`, `static register/defaults` para los efectos de import a nivel de módulo) — se verifica el mapeo de datos (labels, datasets, colores por signo/posición vía `ThemeService` real) leyendo `(page as any).charts[i].config`, nunca el pintado real del canvas.
+- [x] Truco de arranque: en vez de pelear con `fixture.detectChanges()`/temporización de `@ViewChild`, se asignan `ElementRef` falsos a las propiedades `@ViewChild` de cada canvas directamente y se llama a `ngOnInit()` seguido de `ngAfterViewInit()` a mano — con los mocks de `ApiService` síncronos (`of(...)`), al llegar a `ngAfterViewInit()` todos los datos ya están cargados y `renderCharts()` los pinta con el mock de `Chart` sin depender de temporización real ni de los `setTimeout()` que usa `investments.ts` para esperar al `@if` del DOM.
+- [x] Ratchet del umbral: **85% statements / 73% branches / 89% functions / 86% lines** (medido: 85.96/73.39/89.83/86.38) — **ya dentro del objetivo 80–85% en statements/functions/lines** antes de tocar los diálogos de CP7; branches se sigue subiendo ahí.
 - Commit: "tests unitarios de Dashboard e Inversión".
 
 ## CP7 — Unit tests: diálogos + puerta de cobertura definitiva
@@ -136,5 +137,5 @@ El `CLAUDE.md` del proyecto exige TDD estricto para todo desarrollo nuevo. Este 
 
 ## Estado actual / Próximo paso
 
-- **Estado**: **CP0–CP5 cerrados.** 217 tests unitarios verdes, cobertura real 61.29/56.42/62.81/61.67% (statements/branches/functions/lines), umbral fijado a ese nivel. Ya solo quedan por cubrir dashboard/inversión (con gráficos) y los diálogos.
-- **Próximo paso**: confirmar con el usuario y arrancar CP6 (unit tests de Dashboard e Inversión, con el mock de Chart.js).
+- **Estado**: **CP0–CP6 cerrados.** 269 tests unitarios verdes, cobertura real 85.96/73.39/89.83/86.38% (statements/branches/functions/lines) — **ya dentro del objetivo 80–85% en tres de las cuatro métricas.** Solo quedan los diálogos CRUD (CP7) para rematar branches y fijar el umbral definitivo.
+- **Próximo paso**: confirmar con el usuario y arrancar CP7 (unit tests de diálogos: `import-dialog.ts`, `flex-import-dialog.ts`, `investment-transaction-dialog.ts`).
