@@ -2,8 +2,8 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | 🚧 En curso — formateador OTel y enrutado de dos niveles listos; falta instrumentar los puntos de fallo de sistema y de negocio, y las dependencias de Micrometer Tracing |
-| Versión | 0.1 |
+| Estado | 🚧 En curso — formateador OTel, enrutado de dos niveles y logging de sistema en los exception handlers listos; falta instrumentar el log de negocio (Inversiones) y las dependencias de Micrometer Tracing |
+| Versión | 0.2 |
 | Última actualización | 2026-07-21 |
 | Dominio | Transversal (no es un bounded context de negocio; vive en `shared/infrastructure/logging` y se usa desde cualquier contexto) |
 | Responsable | Equipo Mis Finanzas |
@@ -75,7 +75,7 @@ Origen: al diagnosticar un fallo real de import de Inversiones (reversas de IBKR
 | RF-1 | Todo log (de sistema o de negocio) se escribe como una línea JSON con el shape de §3.1. | ✅ |
 | RF-2 | Los logs de negocio se escriben en un fichero distinto de los de sistema, sin duplicarse entre ambos. | ✅ |
 | RF-3 | La ruta de los ficheros de log es configurable por entorno (`FINANCE_LOG_PATH`), nunca versionada en git. | ✅ |
-| RF-4 | `DomainExceptionHandler`/`DataIntegrityExceptionHandler` dejan constancia en `system.log` de cada excepción de dominio traducida a una respuesta HTTP 4xx, y las excepciones no controladas (500) quedan en `system.log` con traza. | ⬜ Pendiente (siguiente hito) |
+| RF-4 | `DomainExceptionHandler`/`DataIntegrityExceptionHandler` dejan constancia en `system.log` (WARN, `exception`+`detail`) de cada excepción de dominio o de integridad traducida a una respuesta HTTP 4xx. | ✅ |
 | RF-5 | Cada fila rechazada de un import de Inversiones (Flex) queda en `business.log` con tipo, `external_id`, fecha, importe/divisa, identidad del instrumento, descripción y motivo del rechazo. | ⬜ Pendiente (siguiente hito) |
 | RF-6 | Cada petición HTTP genera un `trace_id`/`span_id` (Micrometer Tracing, puente OTel, sin exporter configurado) que aparece en todo log emitido durante esa petición. | ⬜ Pendiente (siguiente hito) |
 
@@ -105,6 +105,8 @@ No aplica — los logs se consultan directamente en fichero (o, en el futuro, en
 
 ## 9. Casos límite y notas
 
+- **500 no controlados**: no se ha añadido un `@ExceptionHandler(Exception.class)` propio — habría cambiado el contrato de la API (el cuerpo de un 500) sin que se haya pedido, y Spring/Tomcat ya loguean por su cuenta (a ERROR, con traza) cualquier excepción no capturada que llegue al `DispatcherServlet`; al usar SLF4J igual que el resto de la app, esos logs ya caen en `system.log` por el enrutado por defecto de `root` (§3.2), sin necesidad de tocar nada. **No verificado con una prueba propia** (es comportamiento del framework, no código nuestro); pendiente de confirmar con un smoke test manual (arrancar la app, forzar un 500, mirar `system.log`).
+
 - `LoggerContext` construido a mano (fuera del arranque normal de Spring Boot/SLF4J) no trae `MDCAdapter` propio — se descubrió al testear el enrutado end-to-end (`LogbackTwoTierRoutingTest`) y hay que asignarlo explícitamente (`ctx.setMDCAdapter(new LogbackMDCAdapter())`) para que `getMDCPropertyMap()` no lance NPE. Solo afecta a tests que instancian su propio `LoggerContext`; en la app real, Spring Boot lo arranca correctamente.
 - `logback.xml` (no `logback-spring.xml`): no usa ninguna etiqueta específica de Spring (`springProperty`/`springProfile`), así que carga antes del contexto de Spring y es testable con un `JoranConfigurator` desnudo, sin arrancar la aplicación.
 
@@ -127,3 +129,4 @@ No aplica — los logs se consultan directamente en fichero (o, en el futuro, en
 - `shared/infrastructure/logging/OtelJsonEncoder.java`: adaptador `Encoder` de Logback sobre el formatter.
 - `src/main/resources/logback.xml` (+ `LogbackTwoTierRoutingTest`): enrutado de dos niveles con ficheros rotados.
 - `.gitignore`: `logs/` nunca se versiona.
+- `shared/web/DomainExceptionHandler.java` / `shared/web/DataIntegrityExceptionHandler.java` (+ sus tests, con un `ListAppender` de Logback para capturar el evento): logging de sistema (WARN) de cada excepción de dominio/integridad mapeada a 4xx.
