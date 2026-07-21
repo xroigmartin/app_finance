@@ -6,6 +6,7 @@ frontend/.angular/
 frontend/.vscode/
 .DS_Store
 .run/
+logs/
 app.sh
 .claude/settings.local.json
 docs/investment

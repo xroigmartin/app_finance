@@ -19,6 +19,7 @@ Los PRD son de **creación y actualización obligatoria**. Cualquier cambio de c
 | Importación de extractos | [prd/importacion.md](prd/importacion.md) | ✅ Implementado |
 | Reglas de categorización | [prd/reglas-categorizacion.md](prd/reglas-categorizacion.md) | ✅ Implementado |
 | Inversiones | [prd/inversiones.md](prd/inversiones.md) | ✅ Implementado (F1–F3: import Flex, posiciones/valoración multidivisa, rentas, alta manual y rentabilidad TWR/XIRR con UI; F4 automatización en backlog) |
+| Observabilidad (logging) | [prd/observabilidad.md](prd/observabilidad.md) | 🚧 En curso — transversal, no es un dominio funcional |
 
 ## Sistema de diseño (frontend)
 
