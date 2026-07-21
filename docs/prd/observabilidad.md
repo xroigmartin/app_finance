@@ -2,8 +2,8 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | 🚧 En curso — formateador OTel, enrutado de dos niveles, logging de sistema y el caso piloto de negocio (import de Inversiones) listos; falta la correlación de trazas (Micrometer Tracing) |
-| Versión | 0.3 |
+| Estado | ✅ Diseño inicial completo — formateador OTel, enrutado de dos niveles, logging de sistema, caso piloto de negocio (import de Inversiones) y correlación de trazas (Micrometer Tracing, sin exporter) listos. Pendiente: extender el logging de negocio a más acciones (§10) y, cuando exista SigNoz, el exporter real. |
+| Versión | 0.4 |
 | Última actualización | 2026-07-21 |
 | Dominio | Transversal (no es un bounded context de negocio; vive en `shared/infrastructure/logging` y se usa desde cualquier contexto) |
 | Responsable | Equipo Mis Finanzas |
@@ -63,6 +63,7 @@ Origen: al diagnosticar un fallo real de import de Inversiones (reversas de IBKR
 | `OtelJsonLogFormatter` | Renderiza un `ILoggingEvent` de Logback como la línea JSON de §3.1. | `shared/infrastructure/logging/OtelJsonLogFormatter.java` |
 | `OtelJsonEncoder` | `Encoder` de Logback que envuelve el formatter; deliberadamente **no** usa el `StructuredLogEncoder` de Spring Boot porque ese requiere un `Environment` de Spring ya arrancado (no disponible al cargar `logback.xml`, y no necesario aquí — evita esa dependencia). | `shared/infrastructure/logging/OtelJsonEncoder.java` |
 | `logback.xml` | Enrutado de dos niveles: logger `business` (y sus hijos `business.<contexto>`) con `additivity=false` → consola + `business.log`; `root` → consola + `system.log`. Ruta configurable con la variable de entorno `FINANCE_LOG_PATH` (por defecto `logs`, relativo al directorio de trabajo del proceso). Rotación diaria/10MB, retención 14 días. | `src/main/resources/logback.xml` |
+| `spring-boot-starter-opentelemetry` | Dependencia única de Boot 4 que trae todo lo necesario para la correlación de trazas: crea el bean `OpenTelemetry`/`SdkTracerProvider`, el `Tracer` de Micrometer y el listener que rellena el MDC de SLF4J (`traceId`/`spanId`) por petición HTTP. **Importante**: también activa por defecto un *push* de métricas OTLP a `localhost:4318` — se desactiva explícitamente (`management.otlp.metrics.export.enabled=false`) hasta que exista un collector real, o genera reintentos fallidos cada minuto. | `pom.xml`, `application.properties` |
 
 ### 3.3 Convención de nombres de logger de negocio
 
@@ -77,7 +78,7 @@ Origen: al diagnosticar un fallo real de import de Inversiones (reversas de IBKR
 | RF-3 | La ruta de los ficheros de log es configurable por entorno (`FINANCE_LOG_PATH`), nunca versionada en git. | ✅ |
 | RF-4 | `DomainExceptionHandler`/`DataIntegrityExceptionHandler` dejan constancia en `system.log` (WARN, `exception`+`detail`) de cada excepción de dominio o de integridad traducida a una respuesta HTTP 4xx. | ✅ |
 | RF-5 | Cada fila rechazada de un import de Inversiones (Flex) queda en `business.log` con tipo, `external_id`, fecha, importe/divisa, identidad del instrumento, descripción y motivo del rechazo. | ✅ (`FlexImportService.logRejectedRow`) |
-| RF-6 | Cada petición HTTP genera un `trace_id`/`span_id` (Micrometer Tracing, puente OTel, sin exporter configurado) que aparece en todo log emitido durante esa petición. | ⬜ Pendiente (siguiente hito) |
+| RF-6 | Cada petición HTTP genera un `trace_id`/`span_id` (Micrometer Tracing, puente OTel, sin exporter de trazas configurado) que aparece en todo log emitido durante esa petición. | ✅ Verificado manualmente (arranque real + `curl`, ver §9) — no hay test automático, es cableado de infraestructura de terceros. |
 
 ## 5. Reglas de negocio (contenido y redacción)
 
@@ -109,6 +110,10 @@ No aplica — los logs se consultan directamente en fichero (o, en el futuro, en
 
 - `LoggerContext` construido a mano (fuera del arranque normal de Spring Boot/SLF4J) no trae `MDCAdapter` propio — se descubrió al testear el enrutado end-to-end (`LogbackTwoTierRoutingTest`) y hay que asignarlo explícitamente (`ctx.setMDCAdapter(new LogbackMDCAdapter())`) para que `getMDCPropertyMap()` no lance NPE. Solo afecta a tests que instancian su propio `LoggerContext`; en la app real, Spring Boot lo arranca correctamente.
 - `logback.xml` (no `logback-spring.xml`): no usa ninguna etiqueta específica de Spring (`springProperty`/`springProfile`), así que carga antes del contexto de Spring y es testable con un `JoranConfigurator` desnudo, sin arrancar la aplicación.
+- **En Spring Boot 4, `spring-boot-starter-actuator` + `micrometer-tracing-bridge-otel` no bastan** para tener `Tracer`/MDC: la autoconfiguración que crea el bean `OpenTelemetry` vive en módulos aparte, modularizados (`spring-boot-micrometer-tracing`, `spring-boot-micrometer-tracing-opentelemetry`, o directamente el starter agregador `spring-boot-starter-opentelemetry`, que es el que se usa aquí). Descubierto arrancando la app de verdad: sin él, la petición fallaba en el arranque (`No qualifying bean of type 'io.opentelemetry.api.OpenTelemetry'`).
+- El muestreo de trazas por defecto de Micrometer es del 10 % (`management.tracing.sampling.probability`); sin subirlo al 100 % la mayoría de peticiones no generan `trace_id` en el MDC. Se sube a 1.0 porque no hay ningún coste sin exporter.
+- **`trace_id`/`span_id` solo aparecen dentro de una petición HTTP** (los genera el filtro de observación de Spring MVC). Código ejecutado fuera de una petición (arranque, futuros jobs programados) no tiene contexto de traza — coherente con §8.
+- **Verificación**: no hay test automatizado para RF-6 (es cableado de una librería de terceros, no lógica propia) — se verificó arrancando el backend real (`./app.sh restart backend`) y provocando un 404 con `curl`, confirmando `TraceId`/`SpanId` en la línea de `system.log`.
 
 ## 10. Backlog / mejoras futuras
 
@@ -131,3 +136,4 @@ No aplica — los logs se consultan directamente en fichero (o, en el futuro, en
 - `.gitignore`: `logs/` nunca se versiona.
 - `shared/web/DomainExceptionHandler.java` / `shared/web/DataIntegrityExceptionHandler.java` (+ sus tests, con un `ListAppender` de Logback para capturar el evento): logging de sistema (WARN) de cada excepción de dominio/integridad mapeada a 4xx.
 - `investments/application/FlexImportService.java` (método `logRejectedRow`, logger `business.investments`): caso piloto del log de negocio — cada fila de un import Flex que viola una invariante de dominio (p. ej. el convenio de signos §3 del PRD de Inversiones) queda en `business.log` con tipo, `external_id`, fecha, importe/divisa, ISIN/ticker si hay instrumento, descripción y motivo, sin el `accountId` real de IBKR. Probado en `FlexImportServiceTest.invalidRow_isLoggedToBusinessLogWithDiagnosticContext` (reproduce el caso real de la reversa de ASML que motivó este PRD).
+- `pom.xml` (`spring-boot-starter-opentelemetry`) + `application.properties` (`management.tracing.sampling.probability=1.0`, `management.otlp.metrics.export.enabled=false`): correlación de trazas (RF-6).
