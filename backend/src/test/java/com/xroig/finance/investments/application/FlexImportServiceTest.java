@@ -1,5 +1,8 @@
 package com.xroig.finance.investments.application;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.xroig.finance.investments.domain.CurrencyMoney;
 import com.xroig.finance.investments.domain.ExchangeRate;
 import com.xroig.finance.investments.domain.ExchangeRateRepository;
@@ -17,11 +20,14 @@ import com.xroig.finance.investments.domain.SecurityId;
 import com.xroig.finance.investments.domain.SecurityRepository;
 import com.xroig.finance.shared.domain.NotFoundException;
 import com.xroig.finance.shared.domain.ValidationException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
@@ -57,6 +63,28 @@ class FlexImportServiceTest {
     @Mock private MultipartFile file;
 
     private static final PortfolioId PORTFOLIO_ID = new PortfolioId(7L);
+
+    private final Logger businessLogger = (Logger) LoggerFactory.getLogger("business.investments");
+    private final ListAppender<ILoggingEvent> businessLogs = new ListAppender<>();
+
+    @BeforeEach
+    void attachBusinessLogAppender() {
+        businessLogs.start();
+        businessLogger.addAppender(businessLogs);
+    }
+
+    @AfterEach
+    void detachBusinessLogAppender() {
+        businessLogger.detachAppender(businessLogs);
+    }
+
+    private String attribute(ILoggingEvent event, String key) {
+        return event.getKeyValuePairs().stream()
+                .filter(pair -> pair.key.equals(key))
+                .map(pair -> String.valueOf(pair.value))
+                .findFirst()
+                .orElse(null);
+    }
 
     private FlexImportService service() {
         return new FlexImportService(reader, portfolios, securities, transactions,
@@ -234,6 +262,40 @@ class FlexImportServiceTest {
         assertThat(result.errors()).hasSize(1);
         assertThat(result.errors().getFirst().reference()).isEqualTo("CT-1");
         assertThat(result.errors().getFirst().message()).contains("convenio de signos");
+    }
+
+    @Test
+    void invalidRow_isLoggedToBusinessLogWithDiagnosticContext() {
+        givenPortfolio("EUR");
+        FlexInstrument instrument = new FlexInstrument("NL0010273215", "EUR",
+                "ASML(NL0010273215) CASH DIVIDEND EUR 1.52 PER SHARE - NL TAX", null, "AEB", null);
+        FlexRow invalid = new FlexRow(InvestmentTransactionType.TAX, "CT-3702536094",
+                LocalDate.of(2025, 2, 19), null, null,
+                new BigDecimal("0.46"), "EUR", null, null, null, null, null,
+                "ASML(NL0010273215) CASH DIVIDEND EUR 1.52 PER SHARE - NL TAX", instrument);
+        when(reader.read(file)).thenReturn(report("EUR", List.of(invalid)));
+        when(securities.findByIsinAndCurrency("NL0010273215", "EUR"))
+                .thenReturn(Optional.of(Security.rehydrate(new SecurityId(1L), "NL0010273215", "EUR",
+                        "ASML", null, null, "AEB", null)));
+        when(securities.save(any(Security.class))).thenAnswer(i -> i.getArgument(0));
+
+        service().importReport(7L, file);
+
+        assertThat(businessLogs.list).hasSize(1);
+        ILoggingEvent event = businessLogs.list.getFirst();
+        assertThat(event.getLoggerName()).isEqualTo("business.investments");
+        assertThat(event.getLevel().toString()).isEqualTo("WARN");
+        assertThat(event.getFormattedMessage()).isEqualTo("import_row_rejected");
+        assertThat(attribute(event, "portfolio_id")).isEqualTo("7");
+        assertThat(attribute(event, "type")).isEqualTo("TAX");
+        assertThat(attribute(event, "external_id")).isEqualTo("CT-3702536094");
+        assertThat(attribute(event, "trade_date")).isEqualTo("2025-02-19");
+        assertThat(attribute(event, "amount")).isEqualTo("0.46");
+        assertThat(attribute(event, "currency")).isEqualTo("EUR");
+        assertThat(attribute(event, "security_isin")).isEqualTo("NL0010273215");
+        assertThat(attribute(event, "description"))
+                .isEqualTo("ASML(NL0010273215) CASH DIVIDEND EUR 1.52 PER SHARE - NL TAX");
+        assertThat(attribute(event, "reason")).contains("convenio de signos");
     }
 
     @Test

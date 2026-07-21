@@ -18,6 +18,8 @@ import com.xroig.finance.investments.domain.Security;
 import com.xroig.finance.investments.domain.SecurityRepository;
 import com.xroig.finance.shared.domain.NotFoundException;
 import com.xroig.finance.shared.domain.ValidationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,6 +41,9 @@ import java.util.Set;
 @Service
 @Transactional
 public class FlexImportService implements ImportFlexReport {
+
+    /** Business-tier logger (RN-4 of docs/prd/observabilidad.md): "business.<contexto>". */
+    private static final Logger businessLog = LoggerFactory.getLogger("business.investments");
 
     private final FlexReportReader reader;
     private final PortfolioRepository portfolios;
@@ -90,6 +95,7 @@ public class FlexImportService implements ImportFlexReport {
                 imported++;
             } catch (Exception e) {
                 errors.add(new FlexRowError(String.valueOf(row.type()), row.externalId(), e.getMessage()));
+                logRejectedRow(portfolio, row, e);
             }
         }
         for (FlexQuote quote : report.quotes()) {
@@ -99,6 +105,33 @@ public class FlexImportService implements ImportFlexReport {
         report.exchangeRates().forEach(exchangeRates::upsert);
 
         return new FlexImportResult(imported, duplicated, List.copyOf(errors), positionWarnings(portfolio));
+    }
+
+    /**
+     * Business-log trace of a rejected row (RF-5 of {@code docs/prd/observabilidad.md}):
+     * the fields a domain sign-convention violation needs to be diagnosed from
+     * {@code business.log} alone, without opening the source Flex file. Never
+     * includes the report's real account id — only the app's own {@code portfolio_id}.
+     */
+    private void logRejectedRow(Portfolio portfolio, FlexRow row, Exception e) {
+        var event = businessLog.atWarn()
+                .setMessage("import_row_rejected")
+                .addKeyValue("action", "ImportFlexReport")
+                .addKeyValue("portfolio_id", portfolio.id().value())
+                .addKeyValue("type", row.type())
+                .addKeyValue("external_id", row.externalId())
+                .addKeyValue("trade_date", row.tradeDate())
+                .addKeyValue("amount", row.amount())
+                .addKeyValue("currency", row.currency())
+                .addKeyValue("reason", e.getMessage());
+        if (row.instrument() != null) {
+            event = event.addKeyValue("security_isin", row.instrument().isin())
+                    .addKeyValue("security_ticker", row.instrument().ticker());
+        }
+        if (row.description() != null) {
+            event = event.addKeyValue("description", row.description());
+        }
+        event.log();
     }
 
     /**

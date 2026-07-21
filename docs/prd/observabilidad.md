@@ -2,8 +2,8 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | 🚧 En curso — formateador OTel, enrutado de dos niveles y logging de sistema en los exception handlers listos; falta instrumentar el log de negocio (Inversiones) y las dependencias de Micrometer Tracing |
-| Versión | 0.2 |
+| Estado | 🚧 En curso — formateador OTel, enrutado de dos niveles, logging de sistema y el caso piloto de negocio (import de Inversiones) listos; falta la correlación de trazas (Micrometer Tracing) |
+| Versión | 0.3 |
 | Última actualización | 2026-07-21 |
 | Dominio | Transversal (no es un bounded context de negocio; vive en `shared/infrastructure/logging` y se usa desde cualquier contexto) |
 | Responsable | Equipo Mis Finanzas |
@@ -76,7 +76,7 @@ Origen: al diagnosticar un fallo real de import de Inversiones (reversas de IBKR
 | RF-2 | Los logs de negocio se escriben en un fichero distinto de los de sistema, sin duplicarse entre ambos. | ✅ |
 | RF-3 | La ruta de los ficheros de log es configurable por entorno (`FINANCE_LOG_PATH`), nunca versionada en git. | ✅ |
 | RF-4 | `DomainExceptionHandler`/`DataIntegrityExceptionHandler` dejan constancia en `system.log` (WARN, `exception`+`detail`) de cada excepción de dominio o de integridad traducida a una respuesta HTTP 4xx. | ✅ |
-| RF-5 | Cada fila rechazada de un import de Inversiones (Flex) queda en `business.log` con tipo, `external_id`, fecha, importe/divisa, identidad del instrumento, descripción y motivo del rechazo. | ⬜ Pendiente (siguiente hito) |
+| RF-5 | Cada fila rechazada de un import de Inversiones (Flex) queda en `business.log` con tipo, `external_id`, fecha, importe/divisa, identidad del instrumento, descripción y motivo del rechazo. | ✅ (`FlexImportService.logRejectedRow`) |
 | RF-6 | Cada petición HTTP genera un `trace_id`/`span_id` (Micrometer Tracing, puente OTel, sin exporter configurado) que aparece en todo log emitido durante esa petición. | ⬜ Pendiente (siguiente hito) |
 
 ## 5. Reglas de negocio (contenido y redacción)
@@ -130,3 +130,4 @@ No aplica — los logs se consultan directamente en fichero (o, en el futuro, en
 - `src/main/resources/logback.xml` (+ `LogbackTwoTierRoutingTest`): enrutado de dos niveles con ficheros rotados.
 - `.gitignore`: `logs/` nunca se versiona.
 - `shared/web/DomainExceptionHandler.java` / `shared/web/DataIntegrityExceptionHandler.java` (+ sus tests, con un `ListAppender` de Logback para capturar el evento): logging de sistema (WARN) de cada excepción de dominio/integridad mapeada a 4xx.
+- `investments/application/FlexImportService.java` (método `logRejectedRow`, logger `business.investments`): caso piloto del log de negocio — cada fila de un import Flex que viola una invariante de dominio (p. ej. el convenio de signos §3 del PRD de Inversiones) queda en `business.log` con tipo, `external_id`, fecha, importe/divisa, ISIN/ticker si hay instrumento, descripción y motivo, sin el `accountId` real de IBKR. Probado en `FlexImportServiceTest.invalidRow_isLoggedToBusinessLogWithDiagnosticContext` (reproduce el caso real de la reversa de ASML que motivó este PRD).
