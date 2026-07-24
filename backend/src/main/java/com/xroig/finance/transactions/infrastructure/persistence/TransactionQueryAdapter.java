@@ -39,7 +39,8 @@ public class TransactionQueryAdapter implements TransactionQueryPort {
         return jpa.findById(id.value()).map(TransactionQueryAdapter::toView);
     }
 
-    private static TransactionView toView(TransactionJpaEntity entity) {
+    /** Reused by {@code reporting}'s combined movements feed to hydrate the transaction side. */
+    public static TransactionView toView(TransactionJpaEntity entity) {
         RefundRef refundOf = entity.getRefundOf() == null ? null : new RefundRef(entity.getRefundOf().getId());
         return new TransactionView(entity.getId(), entity.getDate(), entity.getAmount(), entity.getDescription(),
                 entity.getType(), toAccountRef(entity.getAccount()), toCategoryRef(entity.getCategory()), refundOf);

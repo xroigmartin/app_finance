@@ -5,7 +5,10 @@ import com.xroig.finance.reporting.application.AccountComparisonView.AccountSeri
 import com.xroig.finance.reporting.application.BudgetCatalogQuery.ReportBudget;
 import com.xroig.finance.reporting.application.SummaryView.AccountBalanceView;
 import com.xroig.finance.reporting.application.port.DashboardReports;
+import com.xroig.finance.reporting.application.port.FindMovements;
+import com.xroig.finance.shared.domain.Page;
 import com.xroig.finance.shared.domain.TransactionType;
+import com.xroig.finance.shared.domain.ValidationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,19 +28,22 @@ import java.util.List;
  */
 @Service
 @Transactional(readOnly = true)
-public class ReportingService implements DashboardReports {
+public class ReportingService implements DashboardReports, FindMovements {
 
     private final MovementAggregateQuery movements;
     private final TransferAggregateQuery transfers;
     private final AccountCatalogQuery accounts;
     private final BudgetCatalogQuery budgets;
+    private final MovementQueryPort movementQuery;
 
     public ReportingService(MovementAggregateQuery movements, TransferAggregateQuery transfers,
-                            AccountCatalogQuery accounts, BudgetCatalogQuery budgets) {
+                            AccountCatalogQuery accounts, BudgetCatalogQuery budgets,
+                            MovementQueryPort movementQuery) {
         this.movements = movements;
         this.transfers = transfers;
         this.accounts = accounts;
         this.budgets = budgets;
+        this.movementQuery = movementQuery;
     }
 
     @Override
@@ -185,5 +191,14 @@ public class ReportingService implements DashboardReports {
                 })
                 .sorted((a, b) -> b.spent().compareTo(a.spent()))
                 .toList();
+    }
+
+    @Override
+    public Page<MovementView> findMovements(LocalDate from, LocalDate to, Long accountId, Long categoryId,
+                                            int page, int size) {
+        if (page < 0 || size < 1) {
+            throw new ValidationException("Página o tamaño de página inválidos");
+        }
+        return movementQuery.search(from, to, accountId, categoryId, page, size);
     }
 }

@@ -3,7 +3,9 @@ package com.xroig.finance.reporting.application;
 import com.xroig.finance.reporting.application.AccountCatalogQuery.ReportAccount;
 import com.xroig.finance.reporting.application.BudgetCatalogQuery.ReportBudget;
 import com.xroig.finance.reporting.application.MovementAggregateQuery.CategoryShare;
+import com.xroig.finance.shared.domain.Page;
 import com.xroig.finance.shared.domain.TransactionType;
+import com.xroig.finance.shared.domain.ValidationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,7 @@ import java.util.List;
 
 import static com.xroig.finance.Fixtures.eur;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -38,6 +41,7 @@ class ReportingServiceTest {
     @Mock private TransferAggregateQuery transfers;
     @Mock private AccountCatalogQuery accounts;
     @Mock private BudgetCatalogQuery budgets;
+    @Mock private MovementQueryPort movementQuery;
     @InjectMocks private ReportingService service;
 
     private final ReportAccount corriente = new ReportAccount(1L, "Corriente", "Banco", eur("1000"));
@@ -223,5 +227,26 @@ class ReportingServiceTest {
             assertThat(b.spent()).isEqualByComparingTo("80");
             assertThat(b.remaining()).isEqualByComparingTo("120");
         });
+    }
+
+    @Test
+    void findMovements_delegatesToTheQueryPort() {
+        LocalDate from = LocalDate.of(2024, 3, 1), to = LocalDate.of(2024, 3, 31);
+        Page<MovementView> expected = new Page<>(List.of(), 1, 10, 42);
+        when(movementQuery.search(from, to, 1L, 2L, 1, 10)).thenReturn(expected);
+
+        Page<MovementView> result = service.findMovements(from, to, 1L, 2L, 1, 10);
+
+        assertThat(result).isSameAs(expected);
+    }
+
+    @Test
+    void findMovements_rejectsNegativePageOrNonPositiveSize() {
+        LocalDate from = LocalDate.of(2024, 3, 1), to = LocalDate.of(2024, 3, 31);
+
+        assertThatThrownBy(() -> service.findMovements(from, to, null, null, -1, 10))
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service.findMovements(from, to, null, null, 0, 0))
+                .isInstanceOf(ValidationException.class);
     }
 }
