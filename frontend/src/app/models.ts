@@ -356,6 +356,15 @@ export interface InvestmentTransactionFilter {
   securityId?: number;
 }
 
+/** Página de un listado paginado por el backend (Operaciones, Movimientos). */
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 /** Renta de un instrumento en un mes (RF-7); importes en la divisa base de la cartera. */
 export interface IncomeEntry {
   /** Nulos para intereses sin instrumento (interés del broker). */

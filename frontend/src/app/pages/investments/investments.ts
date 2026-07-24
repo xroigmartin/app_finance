@@ -10,6 +10,7 @@ import { ApiService } from '../../api.service';
 import { ThemeService } from '../../theme.service';
 import { FlexImportDialog } from '../../components/flex-import-dialog';
 import { InvestmentTransactionDialog } from '../../components/investment-transaction-dialog';
+import { Pagination } from '../../components/pagination';
 import {
   INVESTMENT_TYPE_LABELS, InvestmentIncome, InvestmentPerformance, InvestmentSecurity,
   InvestmentTransactionFilter, InvestmentTransactionType, InvestmentTransactionView, Portfolio,
@@ -25,7 +26,7 @@ const CASH_COLOR = '#94a3b8';
 
 @Component({
   selector: 'app-investments',
-  imports: [CommonModule, FormsModule, FlexImportDialog, InvestmentTransactionDialog],
+  imports: [CommonModule, FormsModule, FlexImportDialog, InvestmentTransactionDialog, Pagination],
   templateUrl: './investments.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './investments.scss'
@@ -60,6 +61,9 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
   filterFrom = '';
   filterTo = '';
   filterSecurityId: number | null = null;
+  txPage = 0;
+  txSize = 25;
+  txTotalElements = 0;
 
   income: InvestmentIncome | null = null;
   incomeYears: number[] = [];
@@ -215,8 +219,27 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
     if (this.filterFrom) filter.from = this.filterFrom;
     if (this.filterTo) filter.to = this.filterTo;
     if (this.filterSecurityId) filter.securityId = this.filterSecurityId;
-    this.api.getInvestmentTransactions(this.portfolioId, filter)
-      .subscribe(t => this.transactions = t);
+    this.api.getInvestmentTransactions(this.portfolioId, filter, this.txPage, this.txSize)
+      .subscribe(p => {
+        this.transactions = p.content;
+        this.txTotalElements = p.totalElements;
+      });
+  }
+
+  /** A filter change makes the current page number meaningless: back to the first page. */
+  onFiltersChange(): void {
+    this.txPage = 0;
+    this.loadTransactions();
+  }
+
+  onTxPageChange(page: number): void {
+    this.txPage = page;
+    this.loadTransactions();
+  }
+
+  onTxSizeChange(size: number): void {
+    this.txSize = size;
+    this.loadTransactions();
   }
 
   editTransaction(tx: InvestmentTransactionView): void {

@@ -7,7 +7,7 @@ import {
   Category, CategoryAmount, CategoryRule, FlexImportResult, ImportResult, InvestmentIncome, InvestmentPerformance,
   InvestmentSecurity,
   InvestmentTransactionFilter, InvestmentTransactionRequest, InvestmentTransactionView,
-  InvestmentsSummary, MonthlyPoint, Portfolio, PortfolioSummary, PositionView, RecurringBudget,
+  InvestmentsSummary, MonthlyPoint, PageResponse, Portfolio, PortfolioSummary, PositionView, RecurringBudget,
   RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer,
   TransferRequest, ValuationPoint
 } from './models';
@@ -258,14 +258,14 @@ export class ApiService {
     return this.http.get<InvestmentSecurity[]>(`${this.base}/investments/securities`);
   }
 
-  getInvestmentTransactions(portfolioId: number,
-                            filter: InvestmentTransactionFilter = {}): Observable<InvestmentTransactionView[]> {
-    const params: Record<string, string | number> = {};
+  getInvestmentTransactions(portfolioId: number, filter: InvestmentTransactionFilter = {},
+                            page = 0, size = 25): Observable<PageResponse<InvestmentTransactionView>> {
+    const params: Record<string, string | number> = { page, size };
     if (filter.type) params['type'] = filter.type;
     if (filter.from) params['from'] = filter.from;
     if (filter.to) params['to'] = filter.to;
     if (filter.securityId) params['securityId'] = filter.securityId;
-    return this.http.get<InvestmentTransactionView[]>(
+    return this.http.get<PageResponse<InvestmentTransactionView>>(
       `${this.base}/investments/portfolios/${portfolioId}/transactions`, { params });
   }
 

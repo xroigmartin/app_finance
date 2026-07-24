@@ -5,7 +5,7 @@ import { ApiService } from '../../api.service';
 import { ThemeService } from '../../theme.service';
 import {
   InvestmentIncome, InvestmentPerformance, InvestmentSecurity, InvestmentTransactionView,
-  Portfolio, PortfolioSummary, PositionView, ValuationPoint
+  PageResponse, Portfolio, PortfolioSummary, PositionView, ValuationPoint
 } from '../../models';
 import { InvestmentsPage } from './investments';
 
@@ -63,6 +63,9 @@ describe('InvestmentsPage', () => {
     positions: [{ securityId: 9, name: 'Empresa', twrPercent: 25, xirrPercent: 20 }],
   };
   const transactions: InvestmentTransactionView[] = [];
+  const transactionsPage: PageResponse<InvestmentTransactionView> = {
+    content: transactions, page: 0, size: 25, totalElements: 0, totalPages: 0,
+  };
   const income: InvestmentIncome = {
     portfolioId: 1, baseCurrency: 'EUR',
     incomes: [
@@ -81,7 +84,7 @@ describe('InvestmentsPage', () => {
       getPositions: vi.fn().mockReturnValue(of([position])),
       getValuationHistory: vi.fn().mockReturnValue(of(history)),
       getInvestmentPerformance: vi.fn().mockReturnValue(of(performance)),
-      getInvestmentTransactions: vi.fn().mockReturnValue(of(transactions)),
+      getInvestmentTransactions: vi.fn().mockReturnValue(of(transactionsPage)),
       getInvestmentIncome: vi.fn().mockReturnValue(of(income)),
       deleteInvestmentTransaction: vi.fn().mockReturnValue(of(undefined)),
       createPortfolio: vi.fn().mockReturnValue(of({ ...portfolio, id: 2 })),
@@ -171,7 +174,7 @@ describe('InvestmentsPage', () => {
   });
 
   describe('operaciones', () => {
-    it('loadTransactions construye el filtro con lo que hay puesto', () => {
+    it('loadTransactions construye el filtro con lo que hay puesto y la página/tamaño actuales', () => {
       const page = create();
       page.ngOnInit();
       api.getInvestmentTransactions.mockClear();
@@ -179,10 +182,12 @@ describe('InvestmentsPage', () => {
       page.filterFrom = '2026-01-01';
       page.filterTo = '2026-12-31';
       page.filterSecurityId = 9;
+      page.txPage = 2;
+      page.txSize = 50;
       page.loadTransactions();
       expect(api.getInvestmentTransactions).toHaveBeenCalledWith(1, {
         type: 'BUY', from: '2026-01-01', to: '2026-12-31', securityId: 9,
-      });
+      }, 2, 50);
     });
 
     it('loadTransactions no llama a la API sin cartera seleccionada', () => {
@@ -191,6 +196,45 @@ describe('InvestmentsPage', () => {
       api.getInvestmentTransactions.mockClear();
       page.loadTransactions();
       expect(api.getInvestmentTransactions).not.toHaveBeenCalled();
+    });
+
+    it('loadTransactions vuelca el contenido y el total de la página en el estado', () => {
+      const tx = { id: 1 } as InvestmentTransactionView;
+      api.getInvestmentTransactions = vi.fn().mockReturnValue(
+        of({ content: [tx], page: 1, size: 10, totalElements: 42, totalPages: 5 }));
+      const page = create({ getInvestmentTransactions: api.getInvestmentTransactions });
+      page.ngOnInit();
+
+      expect(page.transactions).toEqual([tx]);
+      expect(page.txTotalElements).toBe(42);
+    });
+
+    it('onFiltersChange resetea a la primera página antes de recargar', () => {
+      const page = create();
+      page.ngOnInit();
+      page.txPage = 3;
+      api.getInvestmentTransactions.mockClear();
+      page.onFiltersChange();
+      expect(page.txPage).toBe(0);
+      expect(api.getInvestmentTransactions).toHaveBeenCalledWith(1, expect.anything(), 0, 25);
+    });
+
+    it('onTxPageChange cambia de página y recarga', () => {
+      const page = create();
+      page.ngOnInit();
+      api.getInvestmentTransactions.mockClear();
+      page.onTxPageChange(3);
+      expect(page.txPage).toBe(3);
+      expect(api.getInvestmentTransactions).toHaveBeenCalledWith(1, expect.anything(), 3, 25);
+    });
+
+    it('onTxSizeChange cambia el tamaño de página y recarga', () => {
+      const page = create();
+      page.ngOnInit();
+      api.getInvestmentTransactions.mockClear();
+      page.onTxSizeChange(100);
+      expect(page.txSize).toBe(100);
+      expect(api.getInvestmentTransactions).toHaveBeenCalledWith(1, expect.anything(), 0, 100);
     });
 
     it('editTransaction delega en el diálogo', () => {

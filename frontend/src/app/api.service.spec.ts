@@ -366,19 +366,22 @@ describe('ApiService', () => {
       http.expectOne('/api/investments/securities').flush([]);
     });
 
-    it('getInvestmentTransactions sin filtro', () => {
+    it('getInvestmentTransactions sin filtro usa la página/tamaño por defecto', () => {
       service.getInvestmentTransactions(1).subscribe();
       const req = http.expectOne(r => r.url === '/api/investments/portfolios/1/transactions');
-      expect(req.request.params.keys().length).toBe(0);
-      req.flush([]);
+      expect(req.request.params.get('page')).toBe('0');
+      expect(req.request.params.get('size')).toBe('25');
+      expect(req.request.params.keys().length).toBe(2);
+      req.flush({ content: [], page: 0, size: 25, totalElements: 0, totalPages: 0 });
     });
 
-    it('getInvestmentTransactions con filtro completo', () => {
-      service.getInvestmentTransactions(1, { type: 'BUY', from: '2026-01-01', to: '2026-12-31', securityId: 5 })
+    it('getInvestmentTransactions con filtro completo y página/tamaño explícitos', () => {
+      service.getInvestmentTransactions(1,
+        { type: 'BUY', from: '2026-01-01', to: '2026-12-31', securityId: 5 }, 2, 10)
         .subscribe();
       http.expectOne(
-        '/api/investments/portfolios/1/transactions?type=BUY&from=2026-01-01&to=2026-12-31&securityId=5',
-      ).flush([]);
+        '/api/investments/portfolios/1/transactions?page=2&size=10&type=BUY&from=2026-01-01&to=2026-12-31&securityId=5',
+      ).flush({ content: [], page: 2, size: 10, totalElements: 0, totalPages: 0 });
     });
 
     it('createInvestmentTransaction', () => {
