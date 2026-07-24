@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.1 |
-| Última actualización | 2026-07-16 |
+| Versión | 1.2 |
+| Última actualización | 2026-07-24 |
 | Dominio | Movimientos / transacciones (`transactions`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -83,6 +83,7 @@ Base: `/api/transactions`.
 |---|---|---|---|
 | `GET` | `/api/transactions?from=&to=&accountId=&categoryId=` | Busca transacciones; todos los filtros son opcionales. Sin `from`/`to` el rango es `1970-01-01`–`2999-12-31`. Orden: fecha desc, id desc. | `200` + array. |
 | `GET` | `/api/transactions/recent` | Las 10 más recientes (fecha desc, id desc). | `200` + array. |
+| `GET` | `/api/movements?from=&to=&accountId=&categoryId=&page=&size=` | Feed **combinado y paginado** de transacciones + transferencias que consume la pantalla de Movimientos (§7): filtra, ordena y pagina en SQL (contexto `reporting`, no `transactions` — ver nota arquitectónica más abajo). `page`/`size` por defecto `0`/`25`; un filtro de categoría oculta las transferencias (no tienen categoría), resuelto en el propio backend. | `200` + `{content: Movement[], page, size, totalElements, totalPages}`, cada `Movement` con `source` (`"tx"`/`"tr"`) y el `tx`/`tr` correspondiente con la misma forma que `/api/transactions`/`/api/transfers`. |
 | `POST` | `/api/transactions` | Crea una transacción. | `201` + transacción. |
 | `PUT` | `/api/transactions/{id}` | Actualiza la transacción. | `200` / `404` si no existe. |
 | `DELETE` | `/api/transactions/{id}` | Elimina la transacción. | `204`. |
@@ -106,8 +107,9 @@ Campos obligatorios: `date`, `amount` (>0), `type`, `accountId`, `categoryId`. `
 
 Página `pages/transactions` (componente `TransactionsPage`).
 
-- Lista **unificada de movimientos**: combina transacciones y transferencias en una sola tabla ordenada por fecha desc.
-- Filtros: **desde**, **hasta**, **cuenta** y **categoría**. Filtrar por categoría oculta las transferencias (no tienen categoría).
+- Lista **unificada de movimientos**: combina transacciones y transferencias en una sola tabla ordenada por fecha desc, **paginada** (componente reutilizable `app-pagination`: 5/10/25/50/100 por página, navegación anterior/siguiente, rango "226–240 de 240"). La tabla se alimenta de `GET /api/movements` — el corte de página se resuelve en el backend sobre el conjunto ya combinado, no fusionando en el cliente dos páginas independientes (eso no garantizaría que los cortes coincidan entre transacciones y transferencias).
+- Filtros: **desde**, **hasta**, **cuenta** y **categoría**. Filtrar por categoría oculta las transferencias (no tienen categoría), regla resuelta en el backend. Cambiar cualquier filtro vuelve a la primera página.
+- **Devoluciones y paginación**: el pendiente por devolver de un gasto (`pendingFor`, el selector del diálogo de devolución) se calcula sobre un listado de transacciones **completo y sin paginar** (`GET /api/transactions` con los filtros activos, sin `page`/`size`), independiente de la tabla paginada — necesita ver todas las devoluciones de un gasto aunque el original y su devolución caigan en páginas distintas de la tabla visible.
 - Formulario de alta/edición en un **diálogo modal** (`<dialog>` nativo abierto con `showModal()`): se centra en el viewport sin importar la posición de scroll, por lo que editar un movimiento desde el fondo de un listado largo no obliga a subir. El modal aporta de forma nativa atrapado de foco, cierre con `Escape` (que limpia el error) y devolución del foco al botón que lo abrió; tiene backdrop que oscurece el fondo. Incluye un selector de **tipo de movimiento**: `Gasto`, `Ingreso` o `Transferencia`. Al elegir Transferencia, el formulario cambia a origen/destino (ver PRD Transferencias).
 - El desplegable de **categoría** muestra solo las categorías del tipo elegido y compatibles con la cuenta (globales o de esa cuenta), ordenadas padre→subcategoría con sangría; al cambiar tipo o cuenta, la categoría seleccionada se resincroniza.
 - Importe con `inputmode="decimal"`, normalizado con `parseAmount` (admite coma o punto).
@@ -138,7 +140,7 @@ Página `pages/transactions` (componente `TransactionsPage`).
 
 ## 10. Backlog / mejoras futuras
 
-- Paginación del listado de movimientos (hoy se devuelven todos los del filtro).
+- ~~Paginación del listado de movimientos~~ **Resuelto (2026-07-24)**: ver §6/§7 (`GET /api/movements`, `app-pagination`).
 - Adjuntar etiquetas o notas largas a un movimiento.
 - Movimientos recurrentes / plantillas.
 - Edición en bloque (recategorizar varios a la vez).
@@ -149,7 +151,7 @@ Página `pages/transactions` (componente `TransactionsPage`).
 |---|---|---|
 | Positividad del importe | `@Positive` se valida solo en la API; la BD no tiene `check`. | Un insert directo en BD podría colar importes ≤ 0. Valorar un check de columna. |
 | Borrado sin guardas | `DELETE` no tiene restricciones ni confirmación a nivel API (la confirmación está solo en el front). | Aceptable hoy; tenerlo en cuenta si se exponen integraciones externas. |
-| Listado completo | El listado devuelve todas las filas del filtro, sin paginación. | Con históricos grandes conviene paginar (ver backlog). |
+| ~~Listado completo~~ | **Resuelto (2026-07-24).** `GET /api/movements` (contexto `reporting`) pagina de extremo a extremo con una consulta `union all` (transacciones + transferencias) resuelta en SQL — ver §6/§7 y la nota arquitectónica de §12. `GET /api/transactions` (este contexto) sigue sin paginar a propósito: lo usa el cálculo de pendiente-por-devolver, que necesita el conjunto completo. | — |
 
 ## 12. Referencias de código
 
@@ -161,4 +163,5 @@ Movimientos está migrado a **arquitectura hexagonal + DDD** (etapa H3 de `docs/
 - Esquema: `db/migration/V1__init.sql`, `db/migration/V6__transaction_refunds.sql` (devoluciones; sin cambios, `TransactionJpaEntity` y el legado `model/Transaction` mapean la misma tabla).
 - Frontend: `pages/transactions/` (`transactions.ts`, `transactions.html`), modelos `Transaction` / `TransactionRequest` en `models.ts` (sin cambios).
 - Tests: dominio `transactions/domain/TransactionTest`; aplicación `transactions/application/TransactionServiceTest` (todas las ramas con puertos mockeados); persistencia `TransactionPersistenceAdapterTest` (`@DataJpaTest`: round-trip, suma de devoluciones, read model) más `AccountExistenceAdapterTest`/`CategoryCatalogAdapterTest`; contrato HTTP `TransactionControllerMvcTest`. Sigue vigente, contra Postgres real, `repository/TransactionRepositoryTest.java` (las sumas netas de agregación que aún usan dashboard/presupuestos sobre el repositorio legado).
+- **Nota arquitectónica — `GET /api/movements` vive en `reporting`, no en `transactions`** (2026-07-24): la tabla de Movimientos combina dos agregados de contextos distintos (`transactions`/`transfers`) en un único feed ordenado y paginado; ni `transactions` ni `transfers` pueden resolver eso sin invadir el contexto del otro. `reporting` ya es la home establecida para lecturas cross-context (`MovementAggregateQueryAdapter`/`TransferAggregateQueryAdapter` ya cruzan a los repos JPA de ambos para las agregaciones del dashboard), así que el nuevo `MovementQueryAdapter` sigue el mismo patrón: `reporting/application/{MovementView,MovementQueryPort}`, puerto de entrada `port/FindMovements` (implementado por `ReportingService`), adaptador `reporting/infrastructure/persistence/{MovementKeyRepository,MovementQueryAdapter}`, web `reporting/infrastructure/web/MovementController`. `MovementKeyRepository.searchKeys` resuelve las claves `(id, origen)` de la página con **SQL nativo** (no HQL): la traducción HQL de Hibernate 7.1 de un `union all` de dos ramas coloca el `order by` final dentro de la última rama (paréntesis mal alcanzados), dejando el resultado combinado sin ordenar entre orígenes; en SQL nativo el texto se pasa literal y el `order by` queda correctamente fuera de ambos paréntesis. `totalElements` se resuelve con dos `count` simples (uno por tabla), no contando sobre el propio `union` (HQL no admite un `union` como subconsulta en el `FROM`). Cada fila se hidrata reutilizando `TransactionQueryAdapter.toView`/`TransferQueryAdapter.toView` (ahora `public static`), así que un `Movement` es exactamente `/api/transactions`/`/api/transfers` en la forma que ya conoce el frontend.
 - Relacionado: PRD Transferencias, PRD Importación de extractos, PRD Categorías, PRD Dashboard.
