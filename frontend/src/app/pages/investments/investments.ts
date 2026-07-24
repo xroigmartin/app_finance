@@ -237,7 +237,14 @@ export class InvestmentsPage implements OnInit, AfterViewInit, OnDestroy {
     this.loadTransactions();
   }
 
+  /**
+   * A size change makes the current page number meaningless too: reset it
+   * here, in the same handler, so only one reload fires with both values
+   * already updated — never two independent reloads (one of them still
+   * reading the old size) racing each other.
+   */
   onTxSizeChange(size: number): void {
+    this.txPage = 0;
     this.txSize = size;
     this.loadTransactions();
   }

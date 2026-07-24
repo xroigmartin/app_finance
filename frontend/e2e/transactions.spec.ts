@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { get, post } from './fixtures/seed';
 
 test.describe('Movimientos', () => {
   test.beforeEach(async ({ page }) => {
@@ -80,5 +81,49 @@ test.describe('Movimientos', () => {
     // Sin movimientos para esa cuenta, la tabla renderiza la fila @empty, no cero filas.
     await expect(page.locator('tbody tr')).toHaveCount(1);
     await expect(page.locator('tbody tr')).toContainText('No hay movimientos en este periodo');
+  });
+
+  test('cambiar el tamaño de página no deja una carrera con el tamaño anterior (regresión)', async ({ page }) => {
+    // Bug real: app-pagination emitía pageChange(0) además de sizeChange, cada
+    // uno disparando su propia recarga — la del pageChange leía el tamaño
+    // ANTIGUO (onSizeChange aún no había corrido), dos peticiones HTTP
+    // concurrentes reales donde la del tamaño antiguo podía ganar la carrera.
+    // Solo se reproduce contra el backend real (los mocks síncronos de Vitest
+    // no pueden verla), y necesita más filas que cualquier tamaño de página
+    // pequeño para que un recuento equivocado sea observable. Cuenta propia y
+    // filtrada para no depender del estado que dejen otros tests de este fichero.
+    const account = await post<{ id: number }>('/api/accounts', {
+      name: 'Paginación E2E', type: 'Banco', initialBalance: 0,
+    });
+    const categories = await get<{ id: number; name: string }[]>('/api/categories');
+    const alimentacion = categories.find(c => c.name === 'Alimentación')!;
+    for (let i = 1; i <= 12; i++) {
+      await post('/api/transactions', {
+        date: `2026-05-${String(i).padStart(2, '0')}`,
+        amount: 10 + i,
+        description: `Pag E2E ${i}`,
+        type: 'EXPENSE',
+        accountId: account.id,
+        categoryId: alimentacion.id,
+      });
+    }
+
+    await page.reload();
+    await page.locator('.toolbar').getByLabel('Cuenta').selectOption({ label: 'Paginación E2E' });
+    await expect(page.locator('tbody tr')).toHaveCount(12);
+
+    const sizeSelect = page.getByLabel('Por página');
+
+    await sizeSelect.selectOption('5');
+    await expect(page.locator('tbody tr')).toHaveCount(5);
+    await expect(page.locator('.page-indicator')).toHaveText('Página 1 de 3');
+
+    await sizeSelect.selectOption('10');
+    await expect(page.locator('tbody tr')).toHaveCount(10);
+    await expect(page.locator('.page-indicator')).toHaveText('Página 1 de 2');
+
+    await sizeSelect.selectOption('25');
+    await expect(page.locator('tbody tr')).toHaveCount(12);
+    await expect(page.locator('.page-indicator')).toHaveText('Página 1 de 1');
   });
 });

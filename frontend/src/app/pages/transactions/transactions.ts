@@ -97,7 +97,14 @@ export class TransactionsPage implements OnInit {
     this.loadMovements();
   }
 
+  /**
+   * A size change makes the current page number meaningless too: reset it
+   * here, in the same handler, so only one reload fires with both values
+   * already updated — never two independent reloads (one of them still
+   * reading the old size) racing each other.
+   */
   onSizeChange(size: number): void {
+    this.page = 0;
     this.size = size;
     this.loadMovements();
   }

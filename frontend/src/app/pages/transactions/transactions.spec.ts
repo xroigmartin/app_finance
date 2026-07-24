@@ -126,12 +126,28 @@ describe('TransactionsPage', () => {
       expect(api.getTransactions).not.toHaveBeenCalled();
     });
 
-    it('onSizeChange cambia el tamaño de página y recarga', () => {
+    it('onSizeChange cambia el tamaño de página, resetea a la primera página y recarga', () => {
       const page = create();
+      page.page = 3;
       api.getMovements.mockClear();
       page.onSizeChange(100);
       expect(page.size).toBe(100);
+      expect(page.page).toBe(0);
       expect(api.getMovements).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, 0, 100);
+    });
+
+    it('onSizeChange hace una única llamada a getMovements, nunca una con el tamaño antiguo (regresión: carrera de peticiones)', () => {
+      // Antes, app-pagination emitía pageChange(0) además de sizeChange, y cada
+      // uno disparaba su propia recarga: la primera (por pageChange) leía
+      // todavía el tamaño ANTIGUO porque onSizeChange aún no había corrido.
+      // Dos peticiones concurrentes, y la del tamaño antiguo podía ganar la
+      // carrera y dejar en pantalla el tamaño equivocado.
+      const page = create();
+      api.getMovements.mockClear();
+      page.onSizeChange(10);
+      expect(api.getMovements).toHaveBeenCalledTimes(1);
+      expect(api.getMovements).not.toHaveBeenCalledWith(
+        undefined, undefined, undefined, undefined, expect.anything(), 25);
     });
 
     it('vuelca el contenido y el total de elementos de la página en el estado', () => {

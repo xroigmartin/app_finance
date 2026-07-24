@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { post } from './fixtures/seed';
 
 test.describe('Inversión', () => {
   test.beforeEach(async ({ page }) => {
@@ -84,5 +85,44 @@ test.describe('Inversión', () => {
     page.once('dialog', d => d.accept());
     await page.locator('tbody tr', { hasText: '01/03/2026' }).getByRole('button', { name: 'Borrar' }).click();
     await expect(page.locator('tbody tr', { hasText: '01/03/2026' })).toHaveCount(0);
+  });
+
+  test('cambiar el tamaño de página en Operaciones no deja una carrera con el tamaño anterior (regresión)', async ({ page }) => {
+    // Mismo bug/fix que en Movimientos (transactions.spec.ts): app-pagination
+    // emitía pageChange(0) además de sizeChange, disparando dos recargas
+    // independientes donde la del pageChange leía el tamaño ANTIGUO. Solo se
+    // reproduce contra el backend real; cartera propia para no depender de lo
+    // que dejen otros tests de este fichero.
+    const portfolio = await post<{ id: number }>('/api/investments/portfolios', {
+      name: 'Paginación Operaciones E2E', baseCurrency: 'EUR',
+    });
+    for (let i = 1; i <= 12; i++) {
+      await post(`/api/investments/portfolios/${portfolio.id}/transactions`, {
+        type: 'DEPOSIT',
+        tradeDate: `2026-05-${String(i).padStart(2, '0')}`,
+        amount: 10 + i,
+        currency: 'EUR',
+      });
+    }
+
+    await page.reload();
+    await expect(page.getByRole('option', { name: /Paginación Operaciones E2E/ })).toBeAttached();
+    // El <option> lleva "Nombre (divisa)" (ver investments.html), no el nombre a secas.
+    await page.getByLabel('Cartera').selectOption({ label: 'Paginación Operaciones E2E (EUR)' });
+    await expect(page.locator('.tabs-card tbody tr')).toHaveCount(12);
+
+    const sizeSelect = page.getByLabel('Por página');
+
+    await sizeSelect.selectOption('5');
+    await expect(page.locator('.tabs-card tbody tr')).toHaveCount(5);
+    await expect(page.locator('.page-indicator')).toHaveText('Página 1 de 3');
+
+    await sizeSelect.selectOption('10');
+    await expect(page.locator('.tabs-card tbody tr')).toHaveCount(10);
+    await expect(page.locator('.page-indicator')).toHaveText('Página 1 de 2');
+
+    await sizeSelect.selectOption('25');
+    await expect(page.locator('.tabs-card tbody tr')).toHaveCount(12);
+    await expect(page.locator('.page-indicator')).toHaveText('Página 1 de 1');
   });
 });

@@ -228,13 +228,27 @@ describe('InvestmentsPage', () => {
       expect(api.getInvestmentTransactions).toHaveBeenCalledWith(1, expect.anything(), 3, 25);
     });
 
-    it('onTxSizeChange cambia el tamaño de página y recarga', () => {
+    it('onTxSizeChange cambia el tamaño de página, resetea a la primera página y recarga', () => {
       const page = create();
       page.ngOnInit();
+      page.txPage = 3;
       api.getInvestmentTransactions.mockClear();
       page.onTxSizeChange(100);
       expect(page.txSize).toBe(100);
+      expect(page.txPage).toBe(0);
       expect(api.getInvestmentTransactions).toHaveBeenCalledWith(1, expect.anything(), 0, 100);
+    });
+
+    it('onTxSizeChange hace una única llamada, nunca una con el tamaño antiguo (regresión: carrera de peticiones)', () => {
+      // Ver PRD Movimientos §9 / pagination.spec.ts: app-pagination solía emitir
+      // pageChange(0) además de sizeChange, y cada uno disparaba su propia
+      // recarga — la del pageChange leía todavía el tamaño antiguo.
+      const page = create();
+      page.ngOnInit();
+      api.getInvestmentTransactions.mockClear();
+      page.onTxSizeChange(10);
+      expect(api.getInvestmentTransactions).toHaveBeenCalledTimes(1);
+      expect(api.getInvestmentTransactions).not.toHaveBeenCalledWith(1, expect.anything(), expect.anything(), 25);
     });
 
     it('editTransaction delega en el diálogo', () => {

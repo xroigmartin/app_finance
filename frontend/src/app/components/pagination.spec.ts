@@ -66,15 +66,21 @@ describe('Pagination', () => {
     expect(onPageLast).not.toHaveBeenCalled();
   });
 
-  it('changeSize emite sizeChange con el nuevo tamaño y resetea a la página 0', () => {
+  it('changeSize emite solo sizeChange, sin pageChange', () => {
+    // Regresión: emitir pageChange(0) además de sizeChange hacía que el
+    // consumidor disparara dos recargas independientes (una todavía con el
+    // tamaño antiguo, al no haberse procesado aún el sizeChange), lo que
+    // provocaba una carrera visible en la UI (ver PRD Movimientos §9).
+    // Resetear a la página 0 al cambiar el tamaño es responsabilidad del
+    // consumidor, dentro de su único manejador de sizeChange.
     const p = create(3, 25, 240);
     const onSize = vi.fn();
     const onPage = vi.fn();
     p.sizeChange.subscribe(onSize);
     p.pageChange.subscribe(onPage);
     p.changeSize(50);
-    expect(onPage).toHaveBeenCalledWith(0);
     expect(onSize).toHaveBeenCalledWith(50);
+    expect(onPage).not.toHaveBeenCalled();
   });
 
   it('expone las opciones de tamaño por defecto 5/10/25/50/100', () => {

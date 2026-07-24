@@ -1,7 +1,11 @@
 import { backendUrl } from '../env';
 
-/** POST helper: falla con el body de error si la API devuelve algo != 2xx. */
-async function post<T>(path: string, body: unknown): Promise<T> {
+/**
+ * POST helper: falla con el body de error si la API devuelve algo != 2xx.
+ * Exportado para que los specs puedan sembrar datos ad hoc propios (p. ej. un
+ * volumen de filas que la siembra fija global no necesita) sin tocarla.
+ */
+export async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${backendUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -13,7 +17,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function get<T>(path: string): Promise<T> {
+export async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${backendUrl}${path}`);
   if (!res.ok) {
     throw new Error(`GET ${path} -> ${res.status}: ${await res.text()}`);

@@ -76,9 +76,17 @@ export class Pagination {
     }
   }
 
-  /** Changing the page size resets to the first page (the current page number would stop matching). */
+  /**
+   * Only emits sizeChange — never pageChange too. Changing the page size does
+   * make the current page number stop matching (page 3 of 50-per-page is
+   * meaningless at 10-per-page), but that reset must happen inside the
+   * consumer's own sizeChange handler, in the same reload call. Emitting a
+   * separate pageChange(0) here made the consumer fire two independent
+   * reloads — one still reading the *old* size (its own pageChange handler
+   * ran before sizeChange updated it) — racing two HTTP requests where the
+   * stale one could win and leave the wrong page size on screen.
+   */
   changeSize(newSize: number): void {
-    this.pageChange.emit(0);
     this.sizeChange.emit(newSize);
   }
 }
