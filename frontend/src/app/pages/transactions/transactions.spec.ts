@@ -1,8 +1,21 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { ApiService } from '../../api.service';
-import { Account, Category, Transaction, Transfer } from '../../models';
+import { Account, Category, Movement, PageResponse, Transaction, Transfer } from '../../models';
 import { TransactionsPage } from './transactions';
+
+/** Mirrors the backend's combined ordering (newest first; ties by id desc), for the mocked getMovements. */
+function mergeForTest(txs: Transaction[], trs: Transfer[]): Movement[] {
+  const rows: Movement[] = [
+    ...txs.map(t => ({ source: 'tx' as const, date: t.date, id: t.id!, tx: t, tr: null })),
+    ...trs.map(t => ({ source: 'tr' as const, date: t.date, id: t.id!, tx: null, tr: t })),
+  ];
+  return rows.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+}
+
+function pageOf(content: Movement[]): PageResponse<Movement> {
+  return { content, page: 0, size: 25, totalElements: content.length, totalPages: 1 };
+}
 
 describe('TransactionsPage', () => {
   afterEach(() => vi.restoreAllMocks());
@@ -11,7 +24,7 @@ describe('TransactionsPage', () => {
     getAccounts: ReturnType<typeof vi.fn>;
     getCategories: ReturnType<typeof vi.fn>;
     getTransactions: ReturnType<typeof vi.fn>;
-    getTransfers: ReturnType<typeof vi.fn>;
+    getMovements: ReturnType<typeof vi.fn>;
     createTransaction: ReturnType<typeof vi.fn>;
     updateTransaction: ReturnType<typeof vi.fn>;
     deleteTransaction: ReturnType<typeof vi.fn>;
@@ -56,7 +69,7 @@ describe('TransactionsPage', () => {
       getAccounts: vi.fn().mockReturnValue(of([acc1, acc2])),
       getCategories: vi.fn().mockReturnValue(of(categories)),
       getTransactions: vi.fn().mockReturnValue(of(txs)),
-      getTransfers: vi.fn().mockReturnValue(of(trs)),
+      getMovements: vi.fn().mockReturnValue(of(pageOf(mergeForTest(txs, trs)))),
       createTransaction: vi.fn().mockReturnValue(of(txA)),
       updateTransaction: vi.fn().mockReturnValue(of(txA)),
       deleteTransaction: vi.fn().mockReturnValue(of(undefined)),
@@ -71,24 +84,59 @@ describe('TransactionsPage', () => {
   }
 
   describe('carga y fusión de movimientos', () => {
-    it('ngOnInit carga cuentas, categorías y movimientos', () => {
+    it('ngOnInit carga cuentas, categorías y la página de movimientos', () => {
       const page = create();
       expect(page.accounts).toEqual([acc1, acc2]);
       expect(page.categories).toEqual(categories);
       expect(page.movements.length).toBe(4);
     });
 
-    it('ordena por fecha descendente y, a igualdad, por id descendente', () => {
+    it('conserva el orden que devuelve la API (fecha desc., a igualdad id desc.)', () => {
       const page = create();
       expect(page.movements.map(m => m.id)).toEqual([2, 3, 10, 1]);
     });
 
-    it('un filtro de categoría oculta las transferencias (no tienen categoría)', () => {
+    it('load pasa los filtros actuales tanto a getTransactions como a getMovements', () => {
       const page = create();
-      api.getTransfers.mockClear();
+      api.getTransactions.mockClear();
+      api.getMovements.mockClear();
       page.filterCategoryId = catExpense.id!;
+      page.filterFrom = '2026-01-01';
       page.load();
-      expect(page.movements.every(m => m.source === 'tx')).toBe(true);
+      expect(api.getTransactions).toHaveBeenCalledWith('2026-01-01', undefined, undefined, catExpense.id);
+      expect(api.getMovements).toHaveBeenCalledWith('2026-01-01', undefined, undefined, catExpense.id, 0, 25);
+    });
+
+    it('onFiltersChange resetea a la primera página antes de recargar', () => {
+      const page = create();
+      page.page = 3;
+      api.getMovements.mockClear();
+      page.onFiltersChange();
+      expect(page.page).toBe(0);
+      expect(api.getMovements).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, 0, 25);
+    });
+
+    it('onPageChange cambia de página y solo recarga los movimientos (no las devoluciones)', () => {
+      const page = create();
+      api.getTransactions.mockClear();
+      api.getMovements.mockClear();
+      page.onPageChange(2);
+      expect(page.page).toBe(2);
+      expect(api.getMovements).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, 2, 25);
+      expect(api.getTransactions).not.toHaveBeenCalled();
+    });
+
+    it('onSizeChange cambia el tamaño de página y recarga', () => {
+      const page = create();
+      api.getMovements.mockClear();
+      page.onSizeChange(100);
+      expect(page.size).toBe(100);
+      expect(api.getMovements).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, 0, 100);
+    });
+
+    it('vuelca el contenido y el total de elementos de la página en el estado', () => {
+      const page = create();
+      expect(page.totalElements).toBe(4);
     });
   });
 

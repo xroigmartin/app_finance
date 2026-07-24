@@ -58,6 +58,15 @@ export interface TransferRequest {
   toAccountId: number;
 }
 
+/** One row of the combined, paginated "Movimientos" feed (transactions + transfers). */
+export interface Movement {
+  source: 'tx' | 'tr';
+  date: string;
+  id: number;
+  tx: Transaction | null;
+  tr: Transfer | null;
+}
+
 export interface Budget {
   id?: number;
   account: Account;

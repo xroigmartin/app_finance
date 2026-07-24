@@ -2,29 +2,21 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, OnInit, inject, viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Observable, forkJoin, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { parseAmount } from '../../amount';
 import { ImportDialog } from '../../components/import-dialog';
+import { Pagination } from '../../components/pagination';
 import {
-  Account, Category, Transaction, TransactionRequest, TransactionType,
-  Transfer, TransferRequest
+  Account, Category, Movement, Transaction, TransactionRequest, TransactionType, TransferRequest
 } from '../../models';
 
 /** A movement is an income/expense transaction, a transfer or a refund of an expense. */
 type MovementKind = TransactionType | 'TRANSFER' | 'REFUND';
 
-interface MovementRow {
-  source: 'tx' | 'tr';
-  date: string;
-  id: number;
-  tx?: Transaction;
-  tr?: Transfer;
-}
-
 @Component({
   selector: 'app-transactions',
-  imports: [CommonModule, FormsModule, ImportDialog],
+  imports: [CommonModule, FormsModule, ImportDialog, Pagination],
   templateUrl: './transactions.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './transactions.scss'
@@ -35,7 +27,19 @@ export class TransactionsPage implements OnInit {
   /** Native modal hosting the create/edit form; opened on demand to avoid scrolling. */
   private editDialog = viewChild<ElementRef<HTMLDialogElement>>('editDialog');
 
-  movements: MovementRow[] = [];
+  /** Current page of the combined feed (display only). */
+  movements: Movement[] = [];
+  page = 0;
+  size = 25;
+  totalElements = 0;
+
+  /**
+   * Full, unpaginated transactions matching the current filters (never transfers):
+   * refund bookkeeping (an original's total already refunded, the refund picker)
+   * needs the complete set, not just whatever page happens to be on screen.
+   */
+  private allTransactions: Transaction[] = [];
+
   accounts: Account[] = [];
   categories: Category[] = [];
 
@@ -66,18 +70,36 @@ export class TransactionsPage implements OnInit {
     const from = this.filterFrom || undefined;
     const to = this.filterTo || undefined;
     const account = this.filterAccountId ?? undefined;
-    const tx$ = this.api.getTransactions(from, to, account, this.filterCategoryId ?? undefined);
-    // Transfers have no category, so a category filter hides them.
-    const tr$ = this.filterCategoryId ? of([] as Transfer[]) : this.api.getTransfers(from, to, account);
-    forkJoin({ tx: tx$, tr: tr$ }).subscribe(({ tx, tr }) => this.movements = this.merge(tx, tr));
+    const categoryId = this.filterCategoryId ?? undefined;
+    this.api.getTransactions(from, to, account, categoryId).subscribe(tx => this.allTransactions = tx);
+    this.loadMovements();
   }
 
-  private merge(tx: Transaction[], tr: Transfer[]): MovementRow[] {
-    const rows: MovementRow[] = [
-      ...tx.map(t => ({ source: 'tx' as const, date: t.date, id: t.id!, tx: t })),
-      ...tr.map(t => ({ source: 'tr' as const, date: t.date, id: t.id!, tr: t }))
-    ];
-    return rows.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  private loadMovements(): void {
+    const from = this.filterFrom || undefined;
+    const to = this.filterTo || undefined;
+    const account = this.filterAccountId ?? undefined;
+    const categoryId = this.filterCategoryId ?? undefined;
+    this.api.getMovements(from, to, account, categoryId, this.page, this.size).subscribe(p => {
+      this.movements = p.content;
+      this.totalElements = p.totalElements;
+    });
+  }
+
+  /** A filter change makes the current page number meaningless: back to the first page. */
+  onFiltersChange(): void {
+    this.page = 0;
+    this.load();
+  }
+
+  onPageChange(page: number): void {
+    this.page = page;
+    this.loadMovements();
+  }
+
+  onSizeChange(size: number): void {
+    this.size = size;
+    this.loadMovements();
   }
 
   get isTransfer(): boolean {
@@ -90,14 +112,14 @@ export class TransactionsPage implements OnInit {
 
   /** Loaded transaction by id, to resolve an original with its computed pending. */
   private findTx(id: number): Transaction | null {
-    return this.movements.find(m => m.source === 'tx' && m.tx!.id === id)?.tx ?? null;
+    return this.allTransactions.find(t => t.id === id) ?? null;
   }
 
   /** Amount already refunded for an original, excluding the refund being edited. */
   private refundedSoFar(originalId: number, excludeId: number | null): number {
-    return this.movements
-      .filter(m => m.source === 'tx' && m.tx!.refundOf?.id === originalId && m.tx!.id !== excludeId)
-      .reduce((sum, m) => sum + m.tx!.amount, 0);
+    return this.allTransactions
+      .filter(t => t.refundOf?.id === originalId && t.id !== excludeId)
+      .reduce((sum, t) => sum + t.amount, 0);
   }
 
   /** Amount of an expense still available to refund (best-effort; the server caps it). */
@@ -107,9 +129,8 @@ export class TransactionsPage implements OnInit {
 
   /** Expenses (not refunds themselves) with a pending amount, for the refund picker. */
   get refundableExpenses(): Transaction[] {
-    return this.movements
-      .filter(m => m.source === 'tx' && m.tx!.type === 'EXPENSE' && !m.tx!.refundOf)
-      .map(m => m.tx!)
+    return this.allTransactions
+      .filter(t => t.type === 'EXPENSE' && !t.refundOf)
       .filter(t => this.pendingFor(t) > 0 || t.id === this.refundOriginal?.id);
   }
 
@@ -167,7 +188,7 @@ export class TransactionsPage implements OnInit {
   }
 
   /** Opens the form to register a refund of the given expense. */
-  openRefund(row: MovementRow): void {
+  openRefund(row: Movement): void {
     this.error = '';
     this.editingId = null;
     this.editingSource = null;
@@ -178,7 +199,7 @@ export class TransactionsPage implements OnInit {
     this.openForm();
   }
 
-  openEdit(row: MovementRow): void {
+  openEdit(row: Movement): void {
     this.error = '';
     if (row.source === 'tx') {
       const t = row.tx!;
@@ -352,7 +373,7 @@ export class TransactionsPage implements OnInit {
     });
   }
 
-  remove(row: MovementRow): void {
+  remove(row: Movement): void {
     if (row.source === 'tx') {
       const t = row.tx!;
       const label = t.description ?? t.category.name;

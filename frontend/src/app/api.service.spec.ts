@@ -176,6 +176,22 @@ describe('ApiService', () => {
       http.expectOne('/api/transactions/recent').flush([]);
     });
 
+    it('getMovements sin filtros usa la página/tamaño por defecto', () => {
+      service.getMovements().subscribe();
+      const req = http.expectOne(r => r.url === '/api/movements');
+      expect(req.request.params.get('page')).toBe('0');
+      expect(req.request.params.get('size')).toBe('25');
+      expect(req.request.params.keys().length).toBe(2);
+      req.flush({ content: [], page: 0, size: 25, totalElements: 0, totalPages: 0 });
+    });
+
+    it('getMovements con todos los filtros y página/tamaño explícitos', () => {
+      service.getMovements('2026-01-01', '2026-12-31', 1, 4, 2, 10).subscribe();
+      http.expectOne(
+        '/api/movements?page=2&size=10&from=2026-01-01&to=2026-12-31&accountId=1&categoryId=4',
+      ).flush({ content: [], page: 2, size: 10, totalElements: 0, totalPages: 0 });
+    });
+
     it('createTransaction', () => {
       const body: TransactionRequest = {
         date: '2026-07-01', amount: 10, description: 'Test', type: 'EXPENSE', accountId: 1, categoryId: 2,

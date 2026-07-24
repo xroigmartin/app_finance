@@ -3,13 +3,13 @@
 <div class="card toolbar">
   <div class="form-row">
     <label>Desde
-      <input type="date" [(ngModel)]="filterFrom" (change)="load()">
+      <input type="date" [(ngModel)]="filterFrom" (change)="onFiltersChange()">
     </label>
     <label>Hasta
-      <input type="date" [(ngModel)]="filterTo" (change)="load()">
+      <input type="date" [(ngModel)]="filterTo" (change)="onFiltersChange()">
     </label>
     <label>Cuenta
-      <select [(ngModel)]="filterAccountId" (ngModelChange)="load()">
+      <select [(ngModel)]="filterAccountId" (ngModelChange)="onFiltersChange()">
         <option [ngValue]="null">Todas</option>
         @for (a of accounts; track a.id) {
           <option [ngValue]="a.id">{{ a.name }}</option>
@@ -17,7 +17,7 @@
       </select>
     </label>
     <label>Categoría
-      <select [(ngModel)]="filterCategoryId" (ngModelChange)="load()">
+      <select [(ngModel)]="filterCategoryId" (ngModelChange)="onFiltersChange()">
         <option [ngValue]="null">Todas</option>
         @for (o of orderedCategories; track o.cat.id) {
           <option [ngValue]="o.cat.id">{{ o.child ? '↳ ' : '' }}{{ o.cat.name }}</option>
@@ -169,4 +169,6 @@
       }
     </tbody>
   </table>
+  <app-pagination [page]="page" [size]="size" [totalElements]="totalElements"
+                  (pageChange)="onPageChange($event)" (sizeChange)="onSizeChange($event)" />
 </div>

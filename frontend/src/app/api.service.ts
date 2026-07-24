@@ -7,8 +7,8 @@ import {
   Category, CategoryAmount, CategoryRule, FlexImportResult, ImportResult, InvestmentIncome, InvestmentPerformance,
   InvestmentSecurity,
   InvestmentTransactionFilter, InvestmentTransactionRequest, InvestmentTransactionView,
-  InvestmentsSummary, MonthlyPoint, PageResponse, Portfolio, PortfolioSummary, PositionView, RecurringBudget,
-  RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer,
+  InvestmentsSummary, MonthlyPoint, Movement, PageResponse, Portfolio, PortfolioSummary, PositionView,
+  RecurringBudget, RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer,
   TransferRequest, ValuationPoint
 } from './models';
 
@@ -131,6 +131,17 @@ export class ApiService {
     if (accountId) params['accountId'] = accountId;
     if (categoryId) params['categoryId'] = categoryId;
     return this.http.get<Transaction[]>(`${this.base}/transactions`, { params });
+  }
+
+  /** Combined, paginated "Movimientos" feed (transactions + transfers), newest first. */
+  getMovements(from?: string, to?: string, accountId?: number, categoryId?: number,
+              page = 0, size = 25): Observable<PageResponse<Movement>> {
+    const params: Record<string, string | number> = { page, size };
+    if (from) params['from'] = from;
+    if (to) params['to'] = to;
+    if (accountId) params['accountId'] = accountId;
+    if (categoryId) params['categoryId'] = categoryId;
+    return this.http.get<PageResponse<Movement>>(`${this.base}/movements`, { params });
   }
 
   getRecentTransactions(): Observable<Transaction[]> {
