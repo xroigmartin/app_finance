@@ -195,6 +195,49 @@ class InvestmentTransactionPersistenceAdapterTest extends PostgresTestBase {
     }
 
     @Test
+    void search_paginatesAndFiltersAtTheDatabase() {
+        adapter.save(deposit(portfolioId, LocalDate.of(2024, 1, 1), "100"));
+        adapter.save(deposit(portfolioId, LocalDate.of(2024, 2, 1), "200"));
+        adapter.save(deposit(portfolioId, LocalDate.of(2024, 3, 1), "300"));
+        PortfolioId other = portfolios.save(Portfolio.create("Otra cartera", "EUR")).id();
+        adapter.save(deposit(other, LocalDate.of(2024, 2, 15), "999"));
+
+        var firstPage = adapter.search(portfolioId, null, null, null, null, 0, 2);
+        assertThat(firstPage.content()).extracting(InvestmentTransaction::tradeDate)
+                .containsExactly(LocalDate.of(2024, 3, 1), LocalDate.of(2024, 2, 1));
+        assertThat(firstPage.totalElements()).isEqualTo(3);
+        assertThat(firstPage.totalPages()).isEqualTo(2);
+
+        var secondPage = adapter.search(portfolioId, null, null, null, null, 1, 2);
+        assertThat(secondPage.content()).extracting(InvestmentTransaction::tradeDate)
+                .containsExactly(LocalDate.of(2024, 1, 1));
+    }
+
+    @Test
+    void search_filtersByTypeDateRangeAndSecurity() {
+        adapter.save(deposit(portfolioId, LocalDate.of(2024, 1, 10), "100"));
+        adapter.save(InvestmentTransaction.builder()
+                .portfolio(portfolioId).security(securityId)
+                .type(InvestmentTransactionType.BUY).tradeDate(LocalDate.of(2024, 2, 10))
+                .quantity(Quantity.of("1")).amount(CurrencyMoney.of("-100", "EUR")).build());
+        adapter.save(InvestmentTransaction.builder()
+                .portfolio(portfolioId).security(securityId)
+                .type(InvestmentTransactionType.BUY).tradeDate(LocalDate.of(2024, 6, 10))
+                .quantity(Quantity.of("1")).amount(CurrencyMoney.of("-50", "EUR")).build());
+
+        var byType = adapter.search(portfolioId, InvestmentTransactionType.BUY, null, null, null, 0, 10);
+        assertThat(byType.content()).hasSize(2);
+
+        var byRange = adapter.search(portfolioId, InvestmentTransactionType.BUY,
+                LocalDate.of(2024, 1, 1), LocalDate.of(2024, 3, 1), null, 0, 10);
+        assertThat(byRange.content()).extracting(InvestmentTransaction::tradeDate)
+                .containsExactly(LocalDate.of(2024, 2, 10));
+
+        var bySecurity = adapter.search(portfolioId, null, null, null, securityId, 0, 10);
+        assertThat(bySecurity.content()).hasSize(2);
+    }
+
+    @Test
     void deleteById_removesTheRow() {
         InvestmentTransactionId id = adapter.save(
                 deposit(portfolioId, LocalDate.of(2024, 1, 1), "100")).id();

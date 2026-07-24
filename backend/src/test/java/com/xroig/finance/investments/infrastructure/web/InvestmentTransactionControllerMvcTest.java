@@ -8,6 +8,7 @@ import com.xroig.finance.investments.application.port.FindInvestmentTransactions
 import com.xroig.finance.investments.application.port.FindInvestmentTransactions.TransactionFilter;
 import com.xroig.finance.investments.application.port.UpdateInvestmentTransaction;
 import com.xroig.finance.investments.domain.InvestmentTransactionType;
+import com.xroig.finance.shared.domain.Page;
 import com.xroig.finance.shared.domain.ValidationException;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -61,24 +62,38 @@ class InvestmentTransactionControllerMvcTest {
             """;
 
     @Test
-    void find_passesTheFiltersThrough() {
-        when(findTransactions.find(eq(7L), any(TransactionFilter.class)))
-                .thenReturn(List.of(buyView(1L)));
+    void find_passesTheFiltersAndPagingThrough() {
+        when(findTransactions.find(eq(7L), any(TransactionFilter.class), eq(1), eq(5)))
+                .thenReturn(new Page<>(List.of(buyView(1L)), 1, 5, 12));
 
         var result = mvc.get().uri("/api/investments/portfolios/7/transactions")
                 .param("type", "BUY").param("from", "2025-01-01")
                 .param("to", "2025-12-31").param("securityId", "42")
+                .param("page", "1").param("size", "5")
                 .exchange();
 
         assertThat(result).hasStatusOk().hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON);
-        assertThat(result).bodyJson().extractingPath("$[0].securityName")
+        assertThat(result).bodyJson().extractingPath("$.content[0].securityName")
                 .isEqualTo("Vanguard FTSE All-World");
+        assertThat(result).bodyJson().extractingPath("$.page").isEqualTo(1);
+        assertThat(result).bodyJson().extractingPath("$.size").isEqualTo(5);
+        assertThat(result).bodyJson().extractingPath("$.totalElements").isEqualTo(12);
+        assertThat(result).bodyJson().extractingPath("$.totalPages").isEqualTo(3);
         ArgumentCaptor<TransactionFilter> filter = ArgumentCaptor.forClass(TransactionFilter.class);
-        verify(findTransactions).find(eq(7L), filter.capture());
+        verify(findTransactions).find(eq(7L), filter.capture(), eq(1), eq(5));
         assertThat(filter.getValue().type()).isEqualTo(InvestmentTransactionType.BUY);
         assertThat(filter.getValue().from()).isEqualTo(LocalDate.of(2025, 1, 1));
         assertThat(filter.getValue().to()).isEqualTo(LocalDate.of(2025, 12, 31));
         assertThat(filter.getValue().securityId()).isEqualTo(42L);
+    }
+
+    @Test
+    void find_defaultsPageAndSizeWhenOmitted() {
+        when(findTransactions.find(eq(7L), any(TransactionFilter.class), eq(0), eq(25)))
+                .thenReturn(new Page<>(List.of(), 0, 25, 0));
+
+        assertThat(mvc.get().uri("/api/investments/portfolios/7/transactions")).hasStatusOk();
+        verify(findTransactions).find(eq(7L), any(TransactionFilter.class), eq(0), eq(25));
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.xroig.finance.investments.application.port.FindInvestmentTransactions
 import com.xroig.finance.investments.application.port.FindInvestmentTransactions.TransactionFilter;
 import com.xroig.finance.investments.application.port.UpdateInvestmentTransaction;
 import com.xroig.finance.investments.domain.InvestmentTransactionType;
+import com.xroig.finance.shared.domain.Page;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -22,7 +23,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.util.List;
 
 /**
  * Inbound web adapter for the portfolio operations (RF-2, §6). Thin by design:
@@ -50,13 +50,15 @@ public class InvestmentTransactionController {
     }
 
     @GetMapping("/portfolios/{id}/transactions")
-    public List<InvestmentTransactionView> find(
+    public Page<InvestmentTransactionView> find(
             @PathVariable Long id,
             @RequestParam(required = false) InvestmentTransactionType type,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) Long securityId) {
-        return findTransactions.find(id, new TransactionFilter(type, from, to, securityId));
+            @RequestParam(required = false) Long securityId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return findTransactions.find(id, new TransactionFilter(type, from, to, securityId), page, size);
     }
 
     @PostMapping("/portfolios/{id}/transactions")

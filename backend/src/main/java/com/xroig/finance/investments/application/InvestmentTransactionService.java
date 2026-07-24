@@ -17,12 +17,12 @@ import com.xroig.finance.investments.domain.Security;
 import com.xroig.finance.investments.domain.SecurityId;
 import com.xroig.finance.investments.domain.SecurityRepository;
 import com.xroig.finance.shared.domain.NotFoundException;
+import com.xroig.finance.shared.domain.Page;
 import com.xroig.finance.shared.domain.ValidationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -80,23 +80,24 @@ public class InvestmentTransactionService
 
     @Override
     @Transactional(readOnly = true)
-    public List<InvestmentTransactionView> find(long portfolioId, TransactionFilter filter) {
+    public Page<InvestmentTransactionView> find(long portfolioId, TransactionFilter filter, int page, int size) {
         requirePortfolio(portfolioId);
+        requireValidPaging(page, size);
         Map<Long, Security> catalog = securities.findAll().stream()
                 .collect(Collectors.toMap(s -> s.id().value(), Function.identity()));
-        return transactions.findByPortfolio(new PortfolioId(portfolioId)).stream()
-                .filter(tx -> matches(tx, filter))
-                .sorted(Comparator.comparing(InvestmentTransaction::tradeDate).reversed())
+        Page<InvestmentTransaction> result = transactions.search(new PortfolioId(portfolioId), filter.type(),
+                filter.from(), filter.to(),
+                filter.securityId() == null ? null : new SecurityId(filter.securityId()), page, size);
+        List<InvestmentTransactionView> views = result.content().stream()
                 .map(tx -> toView(tx, tx.securityId() == null ? null : catalog.get(tx.securityId().value())))
                 .toList();
+        return new Page<>(views, page, size, result.totalElements());
     }
 
-    private static boolean matches(InvestmentTransaction tx, TransactionFilter filter) {
-        return (filter.type() == null || tx.type() == filter.type())
-                && (filter.from() == null || !tx.tradeDate().isBefore(filter.from()))
-                && (filter.to() == null || !tx.tradeDate().isAfter(filter.to()))
-                && (filter.securityId() == null || (tx.securityId() != null
-                        && tx.securityId().value() == filter.securityId()));
+    private static void requireValidPaging(int page, int size) {
+        if (page < 0 || size < 1) {
+            throw new ValidationException("Página o tamaño de página inválidos");
+        }
     }
 
     /**

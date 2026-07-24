@@ -15,6 +15,7 @@ import com.xroig.finance.investments.domain.Security;
 import com.xroig.finance.investments.domain.SecurityId;
 import com.xroig.finance.investments.domain.SecurityRepository;
 import com.xroig.finance.shared.domain.NotFoundException;
+import com.xroig.finance.shared.domain.Page;
 import com.xroig.finance.shared.domain.ValidationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,8 +41,8 @@ import static org.mockito.Mockito.when;
  * (violation → {@code ValidationException}, §8), a manual sale beyond the held
  * position at its date is a hard error (RN-4's manual side — the import side is a
  * warning), editing rebuilds the aggregate preserving identity and
- * {@code external_id}, and the listing filters by type/dates/instrument in memory
- * (no pagination in v1).
+ * {@code external_id}, and the listing delegates the filtered, paginated search
+ * to the repository, only attaching the instrument name.
  */
 @ExtendWith(MockitoExtension.class)
 class InvestmentTransactionServiceTest {
@@ -206,28 +207,45 @@ class InvestmentTransactionServiceTest {
     }
 
     @Test
-    void find_filtersByTypeDatesAndInstrumentNewestFirst() {
+    void find_delegatesFilterAndPagingToTheRepositoryAndAttachesSecurityNames() {
         givenPortfolio();
         when(securities.findAll()).thenReturn(List.of(Security.rehydrate(
                 SECURITY_ID, "IE00BK5BQT80", "EUR", "Vanguard FTSE All-World", null, null, null, null)));
-        InvestmentTransaction old = storedBuy(1L, MARCH_10.minusDays(30), "5");
         InvestmentTransaction recent = storedBuy(2L, MARCH_10, "10");
-        InvestmentTransaction deposit = InvestmentTransaction.builder()
-                .portfolio(PORTFOLIO_ID).type(InvestmentTransactionType.DEPOSIT)
-                .tradeDate(MARCH_10).amount(CurrencyMoney.of("500", "EUR"))
-                .rehydrate(new InvestmentTransactionId(3L));
-        when(transactions.findByPortfolio(PORTFOLIO_ID)).thenReturn(List.of(old, recent, deposit));
+        when(transactions.search(PORTFOLIO_ID, InvestmentTransactionType.BUY,
+                MARCH_10.minusDays(1), MARCH_10, SECURITY_ID, 1, 10))
+                .thenReturn(new Page<>(List.of(recent), 1, 10, 42));
 
-        var all = service().find(7L, TransactionFilter.none());
-        var buys = service().find(7L, new TransactionFilter(InvestmentTransactionType.BUY, null, null, null));
-        var recentOnly = service().find(7L, new TransactionFilter(null, MARCH_10.minusDays(1), null, null));
-        var bySecurity = service().find(7L, new TransactionFilter(null, null, null, SECURITY_ID.value()));
+        var result = service().find(7L, new TransactionFilter(InvestmentTransactionType.BUY,
+                MARCH_10.minusDays(1), MARCH_10, SECURITY_ID.value()), 1, 10);
 
-        assertThat(all).extracting(InvestmentTransactionView::id).containsExactly(2L, 3L, 1L);
-        assertThat(all.getFirst().securityName()).isEqualTo("Vanguard FTSE All-World");
-        assertThat(buys).extracting(InvestmentTransactionView::id).containsExactlyInAnyOrder(1L, 2L);
-        assertThat(recentOnly).extracting(InvestmentTransactionView::id).containsExactlyInAnyOrder(2L, 3L);
-        assertThat(bySecurity).extracting(InvestmentTransactionView::id).containsExactlyInAnyOrder(1L, 2L);
+        assertThat(result.content()).extracting(InvestmentTransactionView::id).containsExactly(2L);
+        assertThat(result.content().getFirst().securityName()).isEqualTo("Vanguard FTSE All-World");
+        assertThat(result.page()).isEqualTo(1);
+        assertThat(result.size()).isEqualTo(10);
+        assertThat(result.totalElements()).isEqualTo(42);
+    }
+
+    @Test
+    void find_defaultsUnsetFilterFieldsToNullOnTheRepositoryCall() {
+        givenPortfolio();
+        when(transactions.search(PORTFOLIO_ID, null, null, null, null, 0, 25))
+                .thenReturn(new Page<>(List.of(), 0, 25, 0));
+
+        var result = service().find(7L, TransactionFilter.none(), 0, 25);
+
+        assertThat(result.content()).isEmpty();
+        assertThat(result.totalElements()).isZero();
+    }
+
+    @Test
+    void find_rejectsNegativePageOrNonPositiveSize() {
+        givenPortfolio();
+
+        assertThatThrownBy(() -> service().find(7L, TransactionFilter.none(), -1, 10))
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service().find(7L, TransactionFilter.none(), 0, 0))
+                .isInstanceOf(ValidationException.class);
     }
 
     @Test

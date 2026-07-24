@@ -2,17 +2,17 @@ package com.xroig.finance.investments.application.port;
 
 import com.xroig.finance.investments.application.InvestmentTransactionView;
 import com.xroig.finance.investments.domain.InvestmentTransactionType;
+import com.xroig.finance.shared.domain.Page;
 
 import java.time.LocalDate;
-import java.util.List;
 
 /**
  * Inbound port: list a portfolio's operations filtered by type, date range and
- * instrument (§6 — no pagination in v1), newest first.
+ * instrument (§6), newest first, paginated.
  */
 public interface FindInvestmentTransactions {
 
-    List<InvestmentTransactionView> find(long portfolioId, TransactionFilter filter);
+    Page<InvestmentTransactionView> find(long portfolioId, TransactionFilter filter, int page, int size);
 
     /** Optional filters; a null field does not filter. */
     record TransactionFilter(InvestmentTransactionType type, LocalDate from, LocalDate to,
