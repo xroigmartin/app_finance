@@ -12,9 +12,16 @@ export const routes: Routes = [
   },
   // La gestión de transferencias se hace ahora desde Movimientos.
   { path: 'transfers', redirectTo: 'transactions' },
+  { path: 'investments', pathMatch: 'full', redirectTo: 'investments/dashboard' },
   {
-    path: 'investments',
-    loadComponent: () => import('./pages/investments/investments').then(m => m.InvestmentsPage)
+    path: 'investments/dashboard',
+    loadComponent: () =>
+      import('./pages/investments-dashboard/investments-dashboard').then(m => m.InvestmentsDashboardPage)
+  },
+  {
+    path: 'investments/operations',
+    loadComponent: () =>
+      import('./pages/investments-operations/investments-operations').then(m => m.InvestmentsOperationsPage)
   },
   {
     path: 'budgets',

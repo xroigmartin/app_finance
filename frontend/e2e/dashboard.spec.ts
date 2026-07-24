@@ -80,10 +80,12 @@ test.describe('Dashboard', () => {
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   });
 
-  test('navega a Inversión desde el menú', async ({ page }) => {
+  test('navega al panel general de Inversión desde el menú', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: 'Inversión' }).click();
-    await expect(page.getByRole('heading', { name: 'Inversión' })).toBeVisible();
+    // "Panel general" aparece dos veces en el menú (Finanzas Personales e
+    // Inversión, RN de navegación en 3 grupos): el enlace de Inversión es el segundo.
+    await page.getByRole('link', { name: 'Panel general' }).nth(1).click();
+    await expect(page).toHaveURL(/\/investments\/dashboard$/);
     await expect(page.getByRole('option', { name: /Cartera E2E/ })).toBeAttached();
   });
 });

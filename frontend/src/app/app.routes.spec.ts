@@ -17,6 +17,12 @@ describe('routes', () => {
     expect(findRoute('transfers').redirectTo).toBe('transactions');
   });
 
+  it('redirige investments al panel general de inversión', () => {
+    const investments = findRoute('investments');
+    expect(investments.pathMatch).toBe('full');
+    expect(investments.redirectTo).toBe('investments/dashboard');
+  });
+
   it('redirige cualquier ruta desconocida al dashboard', () => {
     expect(findRoute('**').redirectTo).toBe('dashboard');
   });
@@ -32,7 +38,7 @@ describe('routes', () => {
   // build`/`ng serve` funcionan bien y navegar entre páginas reales también.
   // Qué carga cada ruta lo verifica el smoke E2E (CP2/CP8) navegando de
   // verdad; aquí solo se comprueba la forma de la configuración de rutas.
-  it.each(['dashboard', 'transactions', 'investments', 'budgets', 'accounts', 'categories'])(
+  it.each(['dashboard', 'transactions', 'investments/dashboard', 'investments/operations', 'budgets', 'accounts', 'categories'])(
     '%s es una ruta con carga perezosa',
     path => {
       const route = findRoute(path);

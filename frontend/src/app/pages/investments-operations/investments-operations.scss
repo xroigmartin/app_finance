@@ -1,0 +1,112 @@
+h2 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+  color: var(--text);
+}
+
+.empty-state {
+  h2 {
+    margin-bottom: .5rem;
+  }
+
+  p {
+    margin: 0;
+    max-width: 60ch;
+  }
+}
+
+.chart-wrap {
+  position: relative;
+  height: 300px;
+}
+
+.instrument {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .instrument-text {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 0;
+  }
+}
+
+.small-text {
+  font-size: .72rem;
+}
+
+.block {
+  display: block;
+}
+
+.tabs-card {
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+/* Control segmentado (sistema de diseño): contenedor --surface-2, segmento activo --surface + sombra */
+.tabs {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 1rem;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  padding: 7px 16px;
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: background .15s, color .15s;
+
+  &:hover {
+    color: var(--text);
+  }
+
+  &.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow);
+  }
+}
+
+.filters {
+  margin-bottom: 1rem;
+
+  .count {
+    font-size: .8rem;
+    padding-bottom: .5rem;
+  }
+}
+
+.row-actions {
+  white-space: nowrap;
+  text-align: right;
+
+  .btn + .btn {
+    margin-left: .35rem;
+  }
+}
+
+.income-table {
+  margin-top: 1.25rem;
+
+  tr.totals td {
+    font-weight: 700;
+    border-top: 1px solid var(--border-strong);
+  }
+}
+
+.paid-summary {
+  margin: .75rem 0 0;
+  font-size: .85rem;
+}
