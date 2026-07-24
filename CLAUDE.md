@@ -12,17 +12,19 @@ Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular
 
 Per-domain PRDs live in `docs/prd/` (index and template in `docs/README.md`), written in Spanish. A change "affects a domain" when it touches its data model, business rules, API endpoints, or UI. Concretely: when you finish a code change, identify which domain(s) under `docs/prd/` it touches, and edit the matching PRD(s) — bump "Última actualización", and adjust the relevant sections (model, rules, API, UI, validations). If no PRD exists for the affected domain, create one following the existing template.
 
-## Development methodology — TDD (mandatory)
+## Development methodology — TDD (mandatory, backend and frontend)
 
-**Rule: all development is done with TDD (Test-Driven Development), with each phase explicitly executed — never write production code without a failing test first.** For every behavior/milestone:
+**Rule: all development is done with TDD (Test-Driven Development), with each phase explicitly executed — never write production code without a failing test first.** This applies equally to the backend and the frontend; there is no "build it then add tests" path on either side. For every behavior/milestone:
 
-1. **Red** — write the test(s) that specify the behavior, run them, and confirm they fail for the expected reason (compilation failure of a not-yet-existing class counts as red).
+1. **Red** — write the test(s) that specify the behavior, run them, and confirm they fail for the expected reason (compilation failure of a not-yet-existing class/component counts as red).
 2. **Green** — write the minimum production code needed to make those tests pass; run the tests and confirm they pass.
 3. **Refactor** — with tests green, clean up code and tests (naming, duplication, design); re-run the tests to confirm they stay green.
 
-Work in small red-green-refactor cycles (one behavior/invariant at a time), following the existing test taxonomy: domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence tests on Testcontainers, `@WebMvcTest` contract tests, ArchUnit for boundaries.
+Work in small red-green-refactor cycles (one behavior/invariant at a time), following the existing test taxonomy:
+- **Backend**: domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence tests on Testcontainers, `@WebMvcTest` contract tests, ArchUnit for boundaries.
+- **Frontend**: Vitest unit tests per component/service/pipe (`*.spec.ts`, run via `npm test -- --watch=false`), and Playwright E2E specs per domain page (`npm run test:e2e`) for the critical user flows a unit test can't cover (navigation, dialogs chained together, chart rendering). A UI behavior gets its Vitest red before the component code that implements it; an end-to-end flow gets its Playwright spec before the flow is wired up.
 
-**Commit at the end of every milestone**: when a cycle (or a small coherent group of cycles that forms a milestone, e.g. an aggregate with its invariants, a use case, an adapter) is complete — tests green, refactor done, PRD updated — create a commit before moving on. Never batch several milestones into one commit, and never commit with failing tests.
+**Commit at the end of every milestone**: when a cycle (or a small coherent group of cycles that forms a milestone, e.g. an aggregate with its invariants, a use case, an adapter, a component, a page flow) is complete — tests green, refactor done, PRD updated — create a commit before moving on. Never batch several milestones into one commit, and never commit with failing tests. This holds on the frontend too: a page/component change is not done until its Vitest (and, where relevant, Playwright) coverage was written first and is green, same discipline as the backend's ArchUnit/`@WebMvcTest` gate.
 
 ## Git workflow — commit every change
 
