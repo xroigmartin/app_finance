@@ -20,8 +20,10 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -62,16 +64,19 @@ public class FlexReportParser implements FlexReportReader {
         LocalDate toDate = required(date(attr(statement, "toDate")),
                 "El informe Flex no informa su fecha de fin (toDate)");
 
+        Map<String, String> securityNames = parseSecuritiesInfo(statement);
+
         List<FlexRow> rows = new ArrayList<>();
         List<FlexRowError> errors = new ArrayList<>();
 
-        forEach(statement, "Order", order -> parseOrder(order, rows, errors));
-        forEach(statement, "CashTransaction", cash -> parseCashTransaction(cash, rows, errors));
-        forEach(statement, "CorporateAction", action -> parseCorporateAction(action, rows, errors));
-        forEach(statement, "TransactionTax", tax -> parseTransactionTax(tax, rows, errors));
+        forEach(statement, "Order", order -> parseOrder(order, rows, errors, securityNames));
+        forEach(statement, "CashTransaction", cash -> parseCashTransaction(cash, rows, errors, securityNames));
+        forEach(statement, "CorporateAction", action -> parseCorporateAction(action, rows, errors, securityNames));
+        forEach(statement, "TransactionTax", tax -> parseTransactionTax(tax, rows, errors, securityNames));
 
         List<FlexQuote> quotes = new ArrayList<>();
-        forEach(statement, "OpenPosition", position -> parseOpenPosition(position, toDate, quotes, errors));
+        forEach(statement, "OpenPosition",
+                position -> parseOpenPosition(position, toDate, quotes, errors, securityNames));
 
         List<ExchangeRate> rates = parseConversionRates(statement, reportCurrencies(rows, quotes), errors);
 
@@ -81,7 +86,8 @@ public class FlexReportParser implements FlexReportReader {
 
     // ---- Trades (level ORDER) ----
 
-    private void parseOrder(Element order, List<FlexRow> rows, List<FlexRowError> errors) {
+    private void parseOrder(Element order, List<FlexRow> rows, List<FlexRowError> errors,
+                            Map<String, String> securityNames) {
         if (!"ORDER".equals(attr(order, "levelOfDetail"))) {
             return;
         }
@@ -89,7 +95,7 @@ public class FlexReportParser implements FlexReportReader {
         try {
             String assetCategory = attr(order, "assetCategory");
             if ("STK".equals(assetCategory)) {
-                rows.add(parseStockOrder(order));
+                rows.add(parseStockOrder(order, securityNames));
             } else if ("CASH".equals(assetCategory)) {
                 rows.add(parseFxOrder(order));
             } else {
@@ -101,7 +107,7 @@ public class FlexReportParser implements FlexReportReader {
         }
     }
 
-    private FlexRow parseStockOrder(Element order) {
+    private FlexRow parseStockOrder(Element order, Map<String, String> securityNames) {
         boolean buy = "BUY".equals(attr(order, "buySell"));
         String currency = attr(order, "currency");
         return new FlexRow(
@@ -117,7 +123,7 @@ public class FlexReportParser implements FlexReportReader {
                 commissionCurrency(order, currency),
                 decimal(attr(order, "fxRateToBase")),
                 attr(order, "description"),
-                instrument(order));
+                instrument(order, securityNames));
     }
 
     private FlexRow parseFxOrder(Element order) {
@@ -171,7 +177,8 @@ public class FlexReportParser implements FlexReportReader {
 
     // ---- Cash Transactions (level DETAIL) ----
 
-    private void parseCashTransaction(Element cash, List<FlexRow> rows, List<FlexRowError> errors) {
+    private void parseCashTransaction(Element cash, List<FlexRow> rows, List<FlexRowError> errors,
+                                      Map<String, String> securityNames) {
         if (!"DETAIL".equals(attr(cash, "levelOfDetail"))) {
             return;
         }
@@ -188,7 +195,7 @@ public class FlexReportParser implements FlexReportReader {
                     null, null, null, null,
                     decimal(attr(cash, "fxRateToBase")),
                     attr(cash, "description"),
-                    instrumentIfPresent(cash)));
+                    instrumentIfPresent(cash, securityNames)));
         } catch (Exception e) {
             errors.add(new FlexRowError("CashTransactions", reference, e.getMessage()));
         }
@@ -219,7 +226,8 @@ public class FlexReportParser implements FlexReportReader {
 
     // ---- Corporate Actions (level DETAIL, FS/RS only) ----
 
-    private void parseCorporateAction(Element action, List<FlexRow> rows, List<FlexRowError> errors) {
+    private void parseCorporateAction(Element action, List<FlexRow> rows, List<FlexRowError> errors,
+                                      Map<String, String> securityNames) {
         if (!"DETAIL".equals(attr(action, "levelOfDetail"))) {
             return; // la fila SUMMARY (accountId="-") duplica el apunte (§9)
         }
@@ -240,7 +248,7 @@ public class FlexReportParser implements FlexReportReader {
                     attr(action, "currency"),
                     null, null, null, null, null,
                     attr(action, "actionDescription"),
-                    instrument(action)));
+                    instrument(action, securityNames)));
         } catch (Exception e) {
             errors.add(new FlexRowError("CorporateActions", reference, e.getMessage()));
         }
@@ -248,7 +256,8 @@ public class FlexReportParser implements FlexReportReader {
 
     // ---- Transaction Taxes (level ORDER_SUMMARY only, §9) ----
 
-    private void parseTransactionTax(Element tax, List<FlexRow> rows, List<FlexRowError> errors) {
+    private void parseTransactionTax(Element tax, List<FlexRow> rows, List<FlexRowError> errors,
+                                     Map<String, String> securityNames) {
         if (!"ORDER_SUMMARY".equals(attr(tax, "levelOfDetail"))) {
             return;
         }
@@ -262,7 +271,7 @@ public class FlexReportParser implements FlexReportReader {
                     attr(tax, "currency"),
                     null, null, null, null, null,
                     attr(tax, "taxDescription"),
-                    instrument(tax)));
+                    instrument(tax, securityNames)));
         } catch (Exception e) {
             errors.add(new FlexRowError("TransactionTaxes", reference, e.getMessage()));
         }
@@ -271,17 +280,44 @@ public class FlexReportParser implements FlexReportReader {
     // ---- Open Positions (level SUMMARY) → quotes ----
 
     private void parseOpenPosition(Element position, LocalDate toDate,
-                                   List<FlexQuote> quotes, List<FlexRowError> errors) {
+                                   List<FlexQuote> quotes, List<FlexRowError> errors,
+                                   Map<String, String> securityNames) {
         if (!"SUMMARY".equals(attr(position, "levelOfDetail"))) {
             return;
         }
         try {
-            quotes.add(new FlexQuote(instrument(position),
+            quotes.add(new FlexQuote(instrument(position, securityNames),
                     required(decimal(attr(position, "markPrice")), "la posición no informa markPrice"),
                     toDate));
         } catch (Exception e) {
             errors.add(new FlexRowError("OpenPositions", attr(position, "isin"), e.getMessage()));
         }
+    }
+
+    // ---- Securities Info (name lookup, §11 bis) ----
+
+    /**
+     * One clean {@code isin|currency → name} entry per instrument, independent of
+     * any single row: the {@code description} of a {@code CashTransaction} is the
+     * dividend/tax line ("ASML(...) CASH DIVIDEND EUR 1.75 PER SHARE..."), not the
+     * instrument's name, and it even differs between a dividend and its own
+     * withholding row for the same security — so it must never be used as the
+     * {@code Security}'s name (it was, and got persisted verbatim on refresh).
+     */
+    private Map<String, String> parseSecuritiesInfo(Element statement) {
+        Map<String, String> names = new LinkedHashMap<>();
+        forEach(statement, "SecurityInfo", info -> {
+            String isin = attr(info, "isin");
+            String name = attr(info, "description");
+            if (isin != null && name != null) {
+                names.put(securityKey(isin, attr(info, "currency")), name);
+            }
+        });
+        return names;
+    }
+
+    private static String securityKey(String isin, String currency) {
+        return isin + "|" + currency;
     }
 
     // ---- Conversion Rates (report currencies only, currency→EUR) ----
@@ -327,14 +363,16 @@ public class FlexReportParser implements FlexReportReader {
 
     // ---- shared row helpers ----
 
-    private FlexInstrument instrument(Element row) {
+    private FlexInstrument instrument(Element row, Map<String, String> securityNames) {
         String isin = required(attr(row, "isin"), "la fila no informa el ISIN del instrumento");
-        return new FlexInstrument(isin, attr(row, "currency"), attr(row, "description"),
+        String currency = attr(row, "currency");
+        String name = securityNames.getOrDefault(securityKey(isin, currency), attr(row, "description"));
+        return new FlexInstrument(isin, currency, name,
                 attr(row, "symbol"), attr(row, "listingExchange"), attr(row, "figi"));
     }
 
-    private FlexInstrument instrumentIfPresent(Element row) {
-        return attr(row, "isin") == null ? null : instrument(row);
+    private FlexInstrument instrumentIfPresent(Element row, Map<String, String> securityNames) {
+        return attr(row, "isin") == null ? null : instrument(row, securityNames);
     }
 
     private String commissionCurrency(Element order, String fallback) {

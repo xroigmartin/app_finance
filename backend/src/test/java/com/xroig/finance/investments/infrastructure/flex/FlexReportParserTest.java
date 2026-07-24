@@ -139,6 +139,19 @@ class FlexReportParserTest {
     }
 
     @Test
+    void cashTransactionInstrument_takesTheCleanNameFromSecuritiesInfoNotTheDividendLine() {
+        // El atributo description de un CashTransaction es la línea del dividendo
+        // ("ASML(...) CASH DIVIDEND EUR 1.75 PER SHARE...", distinta encima entre el
+        // apunte y su retención), no el nombre del instrumento; SecuritiesInfo trae
+        // el nombre canónico una vez por isin+divisa y es la fuente correcta.
+        FlexRow dividend = row("CT-2706035381");
+        assertThat(dividend.instrument().name()).isEqualTo("ASML HOLDING NV");
+
+        FlexRow withholding = row("CT-2706035382");
+        assertThat(withholding.instrument().name()).isEqualTo("ASML HOLDING NV");
+    }
+
+    @Test
     void corporateAction_split_isAQuantityDeltaAtZeroCostOnTheActionDate() {
         FlexRow split = row("CA-2794194316");
 
