@@ -62,6 +62,24 @@ test.describe('Dashboard', () => {
     await expect(page.locator('.layout')).not.toHaveClass(/collapsed/);
   });
 
+  test('el contenido tiene su propio scroll vertical; el menú lateral no se mueve con él', async ({ page }) => {
+    // Viewport bajo para forzar overflow del contenido con seguridad, sin
+    // depender de cuántas filas/gráficos tenga sembrados el dashboard.
+    await page.setViewportSize({ width: 1280, height: 400 });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Panel general' })).toBeVisible();
+
+    const sidebarBefore = await page.locator('.sidebar').boundingBox();
+    await page.locator('.content').evaluate(el => el.scrollTo(0, 200));
+    const contentScrollTop = await page.locator('.content').evaluate(el => el.scrollTop);
+    expect(contentScrollTop).toBeGreaterThan(0);
+
+    const sidebarAfter = await page.locator('.sidebar').boundingBox();
+    expect(sidebarAfter).toEqual(sidebarBefore);
+    // El documento en sí no se desplaza: el scroll queda contenido en .content.
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  });
+
   test('navega a Inversión desde el menú', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('link', { name: 'Inversión' }).click();
