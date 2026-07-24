@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | ✅ **Implementado** — F1, F2 y F3 completas (modelo + import Flex + posiciones/valoración multidivisa + rentas + alta manual + rentabilidad TWR/XIRR, con UI); F4 (automatización) en backlog |
-| Versión | 0.41 |
+| Versión | 0.42 |
 | Última actualización | 2026-07-21 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -109,12 +109,13 @@ Nuevas tablas vía migraciones Flyway `V7+`, todas en `investments.*`. Todo impo
 |---|---|---|---|
 | `BUY` | > 0 | < 0 | Sale efectivo |
 | `SELL` | < 0 | > 0 | Entra efectivo |
-| `DIVIDEND` / `INTEREST` / `DEPOSIT` | nulo | > 0 | Entra efectivo |
-| `WITHDRAWAL` / `FEE` / `TAX` / `TRADE_TAX` | nulo | < 0 | Sale efectivo |
+| `DEPOSIT` | nulo | > 0 | Entra efectivo; el tipo lo deriva el propio parser del signo (§9) |
+| `DIVIDEND` / `INTEREST` / `FEE` / `TAX` | nulo | ≠ 0 (habitualmente > 0 en `DIVIDEND`/`INTEREST`, < 0 en `FEE`/`TAX`) | Apuntes de *Cash Transactions*: IBKR puede emitir una **reversa** con el signo invertido de una corrección (original + reversa + re-book, ver §11); el importe admite cualquier signo salvo cero |
+| `WITHDRAWAL` / `TRADE_TAX` | nulo | < 0 | Sale efectivo; `WITHDRAWAL` deriva su tipo del signo igual que `DEPOSIT`, `TRADE_TAX` no es un apunte de *Cash Transactions* (tasa de una compraventa) |
 | `SPLIT` | delta con signo | = 0 | Sin flujo de caja |
 | `FX_TRADE` | nulo | < 0 (pierna saliente) | `counter_amount` > 0 (pierna entrante) |
 
-Coste asumido del convenio: la API expone los signos "contables" y la UI formatea para presentación (p. ej. una venta lista `quantity` negativa).
+Coste asumido del convenio: la API expone los signos "contables" y la UI formatea para presentación (p. ej. una venta lista `quantity` negativa). Las agregaciones que necesitan una **magnitud** en vez de un flujo con signo (retenciones/comisiones pagadas en `IncomeCalculator`, RF-7) suman primero los importes con signo (para que una reversa cancele su original) y solo niegan el resultado al final — nunca toman valor absoluto fila a fila, porque eso sumaría una reversa en vez de cancelarla.
 
 **Nada materializado**: posiciones, coste medio, efectivo de la cartera y valoración se calculan siempre a partir de `investment_transaction` + `price_quote` + `exchange_rate`.
 
@@ -244,7 +245,7 @@ Nueva página lazy `pages/investments` en el menú lateral ("Inversión"). Los g
 | Serie de valoración dispersa | TWR/XIRR sobre las cotizaciones disponibles (fechas de import). | Se refina solo al integrar la API de precios. |
 | ~~Formato Flex~~ | **Resuelto (2026-07-02): XML.** Atributos con nombre estable e independientes de las columnas marcadas; validado contra informes reales de la cuenta (ver §9). | — |
 | Niveles de detalle del Flex (FTT) | El parser consume el mínimo común denominador entre ejercicios (FTT→`ORDER_SUMMARY`, presente en 2024 y 2025). | Provisional del formato actual: revisar la configuración del Flex Query cuando la app tenga su primera versión para exportar un único nivel coherente y no depender de descartes en el parser. |
-| Reversas de IBKR en `Cash Transactions` violan el convenio de signos §3 | IBKR puede emitir, para un mismo `actionID`, un apunte `Dividends`/`Withholding Tax` original, una **reversa** con el signo invertido (`amount` negativo en `DIVIDEND` o positivo en `TAX`) y un re-book idéntico al original. Hoy `InvestmentTransactionType` fija `AmountRule.POSITIVE` para `DIVIDEND`/`INTEREST` y `NEGATIVE` para `FEE`/`TAX` (`InvestmentTransactionType.java:16-19`), así que la fila de reversa siempre falla la validación de dominio (`ValidationException` §3) y el import la reporta como error de fila en vez de importarla — si se descarta, el dividendo queda duplicado (original + re-book, sin la reversa que los cancela). | Diagnosticado (ver conversación 2026-07-21): relajar `AmountRule` de `DIVIDEND`/`INTEREST`/`FEE`/`TAX` de `POSITIVE`/`NEGATIVE` a `NON_ZERO` (sigue rechazando importe cero; admite el signo invertido de una reversa), con TDD sobre `InvestmentTransactionTest` y actualización de la tabla de §3. Ya **no bloqueado**: el sistema de logging (`docs/prd/observabilidad.md`) está implementado, con este mismo caso como piloto del log de negocio (`FlexImportService.logRejectedRow` → `business.log`) — pendiente solo el cambio de dominio en sí. |
+| ~~Reversas de IBKR en `Cash Transactions` violan el convenio de signos §3~~ | **Resuelto (2026-07-21).** IBKR puede emitir, para un mismo `actionID`, un apunte `Dividends`/`Withholding Tax` original, una **reversa** con el signo invertido y un re-book idéntico al original. `InvestmentTransactionType.DIVIDEND`/`INTEREST`/`FEE`/`TAX` pasan de `AmountRule.POSITIVE`/`NEGATIVE` a `NON_ZERO` (sigue rechazando importe cero; admite el signo invertido de una reversa) — `TRADE_TAX`/`DEPOSIT`/`WITHDRAWAL` no cambian (no son *Cash Transactions* sujetas a reversa, o su tipo ya deriva del signo). `IncomeCalculator` (retenciones/comisiones, RF-7) se corrigió a la vez: sumaba `.abs()` fila a fila, lo que habría *duplicado* una reversa en vez de cancelarla — ahora suma los importes con signo y niega solo el resultado final (§3). | — |
 
 ## 12. Fases de implementación
 

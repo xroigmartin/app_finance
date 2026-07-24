@@ -32,19 +32,23 @@ public class IncomeCalculator {
                     // Retención embebida en el propio apunte de renta (p. ej. alta manual).
                     if (tx.tax() != null) {
                         addWithholding(withheld, taxesByMonth, key,
-                                rates.fixedToBase(tx.tax(), tx, base).abs());
+                                rates.fixedToBase(tx.tax(), tx, base).negate());
                     }
                 }
+                // negate(), no abs(): TAX admite reversas de bróker con el signo invertido
+                // (§11 PRD Inversiones) — sumar los importes con signo (negados a magnitud
+                // positiva) antes de acumular hace que una reversa cancele el original en
+                // vez de sumarse a él, que es lo que haría abs().
                 case TAX -> addWithholding(withheld, taxesByMonth, key,
-                        rates.fixedToBase(tx.amount(), tx, base).abs());
+                        rates.fixedToBase(tx.amount(), tx, base).negate());
                 case FEE -> feesByMonth.merge(key.month(),
-                        rates.fixedToBase(tx.amount(), tx, base).abs(), CurrencyMoney::add);
+                        rates.fixedToBase(tx.amount(), tx, base).negate(), CurrencyMoney::add);
                 default -> { /* el resto no es renta (TRADE_TAX es coste de adquisición, §9) */ }
             }
             // La comisión de cualquier apunte es comisión pagada del periodo (RF-7).
             if (tx.fee() != null) {
                 feesByMonth.merge(key.month(),
-                        rates.fixedToBase(tx.fee(), tx, base).abs(), CurrencyMoney::add);
+                        rates.fixedToBase(tx.fee(), tx, base).negate(), CurrencyMoney::add);
             }
         }
 

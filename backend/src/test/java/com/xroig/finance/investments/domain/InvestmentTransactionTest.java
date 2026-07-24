@@ -100,12 +100,10 @@ class InvestmentTransactionTest {
     }
 
     @Test
-    void cashFlowsFollowTheSignConventionPerType() {
+    void cashFlowsFollowTheSignConventionByDefault() {
         // Entra efectivo: DIVIDEND / INTEREST / DEPOSIT > 0.
         assertThat(validCash(InvestmentTransactionType.DIVIDEND, "12.5").security(SECURITY).build()
                 .amount().isPositive()).isTrue();
-        assertThatThrownBy(() -> validCash(InvestmentTransactionType.DIVIDEND, "-12.5").security(SECURITY).build())
-                .isInstanceOf(ValidationException.class);
         assertThatThrownBy(() -> validCash(InvestmentTransactionType.DEPOSIT, "-1000").build())
                 .isInstanceOf(ValidationException.class);
         assertThatThrownBy(() -> validCash(InvestmentTransactionType.INTEREST, "0").build())
@@ -116,10 +114,39 @@ class InvestmentTransactionTest {
                 .amount().isNegative()).isTrue();
         assertThatThrownBy(() -> validCash(InvestmentTransactionType.WITHDRAWAL, "500").build())
                 .isInstanceOf(ValidationException.class);
-        assertThatThrownBy(() -> validCash(InvestmentTransactionType.FEE, "3").build())
+        assertThat(validCash(InvestmentTransactionType.TAX, "-1.9").security(SECURITY).build()
+                .amount().isNegative()).isTrue();
+        assertThatThrownBy(() -> validCash(InvestmentTransactionType.TRADE_TAX, "0.2").security(SECURITY).build())
                 .isInstanceOf(ValidationException.class);
-        assertThatThrownBy(() -> validCash(InvestmentTransactionType.TAX, "1.9").security(SECURITY).build())
+    }
+
+    @Test
+    void dividendInterestFeeAndTaxAllowTheOppositeSignForBrokerReversalsButNeverZero() {
+        // IBKR puede emitir una reversa (Flex: apunte original + reversa de signo
+        // invertido + re-book) para estos cuatro tipos de apunte de efectivo puro
+        // (docs/prd/inversiones.md §11). El signo por defecto de §3 sigue siendo el
+        // caso normal, pero el inverso no viola la invariante: solo el cero lo hace.
+        assertThat(validCash(InvestmentTransactionType.DIVIDEND, "-12.5").security(SECURITY).build()
+                .amount().isNegative()).isTrue();
+        assertThat(validCash(InvestmentTransactionType.INTEREST, "-3.2").build()
+                .amount().isNegative()).isTrue();
+        assertThat(validCash(InvestmentTransactionType.FEE, "3").build()
+                .amount().isPositive()).isTrue();
+        assertThat(validCash(InvestmentTransactionType.TAX, "1.9").security(SECURITY).build()
+                .amount().isPositive()).isTrue();
+
+        assertThatThrownBy(() -> validCash(InvestmentTransactionType.DIVIDEND, "0").security(SECURITY).build())
                 .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> validCash(InvestmentTransactionType.INTEREST, "0").build())
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> validCash(InvestmentTransactionType.FEE, "0").build())
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> validCash(InvestmentTransactionType.TAX, "0").security(SECURITY).build())
+                .isInstanceOf(ValidationException.class);
+
+        // TRADE_TAX y DEPOSIT/WITHDRAWAL no forman parte de esta relajación: el
+        // primero es una tasa de compraventa (no un apunte de Cash Transactions
+        // sujeto a reversa), y los otros dos derivan su tipo del propio signo.
         assertThatThrownBy(() -> validCash(InvestmentTransactionType.TRADE_TAX, "0.2").security(SECURITY).build())
                 .isInstanceOf(ValidationException.class);
     }

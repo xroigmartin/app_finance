@@ -265,13 +265,41 @@ class FlexImportServiceTest {
     }
 
     @Test
+    void reversedTaxRow_isNowImportedInsteadOfRejected() {
+        // El caso real que disparó todo docs/prd/observabilidad.md (la reversa de
+        // ASML, §11 PRD Inversiones): tras relajar el convenio de signos a NON_ZERO,
+        // esta fila ya no es un error de import — se importa como cualquier otra.
+        givenPortfolio("EUR");
+        FlexInstrument instrument = new FlexInstrument("NL0010273215", "EUR",
+                "ASML(NL0010273215) CASH DIVIDEND EUR 1.52 PER SHARE - NL TAX", null, "AEB", null);
+        FlexRow reversal = new FlexRow(InvestmentTransactionType.TAX, "CT-3702536094",
+                LocalDate.of(2025, 2, 19), null, null,
+                new BigDecimal("0.46"), "EUR", null, null, null, null, null,
+                "ASML(NL0010273215) CASH DIVIDEND EUR 1.52 PER SHARE - NL TAX", instrument);
+        when(reader.read(file)).thenReturn(report("EUR", List.of(reversal)));
+        when(securities.findByIsinAndCurrency("NL0010273215", "EUR"))
+                .thenReturn(Optional.of(Security.rehydrate(new SecurityId(1L), "NL0010273215", "EUR",
+                        "ASML", null, null, "AEB", null)));
+        when(securities.save(any(Security.class))).thenAnswer(i -> i.getArgument(0));
+        when(transactions.save(any(InvestmentTransaction.class))).thenAnswer(i -> i.getArgument(0));
+
+        FlexImportResult result = service().importReport(7L, file);
+
+        assertThat(result.imported()).isEqualTo(1);
+        assertThat(result.errors()).isEmpty();
+        assertThat(businessLogs.list).isEmpty();
+    }
+
+    @Test
     void invalidRow_isLoggedToBusinessLogWithDiagnosticContext() {
         givenPortfolio("EUR");
         FlexInstrument instrument = new FlexInstrument("NL0010273215", "EUR",
                 "ASML(NL0010273215) CASH DIVIDEND EUR 1.52 PER SHARE - NL TAX", null, "AEB", null);
+        // Importe cero: sigue siendo inválido incluso con AmountRule.NON_ZERO
+        // (relajado para admitir reversas de bróker, pero nunca cero).
         FlexRow invalid = new FlexRow(InvestmentTransactionType.TAX, "CT-3702536094",
                 LocalDate.of(2025, 2, 19), null, null,
-                new BigDecimal("0.46"), "EUR", null, null, null, null, null,
+                BigDecimal.ZERO, "EUR", null, null, null, null, null,
                 "ASML(NL0010273215) CASH DIVIDEND EUR 1.52 PER SHARE - NL TAX", instrument);
         when(reader.read(file)).thenReturn(report("EUR", List.of(invalid)));
         when(securities.findByIsinAndCurrency("NL0010273215", "EUR"))
@@ -290,7 +318,7 @@ class FlexImportServiceTest {
         assertThat(attribute(event, "type")).isEqualTo("TAX");
         assertThat(attribute(event, "external_id")).isEqualTo("CT-3702536094");
         assertThat(attribute(event, "trade_date")).isEqualTo("2025-02-19");
-        assertThat(attribute(event, "amount")).isEqualTo("0.46");
+        assertThat(attribute(event, "amount")).isEqualTo("0");
         assertThat(attribute(event, "currency")).isEqualTo("EUR");
         assertThat(attribute(event, "security_isin")).isEqualTo("NL0010273215");
         assertThat(attribute(event, "description"))

@@ -105,6 +105,38 @@ class IncomeCalculatorTest {
     }
 
     @Test
+    void taxReversalFromIbkr_netsOutInsteadOfDoublingTheWithholding() {
+        // Secuencia real de corrección de IBKR (§11 PRD Inversiones): original,
+        // reversa de signo invertido y re-book — el neto debe ser una sola retención,
+        // no tres sumadas en valor absoluto.
+        IncomeStatement result = calculate(
+                tx(InvestmentTransactionType.DIVIDEND, MARCH_10)
+                        .security(SECURITY).amount(eur("100")).build(),
+                tx(InvestmentTransactionType.TAX, MARCH_10)
+                        .security(SECURITY).amount(eur("-15")).build(),
+                tx(InvestmentTransactionType.TAX, MARCH_10)
+                        .security(SECURITY).amount(eur("15")).build(),
+                tx(InvestmentTransactionType.TAX, MARCH_10)
+                        .security(SECURITY).amount(eur("-15")).build());
+
+        InstrumentIncome income = result.incomes().getFirst();
+        assertThat(income.withheld()).isEqualTo(eur("15"));
+        assertThat(income.net()).isEqualTo(eur("85"));
+        assertThat(result.taxesByMonth()).containsEntry(YearMonth.of(2025, 3), eur("15"));
+    }
+
+    @Test
+    void feeReversalFromIbkr_netsOutInsteadOfDoublingTheFeesPaid() {
+        IncomeStatement result = calculate(
+                tx(InvestmentTransactionType.FEE, MARCH_10).amount(eur("-2")).build(),
+                tx(InvestmentTransactionType.FEE, MARCH_10).amount(eur("2")).build(),
+                tx(InvestmentTransactionType.FEE, MARCH_10).amount(eur("-2")).build());
+
+        assertThat(result.feesByMonth()).containsExactly(
+                Map.entry(YearMonth.of(2025, 3), eur("2")));
+    }
+
+    @Test
     void ownTaxComponentOfAnIncomeEntry_countsAsWithholding() {
         IncomeStatement result = calculate(
                 tx(InvestmentTransactionType.DIVIDEND, MARCH_10)

@@ -8,15 +8,24 @@ package com.xroig.finance.investments.domain;
  * are direct sums). {@code TAX} is a withholding on income (dividends/interest);
  * {@code TRADE_TAX} is a tax on a trade (French/Italian FTT, stamp duty) — the
  * distinction keeps the income view from confusing an FTT with a withholding (§9).
+ *
+ * <p>{@code DIVIDEND}/{@code INTEREST}/{@code FEE}/{@code TAX} use {@code
+ * AmountRule.NON_ZERO} rather than a fixed sign: IBKR's Flex can emit, for the
+ * same {@code actionID}, a correction sequence (original + a reversal with the
+ * opposite sign + a re-book) for these four pure cash-transaction types (docs/prd/
+ * inversiones.md §11) — the reversal's real cash flow genuinely is the opposite of
+ * the usual case. {@code TRADE_TAX} (not a Cash Transaction) and {@code DEPOSIT}/
+ * {@code WITHDRAWAL} (whose type is itself derived from the sign, see
+ * {@code FlexReportParser.cashType}) keep a fixed sign.
  */
 public enum InvestmentTransactionType {
 
     BUY(SecurityRule.REQUIRED, QuantityRule.POSITIVE, AmountRule.NEGATIVE),
     SELL(SecurityRule.REQUIRED, QuantityRule.NEGATIVE, AmountRule.POSITIVE),
-    DIVIDEND(SecurityRule.REQUIRED, QuantityRule.NONE, AmountRule.POSITIVE),
-    INTEREST(SecurityRule.OPTIONAL, QuantityRule.NONE, AmountRule.POSITIVE),
-    FEE(SecurityRule.OPTIONAL, QuantityRule.NONE, AmountRule.NEGATIVE),
-    TAX(SecurityRule.OPTIONAL, QuantityRule.NONE, AmountRule.NEGATIVE),
+    DIVIDEND(SecurityRule.REQUIRED, QuantityRule.NONE, AmountRule.NON_ZERO),
+    INTEREST(SecurityRule.OPTIONAL, QuantityRule.NONE, AmountRule.NON_ZERO),
+    FEE(SecurityRule.OPTIONAL, QuantityRule.NONE, AmountRule.NON_ZERO),
+    TAX(SecurityRule.OPTIONAL, QuantityRule.NONE, AmountRule.NON_ZERO),
     TRADE_TAX(SecurityRule.REQUIRED, QuantityRule.NONE, AmountRule.NEGATIVE),
     SPLIT(SecurityRule.REQUIRED, QuantityRule.NON_ZERO, AmountRule.ZERO),
     DEPOSIT(SecurityRule.FORBIDDEN, QuantityRule.NONE, AmountRule.POSITIVE),
@@ -29,8 +38,11 @@ public enum InvestmentTransactionType {
     /** Sign of the quantity ({@code NONE} = the operation carries no quantity). */
     enum QuantityRule { POSITIVE, NEGATIVE, NON_ZERO, NONE }
 
-    /** Sign of the amount under the cash-flow convention ({@code ZERO} = no cash flow). */
-    enum AmountRule { POSITIVE, NEGATIVE, ZERO }
+    /**
+     * Sign of the amount under the cash-flow convention ({@code ZERO} = no cash
+     * flow; {@code NON_ZERO} = either sign, forbids only zero — broker reversals).
+     */
+    enum AmountRule { POSITIVE, NEGATIVE, ZERO, NON_ZERO }
 
     private final SecurityRule securityRule;
     private final QuantityRule quantityRule;

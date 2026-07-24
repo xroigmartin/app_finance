@@ -165,6 +165,7 @@ public class InvestmentTransaction {
             case POSITIVE -> amount.isPositive();
             case NEGATIVE -> amount.isNegative();
             case ZERO -> amount.isZero();
+            case NON_ZERO -> !amount.isZero();
         };
         if (!valid) {
             throw new ValidationException(
