@@ -13,6 +13,8 @@
 - Resolución de símbolo desde `Security.ticker`/`exchange` (ya existen desde v1).
 - Conversión correcta cuando el proveedor devuelve peniques (GBX) en vez de libras (GBP) — caso ZEG/LSE, generalizado por divisa, no por instrumento concreto.
 
+**Decisión confirmada con el usuario (2026-07-25): precio de cierre (EOD), no tiempo real.** Esta no es una aplicación que se consulte de forma continua durante la sesión de mercado — el botón de refresco pide el último cierre disponible, no una cotización intradía. Esto simplifica el adaptador (un único endpoint EOD, no hay que elegir entre "último precio" vivo y cierre) y es más barato en cuota de API. Si en el futuro hiciera falta intradía (p. ej. para un caso de uso que aún no existe), sería un adaptador/método adicional, no un cambio de éste.
+
 **NO entra ahora** (queda en el backlog, no lo toques en esta rama):
 - Benchmarks (3.1) — depende de esto pero es tarea aparte.
 - Scheduler/cron de refresco automático (F4-H4.3, "modo híbrido") — la mejora 1.1 solo pide botón de refresco bajo demanda.
@@ -23,32 +25,35 @@
 
 ### 2.1 Proveedor externo
 
-**Recomendación: Yahoo Finance (endpoint no oficial `chart`)** en vez de un proveedor con API key (Alpha Vantage, Twelve Data...). Motivo: cero secreto que gestionar (nada de `FINANCE_PRICE_API_KEY`), cobertura amplia de mercados europeos vía sufijo de ticker, y es justo lo que ya nombra el PRD como opción por defecto ("Yahoo Finance u otra"). Contrapartida a documentar como deuda técnica: es un endpoint no oficial, sin SLA, puede cambiar de forma sin aviso — el diseño ya aísla esto en un único adaptador (`PriceProviderPort`), así que cambiar de proveedor el día que Yahoo falle es sustituir una clase, no rediseñar.
+**Decisión revisada con el usuario (2026-07-25): Twelve Data, con API key** — se descarta el endpoint no oficial de Yahoo Finance que este plan proponía en su primera versión.
 
-Endpoint: `GET https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=5d&interval=1d`. Devuelve `chart.result[0].meta.regularMarketPrice` + `meta.regularMarketTime` + `meta.currency` — este último es la clave para detectar GBX (ver 2.3).
+**Por qué se cambia:** el argumento original ("cero secreto que gestionar") es más débil de lo que parece — el proyecto ya gestiona secretos por variable de entorno (`FINANCE_DB_*` en `application.properties`), así que añadir `FINANCE_TWELVEDATA_API_KEY` no es infraestructura nueva, es una línea más del mismo patrón ya establecido. Además, desde 2024 el endpoint `chart` de Yahoo exige un mecanismo de cookie+crumb que caduca en minutos y cambia periódicamente para dificultar el scraping — sin SLA ni contrato, el riesgo de que el botón de refresco deje de funcionar en silencio es real y ya documentado (varios cambios de formato reportados en 2024-2026), no hipotético.
 
-Cliente HTTP: `RestClient` de Spring (Boot 4 lo trae de serie, sin nueva dependencia), con timeout corto (p. ej. 5s) para no bloquear el hilo del botón de refresco si Yahoo no responde.
+**Twelve Data**: API documentada y estable, free tier de **800 peticiones/día** — con un catálogo de ~10-20 instrumentos y refresco bajo demanda (no scheduler), el consumo real por refresco es de ese mismo orden, muy por debajo del límite. Cobertura confirmada de 50+ bolsas incluyendo LSE (cubre el caso ZEG/GBX, ver 2.3).
+
+Endpoint EOD (cierre, no tiempo real — ver decisión de alcance en §1): `GET https://api.twelvedata.com/eod?symbol={ticker}&exchange={exchange}&apikey={apikey}` (alternativa: parámetro `mic_code` en vez de `exchange`, ver 2.2). Respuesta con metadata (`symbol`, `currency`, `exchange`, `mic_code`) + `close` + `datetime` — el campo `currency` es la clave para detectar GBX (ver 2.3).
+
+Autenticación: `FINANCE_TWELVEDATA_API_KEY` (variable de entorno, mismo patrón `FINANCE_*` ya usado para las credenciales de BD).
+
+Cliente HTTP: `RestClient` de Spring (Boot 4 lo trae de serie, sin nueva dependencia), con timeout corto (p. ej. 5s) para no bloquear el hilo del botón de refresco si el proveedor no responde.
 
 ### 2.2 Resolución de símbolo
 
-Nueva clase de dominio (o método privado del adaptador; si tiene invariantes propias, mejor un `record`/servicio en `domain/`) que traduce `Security.ticker` + `Security.exchange` (código IBKR: `AEB`, `SBF`, `NASDAQ`, `LSE`, `BVME`…) a símbolo Yahoo, vía tabla de sufijos:
+A diferencia de Yahoo (sufijo pegado al ticker, `ZEG.L`), Twelve Data recibe el ticker y la bolsa como **parámetros separados**: `symbol={ticker}` + `exchange={nombre}` (nombre de bolsa en texto, p. ej. `LSE`) o alternativamente `mic_code={código}` (código MIC ISO 10383, p. ej. `XLON` para LSE). Esto simplifica la resolución: no hace falta construir un símbolo compuesto, "solo" traducir el código de `exchange` que usa IBKR (`AEB`, `SBF`, `NASDAQ`, `LSE`, `BVME`, `IBIS`…) al nombre/MIC que espera Twelve Data.
 
-| `exchange` (IBKR) | Sufijo Yahoo | Ejemplo |
-|---|---|---|
-| `NASDAQ`/`NYSE`/vacío | (ninguno) | `AAPL` |
-| `LSE` | `.L` | `ZEG.L` |
-| `AEB` | `.AS` | `IWDA.AS` |
-| `SBF` | `.PA` | `MC.PA` |
-| `BVME` | `.MI` | — |
-| `IBIS`/`FWB` | `.DE` | — |
+**No hardcodear esta tabla de memoria.** Antes de fijarla:
+1. Consulta qué valores de `exchange` hay hoy realmente en `investments.security` (no inventar mercados que no están en la cartera).
+2. Consulta el endpoint de referencia `GET https://api.twelvedata.com/exchanges?apikey=...` (o la documentación de https://twelvedata.com/exchanges) para confirmar el nombre/MIC exacto que Twelve Data espera para cada uno de esos mercados — verificado en la investigación previa a este plan: Twelve Data cubre LSE explícitamente, pero el nombre/código exacto a usar en el parámetro debe confirmarse en el momento de implementar, no asumirse.
 
-Empieza con los mercados que ya aparecen en la cartera real (revisa qué `exchange` hay hoy en `investments.security` antes de fijar la tabla — no la inventes de memoria) y deja la tabla fácilmente ampliable (no hardcodees el resto "porque sí"). Si `exchange` es nulo o no está en la tabla, `latestQuotes` devuelve lista vacía (contrato ya definido: "empty when the provider has none") en vez de lanzar — un instrumento sin mapeo simplemente no se refresca, no rompe el resto.
+Nueva clase de dominio (o método privado del adaptador; si tiene invariantes propias, mejor un `record`/servicio en `domain/`) con la tabla de mapeo `exchange` IBKR → parámetro Twelve Data, fácilmente ampliable (no hardcodees mercados que la cartera no tiene "porque sí"). Si `exchange` es nulo o no está en la tabla, `latestQuotes` devuelve lista vacía (contrato ya definido: "empty when the provider has none") en vez de lanzar — un instrumento sin mapeo simplemente no se refresca, no rompe el resto.
 
 ### 2.3 Caso GBX/peniques (generalizado, no solo ZEG)
 
-Yahoo devuelve `meta.currency = "GBp"` (con "p" minúscula) para instrumentos que cotizan en peniques en la LSE, mientras que `Security.currency` en este dominio es `"GBP"` (la divisa real del instrumento, en libras — así se guardó desde el import Flex). Regla en el adaptador: si `meta.currency` (respuesta) es `"GBp"`/`"GBX"` **y** `Security.currency` es `"GBP"`, dividir el precio entre 100 antes de construir el `PriceQuote`. Si algún día aparece un instrumento realmente en peniques con `Security.currency = "GBX"` (no ocurre hoy), no dividir — la regla es específicamente "proveedor en peniques, dominio en libras", no "proveedor en peniques" a secas.
+Confirmado en la investigación previa a este plan: **Twelve Data también cotiza los valores de la LSE en GBX (peniques)** — es una convención del propio mercado (LSE), no una particularidad de Yahoo, así que el problema persiste igual con el nuevo proveedor. `Security.currency` en este dominio es `"GBP"` (la divisa real del instrumento, en libras — así se guardó desde el import Flex).
 
-Cualquier otro mismatch de divisa entre lo que devuelve Yahoo y `Security.currency` (no debería ocurrir si el símbolo está bien resuelto) → tratar la cotización como no fiable y descartarla (lista vacía para ese security), nunca guardar un precio en divisa equivocada.
+**Antes de fijar el literal exacto**, verificar empíricamente (llamada real al endpoint `/eod` con un ticker LSE, p. ej. el propio ZEG) qué valor devuelve Twelve Data en el campo `currency` de la respuesta — no asumir que es `"GBp"` como Yahoo; podría ser `"GBX"`, `"GBp"` u otro literal. Regla en el adaptador, una vez confirmado el literal: si `currency` (respuesta) indica peniques **y** `Security.currency` es `"GBP"`, dividir el precio entre 100 antes de construir el `PriceQuote`. Si algún día aparece un instrumento realmente en peniques con `Security.currency = "GBX"` (no ocurre hoy), no dividir — la regla es específicamente "proveedor en peniques, dominio en libras", no "proveedor en peniques" a secas.
+
+Cualquier otro mismatch de divisa entre lo que devuelve Twelve Data y `Security.currency` (no debería ocurrir si el símbolo está bien resuelto) → tratar la cotización como no fiable y descartarla (lista vacía para ese security), nunca guardar un precio en divisa equivocada.
 
 ### 2.4 Caso de uso y manejo de errores
 
@@ -79,9 +84,9 @@ Nuevo modelo en `models.ts`: `PriceRefreshResult { updated: number; failed: { se
 
 | Hito | Test rojo primero | Implementación mínima en verde |
 |---|---|---|
-| M1 — Resolución de símbolo | `domain/YahooSymbolResolverTest.java` (o el nombre que decidas): casos `LSE`→`.L`, `NASDAQ`→sin sufijo, exchange desconocido→vacío/`Optional.empty()`, ticker nulo→vacío. | Clase de resolución de símbolo pura, sin HTTP. |
-| M2 — Conversión GBX→GBP | Test unitario (mismo fichero o `YahooPriceQuoteAdapterTest` con el cliente HTTP mockeado/fake) que fija `meta.currency="GBp"` + `Security.currency="GBP"` y espera precio /100; y el caso contrario (`currency="USD"`) sin dividir. | Lógica de conversión en el adaptador. |
-| M3 — Adaptador completo con fallos tolerados | Test del adaptador con un fake `RestClient`/servidor HTTP simulado: caso feliz (una cotización), caso "símbolo no encontrado" (404/JSON vacío → lista vacía, no excepción), caso timeout (idem). | `YahooFinancePriceProvider implements PriceProviderPort`. |
+| M1 — Resolución de símbolo | `domain/TwelveDataExchangeResolverTest.java` (o el nombre que decidas): casos `LSE`→parámetro esperado, `NASDAQ`→parámetro esperado, exchange desconocido→vacío/`Optional.empty()`, ticker nulo→vacío. | Clase de resolución `exchange`/`mic_code` pura, sin HTTP. |
+| M2 — Conversión GBX→GBP | Test unitario (mismo fichero o `TwelveDataPriceQuoteAdapterTest` con el cliente HTTP mockeado/fake) que fija el literal de divisa-peniques confirmado empíricamente (§2.3) + `Security.currency="GBP"` y espera precio /100; y el caso contrario (`currency="USD"`) sin dividir. | Lógica de conversión en el adaptador. |
+| M3 — Adaptador completo con fallos tolerados | Test del adaptador con un fake `RestClient`/servidor HTTP simulado: caso feliz (una cotización EOD), caso "símbolo no encontrado" (404/JSON de error → lista vacía, no excepción), caso timeout (idem), caso "cuota diaria agotada" (respuesta 429 → lista vacía, no excepción). | `TwelveDataPriceProvider implements PriceProviderPort`. |
 | M4 — Caso de uso `PriceRefreshService` | `application/PriceRefreshServiceTest.java` con `SecurityRepository`/`PriceProviderPort`/`PriceQuoteRepository` mockeados: valida que un fallo de un security no aborta el resto y que el resultado agrega updated/failed correctamente. | `PriceRefreshService implements RefreshPrices`. |
 | M5 — Endpoint | `infrastructure/web/SecurityControllerMvcTest.java` (ampliar) con `@WebMvcTest`: `POST /api/investments/prices/refresh` → 200 + payload esperado, puerto de entrada mockeado. | Método nuevo en `SecurityController`. |
 | M6 — Frontend | `investment-toolbar.spec.ts` (Vitest): botón dispara `refreshPrices()`, estado de carga, resumen mostrado; si aplica, ampliar el Playwright de `investments-dashboard`/`investments-operations` con el flujo de refresco. | Botón + método en `api.service.ts` + manejo de estado en el componente. |
@@ -100,9 +105,11 @@ Cada hito termina con commit propio (tests verdes + PRD actualizado en el mismo 
 
 ## 6. Riesgos / deuda técnica
 
-- **Fuente no oficial**: el endpoint `chart` de Yahoo no es una API pública soportada; puede cambiar de forma o bloquear por rate-limit sin aviso. Mitigación: el puerto ya aísla esto a una sola clase adaptadora; si falla, el fallback es simplemente "no se actualiza el precio, se sigue viendo el último conocido" (nunca rompe la valoración existente).
-- **Tabla de sufijos de exchange incompleta**: cualquier mercado que la cartera aún no tenga no está mapeado; instrumentos de esos mercados no se refrescan hasta ampliar la tabla (fallo silencioso y seguro, no error).
-- **Ambigüedad `GBp`/`GBX`**: si Yahoo cambia el literal exacto que usa para peniques, la detección se rompe. Vale la pena loguear (nivel WARN) cualquier divisa de respuesta que no coincida con `Security.currency` y no sea el caso GBX conocido, para detectar mercados nuevos con el mismo problema (p. ej. algunas plazas usan también fracciones no-decimales infrecuentes).
+- **Cuota diaria (800 peticiones/día, free tier)**: con refresco bajo demanda y un catálogo pequeño de instrumentos, el consumo normal está muy por debajo del límite, pero si el usuario pulsa el botón repetidamente en poco tiempo (o crece mucho el catálogo) podría agotarse. Mitigación: `PriceRefreshResult` debe distinguir el fallo "cuota agotada" (429) de otros fallos, para que el resumen en el frontend sea claro sobre por qué no se actualizó algo, y no reintentar automáticamente.
+- **Gestión de la API key**: `FINANCE_TWELVEDATA_API_KEY` sigue el patrón `FINANCE_*` ya usado para las credenciales de BD — sin infraestructura nueva, pero sí un secreto real que no debe acabar en el repo (documentar en README/`.env.example` si existe, nunca hardcodeado).
+- **Tabla de mapeo `exchange`→parámetro Twelve Data incompleta**: cualquier mercado que la cartera aún no tenga no está mapeado; instrumentos de esos mercados no se refrescan hasta ampliar la tabla (fallo silencioso y seguro, no error).
+- **Ambigüedad del literal de divisa en peniques**: si Twelve Data cambia el literal exacto que usa para GBX/peniques, la detección se rompe. Vale la pena loguear (nivel WARN) cualquier divisa de respuesta que no coincida con `Security.currency` y no sea el caso GBX conocido, para detectar mercados nuevos con el mismo problema.
+- **Sin SLA formal en el free tier**: menos frágil que el endpoint no oficial de Yahoo (API documentada y versionada), pero sigue siendo un free tier — si el proveedor falla o cambia condiciones, el mismo aislamiento por puerto (`PriceProviderPort`) permite sustituirlo sin rediseñar el resto.
 
 ## 7. Puntos de fricción con las otras dos ramas paralelas
 
