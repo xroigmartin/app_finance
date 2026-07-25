@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.0 |
-| Última actualización | 2026-06-16 |
+| Versión | 1.1 |
+| Última actualización | 2026-06-27 |
 | Dominio | Importación (CSV/Excel → movimientos y transferencias) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -31,7 +31,7 @@ La **importación** permite cargar en bloque movimientos (transacciones) y trans
 
 ## 3. Modelo de datos
 
-La importación **no tiene tablas propias**: crea `transactions` y `transfers`. Resultado (`dto/ImportDtos.java`):
+La importación **no tiene tablas propias**: crea `transactions` y `transfers`. Resultado (`imports/application/ImportResult.java`):
 
 | DTO | Contenido |
 |---|---|
@@ -125,7 +125,8 @@ Componente reutilizable `components/import-dialog.ts` (`ImportDialog`), con `@In
 - Las **cuentas no se crean** durante la importación (deben existir); las **categorías sí** se crean al vuelo (globales) si no existen.
 - La numeración de filas de error cuenta desde la cabecera (`i + 2`), para que coincida con la fila que ve el usuario en la hoja.
 - El rango de fechas para deduplicar lo marca el propio fichero (mínima y máxima fecha de las filas parseadas).
-- La lógica de coincidencia de reglas es la misma que la del dominio de reglas (`RecategorizationService.matches`), de modo que importar y recategorizar se comportan igual.
+- La lógica de coincidencia de reglas es la misma que la del dominio de reglas (`categorization/domain/PatternMatcher`), de modo que importar y recategorizar se comportan igual.
+- **Arquitectura (H7, hexagonal + DDD)**: el contexto `imports` orquesta sin tocar persistencia. El caso de uso `ImportService` (`imports/application`) resuelve cada fila y delega la escritura **reutilizando los casos de uso** de los contextos ya migrados (`CreateTransaction`/`CreateTransfer`/`CreateCategory`) a través de puertos de salida propios (`AccountDirectory`, `CategoryDirectory`, `RuleDirectory`, `MovementWriter`, `TransferWriter`) implementados por adaptadores *bridge*. El parser CSV/Excel es un adaptador ACL (`ImportFileReader` → `imports/infrastructure/parser/ImportFileParser`); los formatos/lecturas inválidos se traducen a `ValidationException` de dominio (→ `400`). La fila parseada es el VO `ImportRow` (`imports/domain`), con los formatos de importe/fecha del banco.
 
 ## 10. Backlog / mejoras futuras
 
@@ -144,8 +145,8 @@ Componente reutilizable `components/import-dialog.ts` (`ImportDialog`), con `@In
 
 ## 12. Referencias de código
 
-- Backend: `service/ImportService.java`, `service/ImportFileParser.java`, `dto/ImportDtos.java`.
-- Endpoints: `controller/TransactionController.java` (`/import`), `controller/TransferController.java` (`/import`).
-- Auto-categorización: `service/RecategorizationService.java` (`matches`), reglas en `category_rules`.
+- Backend (contexto `imports`): caso de uso `imports/application/ImportService.java` (+ `ImportResult`, puertos de entrada `port/ImportTransactions`/`ImportTransfers`, puerto de lectura `ImportFileReader`); dominio `imports/domain/` (`ImportRow` + puertos de salida `AccountDirectory`/`CategoryDirectory`/`RuleDirectory`/`MovementWriter`/`TransferWriter`); infraestructura `imports/infrastructure/parser/ImportFileParser.java` (parser ACL) y `imports/infrastructure/bridge/*Adapter.java` (delegan en los casos de uso de los otros contextos).
+- Endpoints (delegan en los puertos de entrada): `transactions/infrastructure/web/TransactionController.java` (`/import`), `transfers/infrastructure/web/TransferController.java` (`/import`).
+- Auto-categorización: `categorization/domain/PatternMatcher.java` (`matches`), reglas en `category_rules` leídas vía `RuleDirectory`.
 - Frontend: `components/import-dialog.ts`; se invoca desde `pages/transactions/`. Modelo `ImportResult` en `models.ts`.
 - Relacionado: PRD Movimientos, PRD Transferencias, PRD Reglas de categorización, PRD Cuentas, PRD Categorías.

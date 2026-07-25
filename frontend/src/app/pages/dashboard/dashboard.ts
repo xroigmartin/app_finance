@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import {
-  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, effect, inject
+  AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, effect, inject,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Chart, registerables } from 'chart.js';
@@ -9,19 +10,20 @@ import { ApiService } from '../../api.service';
 import { ThemeService } from '../../theme.service';
 import {
   Account, AccountComparison, BalancePoint, BudgetStatus, CategoryAmount,
-  MonthlyPoint, Summary, Transaction
+  InvestmentsSummary, MonthlyPoint, Summary, Transaction
 } from '../../models';
 
 Chart.register(...registerables);
-Chart.defaults.font.family = "'IBM Plex Sans', 'Segoe UI', sans-serif";
+Chart.defaults.font.family = "'JetBrains Mono', ui-monospace, monospace";
 
-/** Palette for per-account comparison series. */
-const ACCOUNT_COLORS = ['#1d6b48', '#96762a', '#2563eb', '#9c2a23', '#7c3aed', '#0891b2', '#c2410c'];
+/** Palette for per-account comparison series (accent first, then distinguishable mid-tones). */
+const ACCOUNT_COLORS = ['#2563EB', '#16A06B', '#E8A33D', '#8B5CF6', '#0891B2', '#E0453A', '#C2410C'];
 
 @Component({
   selector: 'app-dashboard',
   imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './dashboard.scss'
 })
 export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
@@ -32,6 +34,12 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
   recent: Transaction[] = [];
   budgets: BudgetStatus[] = [];
   accounts: Account[] = [];
+
+  // Tarjeta de patrimonio invertido (RF-10 del PRD Inversiones): informativa e
+  // independiente de los filtros; se oculta sin carteras y degrada a "—" si la
+  // API de inversiones falla, sin tumbar el resto del dashboard.
+  investments: InvestmentsSummary | null = null;
+  investmentsError = false;
 
   year = new Date().getFullYear();
   month = new Date().getMonth() + 1;
@@ -51,6 +59,7 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
 
   private charts: Chart[] = [];
   private viewReady = false;
+  private dataLoaded = false;
 
   // Latest fetched data, kept so charts can be redrawn on a theme change.
   private monthlyData: MonthlyPoint[] = [];
@@ -70,6 +79,10 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.api.getAccounts().subscribe(a => this.accounts = a);
     this.api.getRecentTransactions().subscribe(t => this.recent = t);
+    this.api.getInvestmentsSummary().subscribe({
+      next: s => this.investments = s,
+      error: () => this.investmentsError = true
+    });
     this.load();
   }
 
@@ -129,6 +142,11 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
     return s.spent > s.budget;
   }
 
+  /** Fondo "soft" para el avatar de un movimiento: el color de su categoría con alfa suave. */
+  soft(color: string): string {
+    return /^#[0-9a-fA-F]{6}$/.test(color) ? `${color}24` : color;
+  }
+
   ngAfterViewInit(): void {
     this.viewReady = true;
     this.renderCharts();
@@ -152,12 +170,16 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
       this.incomeCatData = r.incomeCat;
       this.balanceData = r.balance;
       this.comparison = r.comparison;
+      this.dataLoaded = true;
       this.renderCharts();
     });
   }
 
   private renderCharts(): void {
-    if (!this.viewReady) return;
+    // ngAfterViewInit se dispara antes de que resuelvan las peticiones HTTP (asíncronas);
+    // sin esta guarda se crean los gráficos con datasets vacíos y se destruyen/recrean
+    // en cuanto llegan los datos reales, lo que a veces deja el canvas en blanco.
+    if (!this.viewReady || !this.dataLoaded) return;
     this.charts.forEach(c => c.destroy());
     this.charts = [];
 
@@ -176,8 +198,8 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
       data: {
         labels: this.monthlyData.map(p => p.month),
         datasets: [
-          { label: 'Ingresos', data: this.monthlyData.map(p => p.income), backgroundColor: '#1d6b48' },
-          { label: 'Gastos', data: this.monthlyData.map(p => p.expense), backgroundColor: '#9c2a23' }
+          { label: 'Ingresos', data: this.monthlyData.map(p => p.income), backgroundColor: this.theme.chartPos() },
+          { label: 'Gastos', data: this.monthlyData.map(p => p.expense), backgroundColor: this.theme.chartNeg() }
         ]
       },
       options: {
@@ -201,11 +223,11 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
         datasets: [
           {
             type: 'bar', label: 'Ahorro mensual', data: savings,
-            backgroundColor: savings.map(s => (s >= 0 ? '#1d6b48' : '#9c2a23')), yAxisID: 'y'
+            backgroundColor: savings.map(s => (s >= 0 ? this.theme.chartPos() : this.theme.chartNeg())), yAxisID: 'y'
           },
           {
             type: 'line', label: 'Acumulado', data: cumulative,
-            borderColor: '#96762a', backgroundColor: '#96762a',
+            borderColor: this.theme.chartAccent(), backgroundColor: this.theme.chartAccent(),
             tension: .3, yAxisID: 'y1'
           }
         ]
@@ -227,7 +249,7 @@ export class DashboardPage implements OnInit, AfterViewInit, OnDestroy {
         labels: this.balanceData.map(p => p.month),
         datasets: [{
           label: 'Saldo', data: this.balanceData.map(p => p.balance),
-          borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.12)',
+          borderColor: this.theme.chartAccent(), backgroundColor: this.theme.chartAccentSoft(),
           fill: true, tension: .3
         }]
       },

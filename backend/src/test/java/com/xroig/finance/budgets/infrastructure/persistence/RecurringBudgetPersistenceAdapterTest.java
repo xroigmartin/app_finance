@@ -6,10 +6,10 @@ import com.xroig.finance.budgets.domain.RecurrenceAmount;
 import com.xroig.finance.budgets.domain.RecurringBudget;
 import com.xroig.finance.categories.domain.CategoryId;
 import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Category;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.CategoryRepository;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
 import com.xroig.finance.shared.domain.Money;
 import com.xroig.finance.shared.domain.TransactionType;
 import jakarta.persistence.EntityManager;
@@ -44,11 +44,11 @@ class RecurringBudgetPersistenceAdapterTest extends PostgresTestBase {
     @Autowired private RecurringBudgetPersistenceAdapter adapter;
     @Autowired private RecurringBudgetJpaRepository jpa;
     @Autowired private CategoryJpaRepository categoryJpa;
-    @Autowired private CategoryRepository categoryRepository;
-    @Autowired private AccountRepository accountRepository;
+    @Autowired private CategoryJpaRepository categoryRepository;
+    @Autowired private AccountJpaRepository accountRepository;
     @Autowired private EntityManager em;
 
-    private Category comunidad;
+    private CategoryJpaEntity comunidad;
 
     @BeforeEach
     void setUp() {
@@ -114,11 +114,11 @@ class RecurringBudgetPersistenceAdapterTest extends PostgresTestBase {
 
     @Test
     void findActiveByAccount_scopesByAccountAndSkipsInactive() {
-        Account corriente = account("Cuenta A");
-        Account ahorro = account("Cuenta B");
-        Category activa = category("Comunidad A", corriente);
-        Category inactiva = category("Gimnasio", corriente);
-        Category otra = category("Seguro", ahorro);
+        AccountJpaEntity corriente = account("Cuenta A");
+        AccountJpaEntity ahorro = account("Cuenta B");
+        CategoryJpaEntity activa = category("Comunidad A", corriente);
+        CategoryJpaEntity inactiva = category("Gimnasio", corriente);
+        CategoryJpaEntity otra = category("Seguro", ahorro);
         adapter.save(recurrence(activa, List.of(1), true, amount("100", "2024-01")));
         adapter.save(recurrence(inactiva, List.of(1), false, amount("40", "2024-01")));
         adapter.save(recurrence(otra, List.of(1), true, amount("60", "2024-01")));
@@ -188,7 +188,7 @@ class RecurringBudgetPersistenceAdapterTest extends PostgresTestBase {
         return new CategoryId(comunidad.getId());
     }
 
-    private static RecurringBudget recurrence(Category category, List<Integer> months, boolean active,
+    private static RecurringBudget recurrence(CategoryJpaEntity category, List<Integer> months, boolean active,
                                               RecurrenceAmount... amounts) {
         return RecurringBudget.create(new CategoryId(category.getId()),
                 MonthsMask.ofMonths(months), active, List.of(amounts));
@@ -214,16 +214,16 @@ class RecurringBudgetPersistenceAdapterTest extends PostgresTestBase {
         return a;
     }
 
-    private Account account(String name) {
-        Account a = new Account();
+    private AccountJpaEntity account(String name) {
+        AccountJpaEntity a = new AccountJpaEntity();
         a.setName(name);
         a.setType("CORRIENTE");
         a.setInitialBalance(BigDecimal.ZERO);
         return accountRepository.save(a);
     }
 
-    private Category category(String name, Account account) {
-        Category c = new Category();
+    private CategoryJpaEntity category(String name, AccountJpaEntity account) {
+        CategoryJpaEntity c = new CategoryJpaEntity();
         c.setName(name);
         c.setType(TransactionType.EXPENSE);
         c.setColor("#" + name.toLowerCase().replace(" ", ""));

@@ -8,14 +8,14 @@ import com.xroig.finance.budgets.domain.RecurrenceAmount;
 import com.xroig.finance.budgets.domain.RecurringBudget;
 import com.xroig.finance.budgets.domain.RecurringBudgetRepository;
 import com.xroig.finance.categories.domain.CategoryId;
-import com.xroig.finance.model.Account;
-import com.xroig.finance.model.Budget;
-import com.xroig.finance.model.Category;
-import com.xroig.finance.model.Transaction;
-import com.xroig.finance.repository.AccountRepository;
-import com.xroig.finance.repository.BudgetRepository;
-import com.xroig.finance.repository.CategoryRepository;
-import com.xroig.finance.repository.TransactionRepository;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaEntity;
+import com.xroig.finance.budgets.infrastructure.persistence.BudgetJpaEntity;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaEntity;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaEntity;
+import com.xroig.finance.accounts.infrastructure.persistence.AccountJpaRepository;
+import com.xroig.finance.budgets.infrastructure.persistence.BudgetJpaRepository;
+import com.xroig.finance.categories.infrastructure.persistence.CategoryJpaRepository;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
 import com.xroig.finance.shared.domain.Money;
 import com.xroig.finance.shared.domain.TransactionType;
 import org.junit.jupiter.api.Test;
@@ -34,8 +34,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * against real PostgreSQL (stage H5a, replaces the legacy mocked {@code BudgetServiceTest}):
  * planned from a manual budget vs. recurrence, real movement sums, parent/child
  * aggregation with nested children, account vs. aggregate scope, and the income/expense
- * split sorted by name. Budgets/movements are seeded through the legacy repositories (same
- * tables the adapter reads); recurrences through the migrated budgets persistence adapter.
+ * split sorted by name. Budgets/movements are seeded through their contexts' JPA
+ * repositories (the same tables the adapter reads); recurrences through the budgets
+ * persistence adapter.
  */
 @Import({BudgetQueryAdapter.class, RecurringBudgetPersistenceAdapter.class, RecurringBudgetJpaMapper.class})
 class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
@@ -43,16 +44,16 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
     private static final int YEAR = 2024;
 
     @Autowired private BudgetQueryAdapter adapter;
-    @Autowired private AccountRepository accountRepository;
-    @Autowired private CategoryRepository categoryRepository;
-    @Autowired private BudgetRepository budgetRepository;
+    @Autowired private AccountJpaRepository accountRepository;
+    @Autowired private CategoryJpaRepository categoryRepository;
+    @Autowired private BudgetJpaRepository budgetRepository;
     @Autowired private RecurringBudgetRepository recurringRepository;
-    @Autowired private TransactionRepository transactionRepository;
+    @Autowired private TransactionJpaRepository transactionRepository;
 
     @Test
     void leafCategory_plannedFromManualBudgetAndActualFromSums() {
-        Account corriente = account("Corriente");
-        Category comida = category("Comida", TransactionType.EXPENSE, corriente);
+        AccountJpaEntity corriente = account("Corriente");
+        CategoryJpaEntity comida = category("Comida", TransactionType.EXPENSE, corriente);
         budget(corriente, comida, 3, "100");
         expense(corriente, comida, LocalDate.of(YEAR, 3, 10), "50");
 
@@ -68,8 +69,8 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
 
     @Test
     void recurrence_fillsPlannedWhenNoManualBudget() {
-        Account corriente = account("Corriente");
-        Category comunidad = category("Comunidad", TransactionType.EXPENSE, corriente);
+        AccountJpaEntity corriente = account("Corriente");
+        CategoryJpaEntity comunidad = category("Comunidad", TransactionType.EXPENSE, corriente);
         recurrence(comunidad, List.of(3), true, ramount("80", "2024-01")); // month 3 active
 
         AnnualRow row = rowFor(adapter.annual(YEAR, corriente.getId()).expense(), comunidad.getId());
@@ -81,8 +82,8 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
 
     @Test
     void manualBudgetOverridesRecurrence() {
-        Account corriente = account("Corriente");
-        Category comunidad = category("Comunidad", TransactionType.EXPENSE, corriente);
+        AccountJpaEntity corriente = account("Corriente");
+        CategoryJpaEntity comunidad = category("Comunidad", TransactionType.EXPENSE, corriente);
         recurrence(comunidad, List.of(3), true, ramount("80", "2024-01"));
         budget(corriente, comunidad, 3, "120");
 
@@ -93,9 +94,9 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
 
     @Test
     void parentRow_aggregatesOwnAndChildrenAndNestsChildren() {
-        Account corriente = account("Corriente");
-        Category hogar = category("Hogar", TransactionType.EXPENSE, corriente);
-        Category luz = subcategory("Luz", hogar);
+        AccountJpaEntity corriente = account("Corriente");
+        CategoryJpaEntity hogar = category("Hogar", TransactionType.EXPENSE, corriente);
+        CategoryJpaEntity luz = subcategory("Luz", hogar);
         budget(corriente, luz, 1, "50");
         expense(corriente, hogar, LocalDate.of(YEAR, 1, 5), "10"); // legacy direct movement on parent
         expense(corriente, luz, LocalDate.of(YEAR, 1, 6), "30");
@@ -116,8 +117,8 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
 
     @Test
     void aggregateScope_usesAllAccountsAndCarriesNoBudgetIds() {
-        Account corriente = account("Corriente");
-        Category comida = category("Comida", TransactionType.EXPENSE, corriente);
+        AccountJpaEntity corriente = account("Corriente");
+        CategoryJpaEntity comida = category("Comida", TransactionType.EXPENSE, corriente);
         budget(corriente, comida, 3, "100");
         expense(corriente, comida, LocalDate.of(YEAR, 3, 10), "50");
 
@@ -132,7 +133,7 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
 
     @Test
     void rowsSplitByTypeAndSortedByNameCaseInsensitive() {
-        Account corriente = account("Corriente");
+        AccountJpaEntity corriente = account("Corriente");
         category("Zeta", TransactionType.EXPENSE, corriente);
         category("alfa", TransactionType.EXPENSE, corriente);
         category("Nómina", TransactionType.INCOME, corriente);
@@ -149,16 +150,16 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
         return rows.stream().filter(r -> r.categoryId() == categoryId).findFirst().orElseThrow();
     }
 
-    private Account account(String name) {
-        Account a = new Account();
+    private AccountJpaEntity account(String name) {
+        AccountJpaEntity a = new AccountJpaEntity();
         a.setName(name);
         a.setType("Banco");
         a.setInitialBalance(BigDecimal.ZERO);
         return accountRepository.save(a);
     }
 
-    private Category category(String name, TransactionType type, Account account) {
-        Category c = new Category();
+    private CategoryJpaEntity category(String name, TransactionType type, AccountJpaEntity account) {
+        CategoryJpaEntity c = new CategoryJpaEntity();
         c.setName(name);
         c.setType(type);
         c.setColor("#000000");
@@ -166,8 +167,8 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
         return categoryRepository.save(c);
     }
 
-    private Category subcategory(String name, Category parent) {
-        Category c = new Category();
+    private CategoryJpaEntity subcategory(String name, CategoryJpaEntity parent) {
+        CategoryJpaEntity c = new CategoryJpaEntity();
         c.setName(name);
         c.setType(parent.getType());
         c.setColor("#111111");
@@ -176,8 +177,8 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
         return categoryRepository.save(c);
     }
 
-    private void budget(Account account, Category category, int month, String amount) {
-        Budget b = new Budget();
+    private void budget(AccountJpaEntity account, CategoryJpaEntity category, int month, String amount) {
+        BudgetJpaEntity b = new BudgetJpaEntity();
         b.setAccount(account);
         b.setCategory(category);
         b.setYear(YEAR);
@@ -186,8 +187,8 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
         budgetRepository.save(b);
     }
 
-    private void expense(Account account, Category category, LocalDate date, String amount) {
-        Transaction t = new Transaction();
+    private void expense(AccountJpaEntity account, CategoryJpaEntity category, LocalDate date, String amount) {
+        TransactionJpaEntity t = new TransactionJpaEntity();
         t.setType(TransactionType.EXPENSE);
         t.setAmount(new BigDecimal(amount));
         t.setAccount(account);
@@ -196,7 +197,7 @@ class BudgetQueryAdapterMatrixTest extends PostgresTestBase {
         transactionRepository.save(t);
     }
 
-    private void recurrence(Category category, List<Integer> months, boolean active, RecurrenceAmount... amounts) {
+    private void recurrence(CategoryJpaEntity category, List<Integer> months, boolean active, RecurrenceAmount... amounts) {
         recurringRepository.save(RecurringBudget.create(new CategoryId(category.getId()),
                 MonthsMask.ofMonths(months), active, List.of(amounts)));
     }

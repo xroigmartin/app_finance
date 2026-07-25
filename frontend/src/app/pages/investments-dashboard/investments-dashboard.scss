@@ -1,0 +1,132 @@
+h2 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+  color: var(--text);
+}
+
+.empty-state {
+  h2 {
+    margin-bottom: .5rem;
+  }
+
+  p {
+    margin: 0;
+    max-width: 60ch;
+  }
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+
+  .kpi-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-faint);
+    font-weight: 500;
+  }
+
+  .kpi-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+
+    &.amount-income { color: var(--pos); }
+    &.amount-expense { color: var(--neg); }
+  }
+
+  .kpi-sub {
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+}
+
+.cash-list {
+  display: flex;
+  flex-direction: column;
+
+  .cash-line {
+    line-height: 1.25;
+  }
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  &.two {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 1000px) {
+    grid-template-columns: 1fr;
+
+    &.two {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.chart-wrap {
+  position: relative;
+  height: 300px;
+}
+
+.positions-card {
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.instrument {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .tk {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--r-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .instrument-text {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 0;
+  }
+}
+
+.small-text {
+  font-size: .72rem;
+}
+
+.block {
+  display: block;
+}
+
+.cost-badge {
+  background: var(--warn-soft);
+  color: var(--warn);
+}

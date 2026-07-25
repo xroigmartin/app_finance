@@ -45,7 +45,7 @@ public class TransferJpaEntity {
     @JoinColumn(name = "to_account_id")
     private AccountJpaEntity toAccount;
 
-    protected TransferJpaEntity() {
+    public TransferJpaEntity() {
     }
 
     public Long getId() {

@@ -4,13 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular 20 frontend + PostgreSQL 17. UI text, README, and commit context are in Spanish.
+Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular 22 frontend + PostgreSQL 17. UI text, README, and commit context are in Spanish.
 
 ## Product docs (PRDs) — mandatory maintenance
 
 **Rule: every code change automatically creates or updates the project documentation.** Whenever you modify code, you must, in the same change, update the affected domain's PRD (or create it if it does not exist yet) so the docs never drift from the code. This is not optional.
 
 Per-domain PRDs live in `docs/prd/` (index and template in `docs/README.md`), written in Spanish. A change "affects a domain" when it touches its data model, business rules, API endpoints, or UI. Concretely: when you finish a code change, identify which domain(s) under `docs/prd/` it touches, and edit the matching PRD(s) — bump "Última actualización", and adjust the relevant sections (model, rules, API, UI, validations). If no PRD exists for the affected domain, create one following the existing template.
+
+## Development methodology — TDD (mandatory, backend and frontend)
+
+**Rule: all development is done with TDD (Test-Driven Development), with each phase explicitly executed — never write production code without a failing test first.** This applies equally to the backend and the frontend; there is no "build it then add tests" path on either side. For every behavior/milestone:
+
+1. **Red** — write the test(s) that specify the behavior, run them, and confirm they fail for the expected reason (compilation failure of a not-yet-existing class/component counts as red).
+2. **Green** — write the minimum production code needed to make those tests pass; run the tests and confirm they pass.
+3. **Refactor** — with tests green, clean up code and tests (naming, duplication, design); re-run the tests to confirm they stay green.
+
+Work in small red-green-refactor cycles (one behavior/invariant at a time), following the existing test taxonomy:
+- **Backend**: domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence tests on Testcontainers, `@WebMvcTest` contract tests, ArchUnit for boundaries.
+- **Frontend**: Vitest unit tests per component/service/pipe (`*.spec.ts`, run via `npm test -- --watch=false`), and Playwright E2E specs per domain page (`npm run test:e2e`) for the critical user flows a unit test can't cover (navigation, dialogs chained together, chart rendering). A UI behavior gets its Vitest red before the component code that implements it; an end-to-end flow gets its Playwright spec before the flow is wired up.
+
+**Commit at the end of every milestone**: when a cycle (or a small coherent group of cycles that forms a milestone, e.g. an aggregate with its invariants, a use case, an adapter, a component, a page flow) is complete — tests green, refactor done, PRD updated — create a commit before moving on. Never batch several milestones into one commit, and never commit with failing tests. This holds on the frontend too: a page/component change is not done until its Vitest (and, where relevant, Playwright) coverage was written first and is green, same discipline as the backend's ArchUnit/`@WebMvcTest` gate.
 
 ## Git workflow — commit every change
 
@@ -22,10 +36,9 @@ This is a **local git repository with no remote** (the user manages the remote, 
 
 ```bash
 ./app.sh start|stop|restart|status [db|backend|frontend]   # manage all services (logs/PIDs in .run/)
-./app.sh start --demo   # wipe DB, seed demo data; the next stop removes the Docker volume
 ```
 
-`./app.sh start` disables demo seeding (`FINANCE_SEED_DEMO=false`); only `--demo` enables it.
+On first boot against an empty DB the app seeds the **default global categories** only (no demo accounts/movements).
 
 Manual equivalents:
 
@@ -35,8 +48,10 @@ cd backend && mvn spring-boot:run     # API on :8080
 cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (proxy.conf.json)
 ```
 
-- Backend tests: `cd backend && mvn test` (single test: `mvn test -Dtest=ClassName#method`). No test sources exist yet.
-- Frontend tests: `cd frontend && npm test` (Karma/Jasmine; only `app.spec.ts` exists).
+- Backend tests: `cd backend && mvn test` (single test: `mvn test -Dtest=ClassName#method`). The suite (domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence-adapter tests on real PostgreSQL via Testcontainers, `@WebMvcTest` contract tests, and an ArchUnit boundary test) is the migration's safety net; keep it green and coverage ≥ 99 %.
+- Frontend requires **Node.js ≥ 24.15.0** (Angular 22's CLI hard-refuses to run on anything older, e.g. plain `24.0.x`); `nvm use 24.18.0` if the shell's default Node doesn't satisfy that.
+- Frontend unit tests: `cd frontend && npm test` (Vitest via the `@angular/build:unit-test` runner — still `[EXPERIMENTAL]` per Angular's own tooling, watch mode by default, `-- --watch=false` for a single run). Coverage gate is native (`coverageThresholds` in `angular.json`, not a custom script): 85 % statements/branches/functions/lines; keep it green — currently well above floor at 96/87/93/98 %.
+- Frontend E2E tests: `cd frontend && npm run test:e2e` (Playwright, one spec per domain page). Fully isolated from the dev stack: resets/seeds a dedicated `db-e2e` Postgres (`docker-compose.e2e.yml`, its own Compose project `finance-e2e`) and runs a throwaway backend on `:8081` + frontend on `:4201` — the dev stack on `:5432`/`:8080`/`:4200` is never touched. See `docs/testing-plan-frontend.md` for the full design (seed fixtures, per-domain specs, the canvas-content regression check for the dashboard/investment charts) and the gotchas found along the way (`[ngValue]`+`selectOption`, dialogs chained in a row, etc.).
 - Frontend build: `cd frontend && npm run build`.
 - Reset DB: `./app.sh stop && docker compose down -v`, then `./app.sh start` (seeds default categories only).
 
@@ -44,18 +59,28 @@ cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (prox
 
 ### Backend (`backend/src/main/java/com/xroig/finance/`)
 
-Conventional layering: `controller/` (REST, all under `/api/...`) → `service/` → `repository/` (Spring Data JPA) → `model/` (entities). Simple CRUD controllers (accounts, categories, transactions, transfers, budgets, category rules) talk to repositories directly; services exist only where there is real logic:
+**Hexagonal (ports & adapters) + DDD**, one Maven module organized by **bounded context** and, within each, by hexagonal layer (see `docs/migration-ddd-hexagonal.md` for the migration history). Contexts: `accounts`, `categories`, `transactions`, `transfers`, `budgets`, `categorization`, `imports`, `reporting`, plus `shared` (kernel). Per context:
 
-- `DashboardService` — aggregations: summary, monthly income/expense series, income/expenses by category, budget progress, monthly net-worth balance, and per-account monthly comparison (`/api/dashboard/{summary,monthly,monthly-balance,income-by-category,expenses-by-category,by-account,budgets}`).
-- `ImportFileParser` / `ImportService` — CSV/Excel (`.xls`/`.xlsx`) bank-export import via Apache POI + commons-csv. Deliberately tolerant: detects header row after bank preambles, accepts `dd/MM/yyyy` or ISO dates, `1.234,56` or `1234.56` amounts, `,` or `;` CSV separators, accent-insensitive headers. A "Fecha de operación: …" inside the "Más datos" column overrides the date column. Unknown categories are auto-created; accounts must already exist; per-row errors are reported back, valid rows are imported.
-- `CategoryRule` entities (pattern alternatives separated by `|`, case/accent-insensitive) auto-categorize imported transactions that lack a category column; fallback is "Otros gastos"/"Otros ingresos".
-- `DataSeeder` — on first boot creates default categories always, plus demo accounts/12 months of movements unless seeding is disabled via the `finance.seed-demo` property (defaults to the `FINANCE_SEED_DEMO` env var, then `true`).
+- `domain/` — pure aggregates (POJOs/records), value objects (`Money`, typed ids like `AccountId`/`CategoryId`, `MonthsMask`, `TransactionType`…) and **outbound ports** (`XRepository`, query/usage ports). No Spring, no JPA. Invariants live here (e.g. `Transaction` refund rules, `Category` one-level hierarchy, `Transfer` origin≠destination, `Budget` month/amount).
+- `application/` — `XService` implementing the **inbound ports / use cases** (`CreateX`/`UpdateX`/`FindX`…), orchestrating outbound ports. Read-only screens use **CQRS**: `XQueryPort` + read-model records (`XView`) instead of rebuilding aggregates.
+- `infrastructure/persistence/` — `XJpaEntity` (mapped to the Flyway tables), `XJpaRepository` (Spring Data), `XPersistenceAdapter`/`XQueryAdapter` implementing the ports, and `XJpaMapper` (domain↔entity). Aggregates reference each other by id, so `@ManyToOne` associations are resolved via `getReferenceById`.
+- `infrastructure/web/` — thin `XController` (delegates to inbound ports) + web DTOs (`XRequest`/`XResponse`).
 
-Categories support one level of subcategories (`Category.parent`, self-reference; migration `V4`). A subcategory inherits its parent's `type`; it inherits the account scope only when the parent is account-bound — a global parent may have global *or* account-specific subcategories (enforced in `CategoryController.resolveSubAccount`). A top-level category can only be reassigned to a concrete account if all its subcategories already belong to that same account (otherwise its global/cross-account children would be orphaned). Only one level is allowed (a subcategory cannot have children). Movements may attach to either a top-level category or a subcategory. Aggregations roll subcategories up to their parent: `TransactionRepository.sumByCategory` groups by `coalesce(parent.id/name, …)`, and budget "spent" on the dashboard uses `sumByCategoryTreeAndPeriod`. Budgets sit on leaf categories (a top-level category without subcategories, or a subcategory); a category with subcategories acts as the read-only aggregate of its children in the annual matrix and budgeting it directly is rejected. The annual matrix reads per-exact-category sums (`sumByExactCategoryAndMonthOfYear`) and aggregates parents in `BudgetService` (`leafRow`/`parentRow`). Category name uniqueness is per scope (account) and per parent.
+Cross-cutting pieces:
+
+- `shared/domain` — kernel: `Money`, `DateRange`, `TransactionType`, `TextNormalizer`, the `DomainException` hierarchy (`NotFound`/`Conflict`/`Validation`). `shared/web` — `DomainExceptionHandler` (maps `DomainException`→404/409/400 as `problem+json`) and `DataIntegrityExceptionHandler` (last-resort unique-constraint→409). The domain never knows `HttpStatus`.
+- `reporting` — dashboard, **read-only/CQRS**: `ReportingService` keeps the aggregation maths and reads raw figures through outbound query ports (`/api/dashboard/{summary,monthly,monthly-balance,income-by-category,expenses-by-category,by-account,budgets}`).
+- `imports` — CSV/Excel (`.xls`/`.xlsx`) bank-export import via Apache POI + commons-csv. `ImportFileParser` is an **anti-corruption layer** (`ImportFileReader`) translating bank rows to the `ImportRow` VO; the `ImportService` use case **reuses** the Transactions/Transfers/Categories use cases via bridge adapters. Deliberately tolerant: detects the header row after bank preambles, accepts `dd/MM/yyyy` or ISO dates, `1.234,56` or `1234.56` amounts, `,` or `;` separators, accent-insensitive headers; a "Fecha de operación: …" inside the "Más datos" column overrides the date column. Unknown categories are auto-created; accounts must already exist; per-row errors are reported back, valid rows imported.
+- `categorization` — `CategoryRule` aggregate (pattern alternatives separated by `|`, case/accent-insensitive via the `PatternMatcher` domain service) auto-categorizes imported transactions lacking a category column; fallback "Otros gastos"/"Otros ingresos".
+- `config/DataSeeder` — startup bootstrap (the one class outside the layered packages): on first boot against an empty DB it seeds the default global categories (only) by driving the categories context's `CreateCategory` use case; idempotent via the context's "is it empty?" read.
+
+The direction of dependencies (domain ← application ← infrastructure; web never touches persistence) is fenced by **ArchUnit** (`architecture/ArchitectureTest`, archunit-junit5 1.4.2 — older versions silently fail to parse Java 25 bytecode); the single module does not enforce it at compile time.
+
+Categories support one level of subcategories (`Category.parent`, self-reference; migration `V4`). A subcategory inherits its parent's `type`; it inherits the account scope only when the parent is account-bound — a global parent may have global *or* account-specific subcategories (decided in `categories/application/CategoryService`). A top-level category can only be reassigned to a concrete account if all its subcategories already belong to that same account (otherwise its global/cross-account children would be orphaned). Only one level is allowed (a subcategory cannot have children). Movements may attach to either a top-level category or a subcategory. Aggregations roll subcategories up to their parent: `TransactionJpaRepository.sumByCategory` groups by `coalesce(parent.id/name, …)`, and budget "spent" on the dashboard uses `sumByCategoryTreeAndPeriod`. Budgets sit on leaf categories (a top-level category without subcategories, or a subcategory); a category with subcategories acts as the read-only aggregate of its children in the annual matrix and budgeting it directly is rejected. The annual matrix reads per-exact-category sums (`sumByExactCategoryAndMonthOfYear`) and aggregates parents in `budgets/.../BudgetQueryAdapter` (the read-side CQRS adapter). Category name uniqueness is per scope (account) and per parent.
 
 Domain rules to preserve: account balances are computed (initial balance + transactions), never stored; transfers affect balances but are excluded from income/expense aggregates; accounts/categories with movements cannot be deleted (and a category with subcategories cannot be deleted); budgets are per leaf category (income or expense) per account per month. The budgets screen is an annual matrix (`GET /api/budgets/annual?year=&accountId=`) mirroring the user's spreadsheet: 12 months × categories with planned/real/difference, plus TOTAL INGRESOS, TOTAL GASTOS, AHORRO, % and AHORRO ACUMULADO rows; a category with subcategories shows a read-only aggregate row with its subcategories nested as editable rows. Cells are editable inline (reusing the per-month budget endpoints) only for leaf rows and only when a concrete account is selected.
 
-A leaf, account-bound category may declare a **recurrence** (`RecurringBudget` + effective-dated `RecurringBudgetAmount`, migration `V5`, managed from the category form via `/api/categories/{id}/recurrence`): active months as a 12-bit mask plus a history of amounts with a `validoDesde`. It only feeds the planned side of the matrix (never real movements). In `BudgetService.annual` the planned value of a cell is the manual `Budget` if present (the inline-edited override always wins), otherwise the recurrence's amount in force for that month (latest `validoDesde` ≤ that month), otherwise 0. Global categories cannot have a recurrence, and a category with a recurrence can be neither made global nor given subcategories (enforced in `CategoryController`).
+A leaf, account-bound category may declare a **recurrence** (`RecurringBudget` aggregate + effective-dated `RecurrenceAmount` VO, migration `V5`, managed from the category form via `/api/categories/{id}/recurrence`): active months as a 12-bit `MonthsMask` plus a history of amounts with a `validoDesde`. It only feeds the planned side of the matrix (never real movements). In `budgets/.../BudgetQueryAdapter` the planned value of a cell is the manual `Budget` if present (the inline-edited override always wins), otherwise the recurrence's amount in force for that month (latest `validoDesde` ≤ that month, via `RecurringBudget.plannedAmount`), otherwise 0. Global categories cannot have a recurrence, and a category with a recurrence can be neither made global nor given subcategories (enforced in `categories/application/CategoryService`).
 
 ### Database
 

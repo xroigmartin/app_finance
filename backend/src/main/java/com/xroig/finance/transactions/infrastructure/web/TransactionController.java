@@ -1,7 +1,7 @@
 package com.xroig.finance.transactions.infrastructure.web;
 
-import com.xroig.finance.dto.ImportDtos.ImportResult;
-import com.xroig.finance.service.ImportService;
+import com.xroig.finance.imports.application.ImportResult;
+import com.xroig.finance.imports.application.port.ImportTransactions;
 import com.xroig.finance.transactions.application.TransactionView;
 import com.xroig.finance.transactions.application.port.CreateTransaction;
 import com.xroig.finance.transactions.application.port.CreateTransaction.TransactionCommand;
@@ -30,8 +30,8 @@ import java.util.List;
  * Inbound web adapter for the transactions context. Thin: it (de)serializes DTOs and
  * delegates to the inbound ports, returning the {@link TransactionView} read model.
  *
- * <p>The {@code /import} endpoint still delegates to the legacy {@code ImportService}
- * until imports migrate (H7); the controller only forwards the request.
+ * <p>The {@code /import} endpoint forwards the upload to the imports context's {@link
+ * ImportTransactions} use case.
  */
 @RestController
 @RequestMapping("/api/transactions")
@@ -41,22 +41,22 @@ public class TransactionController {
     private final CreateTransaction createTransaction;
     private final UpdateTransaction updateTransaction;
     private final DeleteTransaction deleteTransaction;
-    private final ImportService importService;
+    private final ImportTransactions importTransactions;
 
     public TransactionController(FindTransactions findTransactions, CreateTransaction createTransaction,
                                 UpdateTransaction updateTransaction, DeleteTransaction deleteTransaction,
-                                ImportService importService) {
+                                ImportTransactions importTransactions) {
         this.findTransactions = findTransactions;
         this.createTransaction = createTransaction;
         this.updateTransaction = updateTransaction;
         this.deleteTransaction = deleteTransaction;
-        this.importService = importService;
+        this.importTransactions = importTransactions;
     }
 
     @PostMapping("/import")
     public ImportResult importFile(@RequestParam("file") MultipartFile file,
                                    @RequestParam(required = false) Long accountId) {
-        return importService.importTransactions(file, accountId);
+        return importTransactions.importTransactions(file, accountId);
     }
 
     @GetMapping

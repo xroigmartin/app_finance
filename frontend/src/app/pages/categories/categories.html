@@ -1,7 +1,7 @@
 <h1>Categorías</h1>
 
 <div class="card toolbar">
-  <button class="btn primary" (click)="openNew()">＋ Nueva categoría</button>
+  <button class="btn primary" (click)="openNew()">+ Nueva categoría</button>
 </div>
 
 <dialog #catDialog class="form-dialog" aria-labelledby="cat-form-title" (cancel)="onCatCancel($event)">
@@ -93,7 +93,7 @@
             } @empty {
               <p class="muted">Aún no hay importes. Añade al menos uno para que la recurrencia tenga efecto.</p>
             }
-            <button type="button" class="btn small" (click)="addAmount()">＋ Añadir importe</button>
+            <button type="button" class="btn small" (click)="addAmount()">+ Añadir importe</button>
           </div>
         </div>
       } @else {
@@ -113,11 +113,11 @@
       @for (c of expenseCategories; track c.id) {
         <li>
           <span class="cat-name">
-            <span class="badge" [style.background]="c.color">{{ c.name }}</span>
+            <span class="chip"><span class="dot" [style.background]="c.color"></span>{{ c.name }}</span>
             <span class="scope-tag" [class.global]="!c.account">{{ scopeLabel(c) }}</span>
           </span>
           <span class="actions">
-            <button class="btn small" (click)="openNewSub(c)">＋ Sub</button>
+            <button class="btn small" (click)="openNewSub(c)">+ Sub</button>
             <button class="btn small" (click)="openEdit(c)">Editar</button>
             <button class="btn small danger" (click)="remove(c)">Eliminar</button>
           </span>
@@ -126,7 +126,7 @@
           <li class="sub">
             <span class="cat-name">
               <span class="sub-mark">↳</span>
-              <span class="badge" [style.background]="s.color">{{ s.name }}</span>
+              <span class="chip"><span class="dot" [style.background]="s.color"></span>{{ s.name }}</span>
               <span class="scope-tag" [class.global]="!s.account">{{ scopeLabel(s) }}</span>
             </span>
             <span class="actions">
@@ -146,11 +146,11 @@
       @for (c of incomeCategories; track c.id) {
         <li>
           <span class="cat-name">
-            <span class="badge" [style.background]="c.color">{{ c.name }}</span>
+            <span class="chip"><span class="dot" [style.background]="c.color"></span>{{ c.name }}</span>
             <span class="scope-tag" [class.global]="!c.account">{{ scopeLabel(c) }}</span>
           </span>
           <span class="actions">
-            <button class="btn small" (click)="openNewSub(c)">＋ Sub</button>
+            <button class="btn small" (click)="openNewSub(c)">+ Sub</button>
             <button class="btn small" (click)="openEdit(c)">Editar</button>
             <button class="btn small danger" (click)="remove(c)">Eliminar</button>
           </span>
@@ -159,7 +159,7 @@
           <li class="sub">
             <span class="cat-name">
               <span class="sub-mark">↳</span>
-              <span class="badge" [style.background]="s.color">{{ s.name }}</span>
+              <span class="chip"><span class="dot" [style.background]="s.color"></span>{{ s.name }}</span>
               <span class="scope-tag" [class.global]="!s.account">{{ scopeLabel(s) }}</span>
             </span>
             <span class="actions">
@@ -178,7 +178,7 @@
 <div class="card rules-card">
   <div class="rules-head">
     <h2>Reglas de categorización automática</h2>
-    <button class="btn primary" (click)="openNewRule()">＋ Nueva regla</button>
+    <button class="btn primary" (click)="openNewRule()">+ Nueva regla</button>
   </div>
   <p class="muted rules-hint">
     Al importar, los movimientos sin categoría se asignan a la primera regla cuyo texto
@@ -223,7 +223,7 @@
         <tr>
           <td><code>{{ r.pattern }}</code></td>
           <td>
-            <span class="badge" [style.background]="r.category.color">{{ r.category.name }}</span>
+            <span class="chip"><span class="dot" [style.background]="r.category.color"></span>{{ r.category.name }}</span>
             <span class="scope-tag" [class.global]="!r.category.account">{{ scopeLabel(r.category) }}</span>
           </td>
           <td class="actions">

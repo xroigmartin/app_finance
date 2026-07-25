@@ -49,7 +49,7 @@ public class BudgetJpaEntity {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    protected BudgetJpaEntity() {
+    public BudgetJpaEntity() {
     }
 
     public Long getId() {

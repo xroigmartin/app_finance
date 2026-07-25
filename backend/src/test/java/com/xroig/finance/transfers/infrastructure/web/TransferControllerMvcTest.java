@@ -1,6 +1,7 @@
 package com.xroig.finance.transfers.infrastructure.web;
 
-import com.xroig.finance.service.ImportService;
+import com.xroig.finance.imports.application.ImportResult;
+import com.xroig.finance.imports.application.port.ImportTransfers;
 import com.xroig.finance.shared.domain.NotFoundException;
 import com.xroig.finance.shared.domain.ValidationException;
 import com.xroig.finance.transfers.application.TransferView;
@@ -49,7 +50,7 @@ class TransferControllerMvcTest {
     @MockitoBean private CreateTransfer createTransfer;
     @MockitoBean private UpdateTransfer updateTransfer;
     @MockitoBean private DeleteTransfer deleteTransfer;
-    @MockitoBean private ImportService importService;
+    @MockitoBean private ImportTransfers importTransfers;
 
     private static final String VALID_BODY = """
             {"date":"2024-01-15","amount":100,"fromAccountId":1,"toAccountId":2}
@@ -173,9 +174,9 @@ class TransferControllerMvcTest {
     }
 
     @Test
-    void importFile_delegatesToImportService() {
-        when(importService.importTransfers(any()))
-                .thenReturn(new com.xroig.finance.dto.ImportDtos.ImportResult(3, 0, List.of()));
+    void importFile_delegatesToImportUseCase() {
+        when(importTransfers.importTransfers(any()))
+                .thenReturn(new ImportResult(3, 0, List.of()));
 
         assertThat(mvc.post().uri("/api/transfers/import")
                 .multipart()

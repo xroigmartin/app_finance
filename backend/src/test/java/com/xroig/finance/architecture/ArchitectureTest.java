@@ -9,12 +9,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
  * Fences the hexagonal + DDD boundaries the single Maven module cannot enforce at
- * compile time. The rules are scoped to the <b>new</b> layered packages
- * ({@code ..domain.. / ..application.. / ..infrastructure..}); the legacy packages
- * ({@code model}, {@code controller}, {@code service}, {@code repository}, {@code dto},
- * {@code config}) carry no such segment, so they are excluded for free while the
- * migration is in flight. Rules that still match nothing pass thanks to
- * {@code archRule.failOnEmptyShould=false} (see {@code archunit.properties}).
+ * compile time. With the migration complete, every bounded context lives in the
+ * layered packages ({@code ..domain.. / ..application.. / ..infrastructure..}) the
+ * rules are scoped to; the only code outside them is the {@code config} bootstrap
+ * ({@code DataSeeder}), which wires use cases at startup. Each rule now matches real
+ * classes, so the previous {@code archRule.failOnEmptyShould=false} escape hatch is gone.
  */
 @AnalyzeClasses(packages = "com.xroig.finance", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {

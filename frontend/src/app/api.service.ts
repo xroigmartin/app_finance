@@ -4,8 +4,12 @@ import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
   Account, AccountComparison, AnnualBudget, BalancePoint, Budget, BudgetRequest, BudgetStatus,
-  Category, CategoryAmount, CategoryRule, ImportResult, MonthlyPoint, RecurringBudget, RuleRequest,
-  RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer, TransferRequest
+  Category, CategoryAmount, CategoryRule, FlexImportResult, ImportResult, InvestmentIncome, InvestmentPerformance,
+  InvestmentSecurity,
+  InvestmentTransactionFilter, InvestmentTransactionRequest, InvestmentTransactionView,
+  InvestmentsSummary, MonthlyPoint, Movement, PageResponse, Portfolio, PortfolioSummary, PositionView,
+  RecurringBudget, RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer,
+  TransferRequest, ValuationPoint
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -129,6 +133,17 @@ export class ApiService {
     return this.http.get<Transaction[]>(`${this.base}/transactions`, { params });
   }
 
+  /** Combined, paginated "Movimientos" feed (transactions + transfers), newest first. */
+  getMovements(from?: string, to?: string, accountId?: number, categoryId?: number,
+              page = 0, size = 25): Observable<PageResponse<Movement>> {
+    const params: Record<string, string | number> = { page, size };
+    if (from) params['from'] = from;
+    if (to) params['to'] = to;
+    if (accountId) params['accountId'] = accountId;
+    if (categoryId) params['categoryId'] = categoryId;
+    return this.http.get<PageResponse<Movement>>(`${this.base}/movements`, { params });
+  }
+
   getRecentTransactions(): Observable<Transaction[]> {
     return this.http.get<Transaction[]>(`${this.base}/transactions/recent`);
   }
@@ -206,6 +221,85 @@ export class ApiService {
 
   deleteRecurrence(categoryId: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/categories/${categoryId}/recurrence`);
+  }
+
+  // Investments
+  getPortfolios(): Observable<Portfolio[]> {
+    return this.http.get<Portfolio[]>(`${this.base}/investments/portfolios`);
+  }
+
+  createPortfolio(portfolio: Portfolio): Observable<Portfolio> {
+    return this.http.post<Portfolio>(`${this.base}/investments/portfolios`, portfolio);
+  }
+
+  updatePortfolio(id: number, portfolio: Portfolio): Observable<Portfolio> {
+    return this.http.put<Portfolio>(`${this.base}/investments/portfolios/${id}`, portfolio);
+  }
+
+  deletePortfolio(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/investments/portfolios/${id}`);
+  }
+
+  getPositions(portfolioId: number): Observable<PositionView[]> {
+    return this.http.get<PositionView[]>(`${this.base}/investments/portfolios/${portfolioId}/positions`);
+  }
+
+  getPortfolioSummary(portfolioId: number): Observable<PortfolioSummary> {
+    return this.http.get<PortfolioSummary>(`${this.base}/investments/portfolios/${portfolioId}/summary`);
+  }
+
+  getValuationHistory(portfolioId: number): Observable<ValuationPoint[]> {
+    return this.http.get<ValuationPoint[]>(`${this.base}/investments/portfolios/${portfolioId}/valuation-history`);
+  }
+
+  getInvestmentIncome(portfolioId: number): Observable<InvestmentIncome> {
+    return this.http.get<InvestmentIncome>(`${this.base}/investments/portfolios/${portfolioId}/income`);
+  }
+
+  getInvestmentPerformance(portfolioId: number): Observable<InvestmentPerformance> {
+    return this.http.get<InvestmentPerformance>(
+      `${this.base}/investments/portfolios/${portfolioId}/performance`);
+  }
+
+  getInvestmentsSummary(): Observable<InvestmentsSummary> {
+    return this.http.get<InvestmentsSummary>(`${this.base}/investments/summary`);
+  }
+
+  getSecurities(): Observable<InvestmentSecurity[]> {
+    return this.http.get<InvestmentSecurity[]>(`${this.base}/investments/securities`);
+  }
+
+  getInvestmentTransactions(portfolioId: number, filter: InvestmentTransactionFilter = {},
+                            page = 0, size = 25): Observable<PageResponse<InvestmentTransactionView>> {
+    const params: Record<string, string | number> = { page, size };
+    if (filter.type) params['type'] = filter.type;
+    if (filter.from) params['from'] = filter.from;
+    if (filter.to) params['to'] = filter.to;
+    if (filter.securityId) params['securityId'] = filter.securityId;
+    return this.http.get<PageResponse<InvestmentTransactionView>>(
+      `${this.base}/investments/portfolios/${portfolioId}/transactions`, { params });
+  }
+
+  createInvestmentTransaction(portfolioId: number,
+                              req: InvestmentTransactionRequest): Observable<InvestmentTransactionView> {
+    return this.http.post<InvestmentTransactionView>(
+      `${this.base}/investments/portfolios/${portfolioId}/transactions`, req);
+  }
+
+  updateInvestmentTransaction(id: number,
+                              req: InvestmentTransactionRequest): Observable<InvestmentTransactionView> {
+    return this.http.put<InvestmentTransactionView>(`${this.base}/investments/transactions/${id}`, req);
+  }
+
+  deleteInvestmentTransaction(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/investments/transactions/${id}`);
+  }
+
+  importFlexReport(portfolioId: number, file: File): Observable<FlexImportResult> {
+    const data = new FormData();
+    data.append('file', file);
+    return this.http.post<FlexImportResult>(
+      `${this.base}/investments/portfolios/${portfolioId}/import`, data);
   }
 
   // Category rules

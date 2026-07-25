@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.0 |
-| Última actualización | 2026-06-22 |
+| Versión | 1.2 |
+| Última actualización | 2026-07-20 |
 | Dominio | Dashboard / agregaciones (`/api/dashboard`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -30,17 +30,19 @@ El **dashboard** es la vista analítica de solo lectura: resume saldos, ingresos
 
 ## 3. Modelo de datos
 
-El dashboard **no tiene tablas propias**. Lee de `transactions`, `transfers`, `accounts`, `categories` y `monthly_budgets`, y devuelve DTOs de solo lectura (`dto/DashboardDtos.java`):
+El dashboard **no tiene tablas propias**. Lee de `transactions`, `transfers`, `accounts`, `categories` y `monthly_budgets`, y devuelve read models de solo lectura (CQRS) en `reporting/application/*View.java`:
 
-| DTO | Contenido |
+| Read model | Contenido |
 |---|---|
-| `Summary` | Saldo total, ingresos/gastos/ahorro del mes y del año, deltas de saldo (mes/año) y porcentajes de crecimiento y de rentabilidad del ahorro, más la lista de saldos por cuenta. |
-| `AccountBalance` | `id`, `name`, `type`, `balance` (a fin del mes seleccionado). |
-| `CategoryAmount` | `category`, `color`, `amount` (suma por categoría principal). |
-| `MonthlyPoint` | `month` (`YYYY-MM`), `income`, `expense`. |
-| `BalancePoint` | `month`, `balance` (patrimonio a fin de ese mes). |
-| `AccountSeries` / `AccountComparison` | Series mensuales de ingreso/gasto por cuenta, con etiquetas de mes. |
-| `BudgetStatus` | Presupuesto vs. gastado vs. restante por categoría/cuenta del mes. |
+| `SummaryView` | Saldo total, ingresos/gastos/ahorro del mes y del año, deltas de saldo (mes/año) y porcentajes de crecimiento y de rentabilidad del ahorro, más la lista de saldos por cuenta (`AccountBalanceView` anidado). |
+| `AccountBalanceView` | `id`, `name`, `type`, `balance` (a fin del mes seleccionado). |
+| `CategoryAmountView` | `category`, `color`, `amount` (suma por categoría principal). |
+| `MonthlyPointView` | `month` (`YYYY-MM`), `income`, `expense`. |
+| `BalancePointView` | `month`, `balance` (patrimonio a fin de ese mes). |
+| `AccountSeriesView` / `AccountComparisonView` | Series mensuales de ingreso/gasto por cuenta, con etiquetas de mes. |
+| `BudgetStatusView` | Presupuesto vs. gastado vs. restante por categoría/cuenta del mes. |
+
+> Los nombres de campos del JSON son idénticos a los de la versión anterior (`Summary`/`CategoryAmount`/…): la migración a hexagonal no cambia el contrato de la API.
 
 ## 4. Requisitos funcionales
 
@@ -53,6 +55,7 @@ El dashboard **no tiene tablas propias**. Lee de `transactions`, `transfers`, `a
 | RF-5 | Comparativa de ingresos/gastos por cuenta a lo largo de N meses. |
 | RF-6 | Estado de los presupuestos del mes (planificado, gastado, restante). |
 | RF-7 | Todos los endpoints aceptan filtrar por cuenta (salvo la comparativa por cuenta, que siempre cubre todas). |
+| RF-8 | Tarjeta informativa de **patrimonio invertido**: agregado de todas las carteras de inversión en EUR con fecha de valoración, y desglose por cartera cuando hay más de una (lee `GET /api/investments/summary`; RF-10 del PRD Inversiones). Independiente de los filtros de mes/cuenta; los agregados domésticos (ingresos/gastos/saldos) **no** incorporan nada de inversión. |
 
 ## 5. Reglas de negocio
 
@@ -60,7 +63,7 @@ El dashboard **no tiene tablas propias**. Lee de `transactions`, `transfers`, `a
 |---|---|
 | RN-1 | Las **transferencias se excluyen** de los ingresos y gastos; el **patrimonio (saldo) sí** las incluye (resta en origen, suma en destino). |
 | RN-1b | Las **devoluciones** (gastos con `refundOf`) netean con signo invertido en todas las cifras: **reducen el gasto** de su categoría y **suman al saldo**. El neteo está en las queries de `TransactionRepository`, así que summary, series, desgloses por categoría y "gastado" de presupuestos lo aplican automáticamente. |
-| RN-2 | El saldo de una cuenta a una fecha = `saldo_inicial + neto de movimientos + transferencias entrantes − salientes` hasta esa fecha (`balanceUntil`). |
+| RN-2 | El saldo de una cuenta a una fecha = `saldo_inicial + neto de movimientos + transferencias entrantes − salientes` hasta esa fecha (`ReportingService.balanceUntil`). |
 | RN-3 | En los desgloses por categoría, las **subcategorías se enrollan a su categoría principal** (`sumByCategory`). El join al padre es un `left join` explícito: las categorías de primer nivel (sin padre) también cuentan con sus movimientos directos. (Antes un join implícito sobre `t.category.parent.name` forzaba un *inner join* que las descartaba; corregido y cubierto por test de Nivel 2.) |
 | RN-4 | `Summary` ofrece dos lecturas de rentabilidad: **crecimiento de saldo** (delta de saldo, incluye transferencias) y **rentabilidad del ahorro** (ingresos − gastos, excluye transferencias). Los porcentajes son `null` cuando el saldo de partida no es positivo. |
 | RN-5 | El "gastado" de cada presupuesto se calcula sobre el **árbol de la categoría** (principal + subcategorías) y acotado a la cuenta del presupuesto (`sumByCategoryTreeAndPeriod`). |
@@ -91,9 +94,12 @@ Página `pages/dashboard` (componente `DashboardPage`), con **Chart.js** directa
 - Selector de **cuenta** y de **mes/año**; al cambiarlos se recargan todas las cifras y gráficos.
 - **Tarjetas de resumen**: saldo total, ingresos/gastos/ahorro del mes y del año, con sus porcentajes.
 - **Gráficos**: barras de ingresos/gastos mensuales; doughnut de gastos por categoría; doughnut de ingresos por categoría; línea de ahorro mensual; línea de evolución del patrimonio; barras comparativas de ingresos por cuenta y de gastos por cuenta.
-- **Progreso de presupuestos**: lista con barra de porcentaje gastado por categoría.
-- **Últimos movimientos**: las 10 transacciones recientes (`/api/transactions/recent`).
-- **Tema**: los gráficos leen colores de `ThemeService` (`chartText()` / `chartGrid()`) y se redibujan mediante un `effect` al cambiar de tema claro/oscuro.
+- **Tarjeta de patrimonio invertido** (RF-8): en el grid de KPIs anuales; muestra el total en EUR con "valorado a <fecha>" (o "valorado a coste" sin cotizaciones) y, con más de una cartera, el desglose nombre → valor. Degradación: se **oculta** si no hay carteras; ante error de la API de inversiones muestra **"—" (no disponible)** sin afectar al resto del dashboard.
+- **Progreso de presupuestos**: lista con barra de porcentaje gastado por categoría; según el sistema de diseño, la categoría es un **chip** con punto de color, la cifra `gastado / límite` va en mono y la barra es un track de 7px sobre `--surface-2` con relleno `--accent` (relleno y cifra en `--warn` al superar el límite).
+- **Últimos movimientos**: las 10 transacciones recientes (`/api/transactions/recent`), como **filas con avatar** de 38px (inicial del concepto sobre el color soft de su categoría), concepto + meta (fecha · categoría) y el importe en mono coloreado por signo.
+- **Tarjetas KPI** (sistema de diseño): label en JetBrains Mono 11px uppercase `--text-faint`, cifra en mono 22px/600 y sub-etiqueta 12px `--text-faint`.
+- **Tema**: los gráficos leen colores de `ThemeService` (`chartText()` / `chartGrid()` y los semánticos `chartAccent()/chartAccentSoft()/chartPos()/chartNeg()/chartWarn()`) y se redibujan mediante un `effect` al cambiar de tema claro/oscuro.
+- **Carga inicial de los gráficos**: `renderCharts()` no dibuja nada hasta que la vista está lista (`ngAfterViewInit`) **y** han llegado los datos de `fetchChartData()` (flag `dataLoaded`). `ngAfterViewInit` se dispara siempre antes de que resuelvan las peticiones HTTP (asíncronas); sin esta guarda se creaban los 7 gráficos con datasets vacíos nada más montar la vista y se destruían/recreaban en cuanto llegaban los datos reales, lo que en algunos navegadores dejaba el canvas en blanco de forma intermitente.
 
 ## 8. Validaciones y errores
 
@@ -124,8 +130,10 @@ Página `pages/dashboard` (componente `DashboardPage`), con **Chart.js** directa
 
 ## 12. Referencias de código
 
-- Backend: `controller/DashboardController.java`, `service/DashboardService.java`, `dto/DashboardDtos.java`.
-- Consultas de agregación: `repository/TransactionRepository.java` (`sumByTypeAndPeriod`, `sumByCategory`, `sumByCategoryTreeAndPeriod`, `netTotalByAccountUntil`), `repository/TransferRepository.java` (`totalInUntil`, `totalOutUntil`).
-- Tests: `service/DashboardServiceTest.java` (matemática de agregación con repos mockeados), `controller/DashboardControllerTest.java` (lógica con mocks) y `controller/DashboardControllerMvcTest.java` (contrato HTTP con el slice `@WebMvcTest`: binding con fallback a la fecha actual, clamp de `months` a 1..36, serialización de listas/DTO y param numérico mal formado→400, verificando la delegación al `DashboardService`).
+> **Arquitectura (H8, hexagonal + DDD)**: el dashboard es el contexto `reporting`, de **solo lectura (CQRS)**. La matemática de agregación (saldos, ahorro, deltas, %, series de patrimonio, roll-up de presupuestos) vive en el caso de uso `ReportingService` (`reporting/application`), que implementa el puerto de entrada `DashboardReports` y lee las cifras crudas por **puertos de consulta de salida** (`MovementAggregateQuery`, `TransferAggregateQuery`, `AccountCatalogQuery`, `BudgetCatalogQuery`); nunca pasa por los agregados de escritura. Los read models (`*View`) reproducen el JSON heredado. **Nota estranguladora**: los adaptadores de consulta reutilizan transitoriamente las queries de agregación de los repos legados `repository.*` (igual que `BudgetQueryAdapter`); H9 las repuntará a los repos JPA migrados y retirará el legado.
+
+- Backend (contexto `reporting`): caso de uso `reporting/application/ReportingService.java` (+ read models `*View`, puerto de entrada `port/DashboardReports`, puertos de salida `MovementAggregateQuery`/`TransferAggregateQuery`/`AccountCatalogQuery`/`BudgetCatalogQuery`); web `reporting/infrastructure/web/DashboardController.java`; adaptadores `reporting/infrastructure/persistence/*QueryAdapter.java`.
+- Consultas de agregación (vía los adaptadores): `repository/TransactionRepository.java` (`sumByTypeAndPeriod`, `sumByCategory`, `sumByCategoryTreeAndPeriod`, `netTotalByAccountUntil`), `repository/TransferRepository.java` (`totalInUntil`, `totalOutUntil`).
+- Tests: `reporting/application/ReportingServiceTest.java` (matemática de agregación con los puertos de consulta mockeados), `reporting/infrastructure/web/DashboardControllerTest.java` (lógica con mocks), `reporting/infrastructure/web/DashboardControllerMvcTest.java` (contrato HTTP con el slice `@WebMvcTest`) y `reporting/infrastructure/persistence/ReportingQueryAdaptersTest.java` (mapeo de los adaptadores).
 - Frontend: `pages/dashboard/` (`dashboard.ts`, `dashboard.html`), `theme.service.ts`, modelos en `models.ts`.
 - Relacionado: PRD Cuentas, PRD Movimientos, PRD Transferencias, PRD Presupuestos, PRD Categorías.

@@ -17,4 +17,7 @@ public interface BudgetJpaRepository extends JpaRepository<BudgetJpaEntity, Long
 
     boolean existsByAccountIdAndCategoryIdAndYearAndMonth(Long accountId, Long categoryId,
                                                           Integer year, Integer month);
+
+    /** True if any budget targets the category (category deletion guard). */
+    boolean existsByCategoryId(Long categoryId);
 }

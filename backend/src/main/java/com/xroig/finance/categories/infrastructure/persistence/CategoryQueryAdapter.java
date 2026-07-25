@@ -34,7 +34,8 @@ public class CategoryQueryAdapter implements CategoryQueryPort {
         return jpa.findById(id.value()).map(CategoryQueryAdapter::toView);
     }
 
-    private static CategoryView toView(CategoryJpaEntity entity) {
+    /** Assembles a {@link CategoryView} from the entity graph; reused by the categorization read adapter. */
+    public static CategoryView toView(CategoryJpaEntity entity) {
         CategoryView parent = entity.getParent() == null ? null : toView(entity.getParent());
         return new CategoryView(entity.getId(), entity.getName(), entity.getType(), entity.getColor(),
                 toAccountRef(entity.getAccount()), parent);

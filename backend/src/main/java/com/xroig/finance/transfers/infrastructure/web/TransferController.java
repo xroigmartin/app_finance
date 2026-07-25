@@ -1,7 +1,7 @@
 package com.xroig.finance.transfers.infrastructure.web;
 
-import com.xroig.finance.dto.ImportDtos.ImportResult;
-import com.xroig.finance.service.ImportService;
+import com.xroig.finance.imports.application.ImportResult;
+import com.xroig.finance.imports.application.port.ImportTransfers;
 import com.xroig.finance.transfers.application.TransferView;
 import com.xroig.finance.transfers.application.port.CreateTransfer;
 import com.xroig.finance.transfers.application.port.CreateTransfer.TransferCommand;
@@ -29,7 +29,7 @@ import java.util.List;
 /**
  * Inbound web adapter for the transfers context. Thin: it (de)serializes DTOs and
  * delegates to the inbound ports, returning the {@link TransferView} read model. The
- * {@code /import} endpoint still delegates to the legacy {@code ImportService} (H7).
+ * {@code /import} endpoint forwards the upload to the imports context's {@link ImportTransfers} use case.
  */
 @RestController
 @RequestMapping("/api/transfers")
@@ -39,21 +39,21 @@ public class TransferController {
     private final CreateTransfer createTransfer;
     private final UpdateTransfer updateTransfer;
     private final DeleteTransfer deleteTransfer;
-    private final ImportService importService;
+    private final ImportTransfers importTransfers;
 
     public TransferController(FindTransfers findTransfers, CreateTransfer createTransfer,
                              UpdateTransfer updateTransfer, DeleteTransfer deleteTransfer,
-                             ImportService importService) {
+                             ImportTransfers importTransfers) {
         this.findTransfers = findTransfers;
         this.createTransfer = createTransfer;
         this.updateTransfer = updateTransfer;
         this.deleteTransfer = deleteTransfer;
-        this.importService = importService;
+        this.importTransfers = importTransfers;
     }
 
     @PostMapping("/import")
     public ImportResult importFile(@RequestParam("file") MultipartFile file) {
-        return importService.importTransfers(file);
+        return importTransfers.importTransfers(file);
     }
 
     @GetMapping

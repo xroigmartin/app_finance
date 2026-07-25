@@ -2,22 +2,21 @@ package com.xroig.finance.accounts.infrastructure.persistence;
 
 import com.xroig.finance.accounts.domain.AccountId;
 import com.xroig.finance.accounts.domain.AccountUsage;
-import com.xroig.finance.repository.TransactionRepository;
-import com.xroig.finance.repository.TransferRepository;
+import com.xroig.finance.transactions.infrastructure.persistence.TransactionJpaRepository;
+import com.xroig.finance.transfers.infrastructure.persistence.TransferJpaRepository;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapter for the {@link AccountUsage} outbound port. Resolves whether an account
- * is referenced by querying the legacy movement/transfer stores; when those
- * contexts migrate (H3/H4) this will point at their own ports instead.
+ * Adapter for the {@link AccountUsage} outbound port. Resolves whether an account is
+ * referenced by querying the movements and transfers stores of their migrated contexts.
  */
 @Component
 public class AccountUsageAdapter implements AccountUsage {
 
-    private final TransactionRepository transactions;
-    private final TransferRepository transfers;
+    private final TransactionJpaRepository transactions;
+    private final TransferJpaRepository transfers;
 
-    public AccountUsageAdapter(TransactionRepository transactions, TransferRepository transfers) {
+    public AccountUsageAdapter(TransactionJpaRepository transactions, TransferJpaRepository transfers) {
         this.transactions = transactions;
         this.transfers = transfers;
     }

@@ -1,35 +1,48 @@
 :root {
-  --paper: #f3f1ea;
-  --surface: #fffefa;
-  --line: #ddd7c9;
-  --line-strong: #c6bea9;
-  --ink: #1c2a42;
-  --heading: #0e1c33;
-  --muted: #6f6a5c;
-  --navy: #0d1d3a;
-  --navy-2: #16294d;
-  --gold: #96762a;
-  --gold-soft: #c1a050;
-  --income: #1d6b48;
-  --expense: #9c2a23;
-  --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
-  --sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --bg: oklch(0.984 0.002 255);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.972 0.003 255);
+  --border: oklch(0.922 0.004 255);
+  --border-strong: oklch(0.86 0.006 255);
+  --text: oklch(0.235 0.012 260);
+  --text-muted: oklch(0.5 0.012 260);
+  --text-faint: oklch(0.64 0.01 260);
+  --accent: oklch(0.55 0.17 258);
+  --accent-hover: oklch(0.48 0.17 258);
+  --accent-soft: oklch(0.95 0.035 258);
+  --pos: oklch(0.58 0.13 158);
+  --pos-soft: oklch(0.95 0.045 158);
+  --neg: oklch(0.575 0.19 25);
+  --neg-soft: oklch(0.95 0.05 25);
+  --warn: oklch(0.74 0.14 75);
+  --warn-soft: oklch(0.95 0.05 75);
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px -12px rgba(15, 23, 42, .12);
+  --sans: 'Space Grotesk', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 :root[data-theme='dark'] {
-  --paper: #14161d;
-  --surface: #1d2029;
-  --line: #2b303b;
-  --line-strong: #3b414f;
-  --ink: #d4d8e0;
-  --heading: #f0f2f6;
-  --muted: #98a1b2;
-  --navy: #11203d;
-  --navy-2: #1b3056;
-  --gold: #c1a050;
-  --gold-soft: #d2b463;
-  --income: #34d399;
-  --expense: #f17a73;
+  --bg: oklch(0.165 0.008 262);
+  --surface: oklch(0.205 0.01 262);
+  --surface-2: oklch(0.245 0.012 262);
+  --border: oklch(0.3 0.012 262);
+  --border-strong: oklch(0.4 0.014 262);
+  --text: oklch(0.965 0.003 262);
+  --text-muted: oklch(0.72 0.01 262);
+  --text-faint: oklch(0.56 0.01 262);
+  --accent: oklch(0.68 0.15 258);
+  --accent-hover: oklch(0.75 0.14 258);
+  --accent-soft: oklch(0.32 0.07 258);
+  --pos: oklch(0.74 0.14 158);
+  --pos-soft: oklch(0.32 0.06 158);
+  --neg: oklch(0.7 0.18 25);
+  --neg-soft: oklch(0.34 0.08 25);
+  --warn: oklch(0.8 0.13 75);
+  --warn-soft: oklch(0.36 0.07 75);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -14px rgba(0, 0, 0, .6);
 }
 
 * {
@@ -39,43 +52,36 @@
 body {
   margin: 0;
   font-family: var(--sans);
-  font-size: .95rem;
-  color: var(--ink);
-  background: var(--paper);
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg);
+  transition: background .25s, color .25s;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 
 h1 {
-  font-family: var(--serif);
-  font-size: 1.65rem;
+  font-size: 28px;
   font-weight: 600;
-  letter-spacing: .01em;
-  color: var(--heading);
+  letter-spacing: -0.02em;
+  color: var(--text);
   margin: 0 0 1.75rem;
-  padding-bottom: .65rem;
-  position: relative;
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 44px;
-    height: 2px;
-    background: var(--gold);
-  }
 }
 
 h2 {
-  font-family: var(--serif);
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .card {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 1.4rem 1.6rem;
-  box-shadow: 0 1px 2px rgba(13, 29, 58, .04);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
 }
 
 button {
@@ -84,146 +90,171 @@ button {
 }
 
 .btn {
-  border: 1px solid var(--line-strong);
-  border-radius: 2px;
-  padding: .5rem 1.1rem;
-  font-size: .78rem;
-  font-weight: 600;
-  letter-spacing: .07em;
-  text-transform: uppercase;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 500;
   background: var(--surface);
-  color: var(--heading);
-  transition: border-color .15s, background .15s, color .15s;
+  color: var(--text);
+  transition: background .15s, border-color .15s, color .15s;
 
   &:hover {
-    border-color: var(--gold);
-    color: var(--gold);
+    border-color: var(--accent);
   }
 
   &.primary {
-    background: var(--navy);
-    border-color: var(--navy);
-    color: #f3efe4;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
 
     &:hover {
-      background: var(--navy-2);
-      color: #fff;
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
     }
 
     &:disabled {
-      opacity: .55;
-      cursor: default;
+      background: var(--surface-2);
+      border-color: var(--border);
+      color: var(--text-faint);
+      cursor: not-allowed;
     }
   }
 
   &.danger {
     background: transparent;
-    border-color: rgba(156, 42, 35, .4);
-    color: var(--expense);
+    border-color: var(--border-strong);
+    color: var(--neg);
 
     &:hover {
-      border-color: var(--expense);
-      background: rgba(156, 42, 35, .06);
-      color: var(--expense);
+      border-color: var(--neg);
+      background: var(--neg-soft);
     }
   }
 
   &.small {
-    padding: .3rem .7rem;
-    font-size: .68rem;
+    padding: 7px 14px;
+    font-size: 12px;
+    border-radius: var(--r-sm);
   }
 }
 
 input, select {
   font: inherit;
-  padding: .5rem .7rem;
-  border: 1px solid var(--line-strong);
-  border-radius: 2px;
+  font-size: 14px;
+  padding: 11px 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
   background: var(--surface);
-  color: var(--ink);
+  color: var(--text);
 
   &:focus {
-    outline: 2px solid rgba(150, 118, 42, .45);
-    outline-offset: 0;
-    border-color: var(--gold);
+    outline: none;
+    border-color: var(--accent);
   }
 }
 
 table.data {
   width: 100%;
   border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
 
   th, td {
     text-align: left;
-    padding: .65rem .75rem;
-    border-bottom: 1px solid var(--line);
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
   }
 
   thead th {
-    border-bottom: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--border-strong);
   }
 
   th {
-    font-size: .7rem;
+    font-family: var(--mono);
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: .1em;
-    font-weight: 600;
-    color: var(--muted);
+    letter-spacing: .05em;
+    font-weight: 500;
+    color: var(--text-faint);
+  }
+
+  td.num, th.num {
+    text-align: right;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
   }
 
   tbody tr {
     transition: background .12s;
 
     &:hover {
-      background: rgba(150, 118, 42, .05);
+      background: var(--surface-2);
     }
-  }
-
-  td.num, th.num {
-    text-align: right;
   }
 }
 
 .amount-income {
-  color: var(--income);
-  font-weight: 600;
+  color: var(--pos);
+  font-family: var(--mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .amount-expense {
-  color: var(--expense);
-  font-weight: 600;
+  color: var(--neg);
+  font-family: var(--mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .badge {
   display: inline-block;
-  padding: .18rem .55rem;
-  border-radius: 2px;
-  font-size: .68rem;
-  font-weight: 600;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: #fff;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Chip de categoría: pill neutra con punto del color de la categoría */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: 99px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
 }
 
 .form-row {
   display: flex;
   flex-wrap: wrap;
-  gap: .75rem;
+  gap: 12px;
   align-items: flex-end;
 
   label {
     display: flex;
     flex-direction: column;
-    gap: .35rem;
-    font-size: .7rem;
-    font-weight: 600;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: .08em;
-    color: var(--muted);
+    letter-spacing: .05em;
+    color: var(--text-faint);
   }
 }
 
 .muted {
-  color: var(--muted);
+  color: var(--text-muted);
 }

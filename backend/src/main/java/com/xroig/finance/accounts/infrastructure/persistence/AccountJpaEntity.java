@@ -36,7 +36,7 @@ public class AccountJpaEntity {
     @Column(name = "initial_balance", nullable = false)
     private BigDecimal initialBalance;
 
-    protected AccountJpaEntity() {
+    public AccountJpaEntity() {
     }
 
     public Long getId() {
