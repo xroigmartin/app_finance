@@ -1,0 +1,180 @@
+# Plan de implementación — Historial de imports (Inversiones)
+
+**Rama de desarrollo:** `inv-historial-imports` (worktree `app_finance-imports`).
+**Origen:** `docs/investment/mejoras-modulo-inversiones.md` §1.2 (P1.2). Precursor obligatorio de la 2.1 (Flex Web Service).
+
+## 1. Objetivo y alcance
+
+Hoy `FlexImportService.importReport` devuelve un `FlexImportResult` (imported/duplicated/errors/warnings) que solo vive en la respuesta HTTP: al cerrar `FlexImportDialog` desaparece. Si un import de hace un mes dejó 3 warnings, no queda rastro de qué faltó.
+
+**Entra en alcance:**
+- Persistir cada intento de import Flex (uno por llamada a `POST /portfolios/{id}/import`, tanto si importó filas como si no) con: fecha/hora, nombre del fichero, periodo cubierto por el informe (`fromDate`/`toDate`, que `FlexReportParser` **ya calcula** en `FlexReport` pero `FlexImportService` descarta hoy), y el resumen completo (contadores + detalle de errores/warnings).
+- Vista de consulta paginada por cartera, con detalle de errores/warnings por import.
+- Guardar el registro también cuando `imported == 0` (import "vacío" o solo duplicadas) — es información útil ("reimporté el mismo fichero, 0 nuevas, correcto").
+
+**No entra en alcance** (queda para 2.1 Flex Web Service): descarga automática, scheduler, gestión de token IBKR. Este trabajo solo deja el terreno preparado (log persistente que un proceso desatendido pueda escribir).
+
+## 2. Diseño técnico backend
+
+### 2.1 Dominio (`investments/domain/`)
+
+Nuevo agregado `ImportRecord` (fichero `ImportRecord.java`), siguiendo el patrón de los agregados existentes del contexto (record/clase inmutable + factory estático, sin Spring/JPA):
+
+```java
+public record ImportRecord(
+    Long id,                      // null hasta persistir
+    PortfolioId portfolioId,
+    Instant importedAt,
+    String fileName,              // nullable: MultipartFile.getOriginalFilename() puede venir null
+    LocalDate fromDate,           // nullable: FlexReport.fromDate() es opcional en el propio Flex
+    LocalDate toDate,             // NOT NULL: FlexReport.toDate() es obligatorio (FlexReportParser lo exige)
+    int imported,
+    int duplicated,
+    List<ImportRowIssue> errors,  // reutiliza la forma de FlexRowError (section, reference, message)
+    List<String> warnings
+) {
+    public static ImportRecord of(PortfolioId portfolioId, Instant importedAt, String fileName,
+                                   LocalDate fromDate, LocalDate toDate, FlexImportResult result) { ... }
+}
+```
+
+`ImportRowIssue` es un VO nuevo en `domain/` con los mismos 3 campos que `application.FlexRowError` (`section`, `reference`, `message`) — **no reutilizamos `FlexRowError` directamente en el dominio** porque vive en `application/` y el dominio no depende hacia arriba; el mapeo `FlexRowError → ImportRowIssue` se hace en `FlexImportService` al construir el `ImportRecord`.
+
+Sin invariantes de negocio complejas (es un registro de log, no una entidad con reglas); basta validar no-nulos de `portfolioId`/`importedAt`/`toDate` en el constructor compacto, igual que otros VOs simples del contexto.
+
+Puerto de salida: `ImportRecordRepository` (interfaz en `domain/`):
+
+```java
+public interface ImportRecordRepository {
+    ImportRecord save(ImportRecord record);
+}
+```
+
+(Sin `findById`/`delete`: es un log de solo-escritura desde el dominio; la lectura paginada es responsabilidad del lado CQRS, no de este puerto — mismo patrón que `InvestmentTransactionRepository.save` vs. `InvestmentQueryPort` para lectura.)
+
+### 2.2 Aplicación (`investments/application/`)
+
+**No es un caso de uso aparte.** La persistencia se engancha como paso final de `FlexImportService.importReport`, dentro de la misma transacción `@Transactional` ya existente — si el import falla a medio camino y la transacción hace rollback, no debe quedar un registro de historial "fantasma" de un import que no ocurrió; si el import se completa (aunque sea con errores de fila tolerados, que no abortan), sí se loguea.
+
+Cambio en `FlexImportService.importReport` (después de construir `FlexImportResult`, antes de `return`):
+
+```java
+FlexImportResult result = new FlexImportResult(imported, duplicated, List.copyOf(errors), positionWarnings(portfolio));
+importRecords.save(ImportRecord.of(portfolio.id(), Instant.now(), file.getOriginalFilename(),
+        report.fromDate(), report.toDate(), result));
+return result;
+```
+
+Nueva dependencia inyectada: `ImportRecordRepository importRecords` en el constructor de `FlexImportService`.
+
+**Lectura (CQRS):** nuevo query port `ImportRecordQueryPort` en `application/`:
+
+```java
+public interface ImportRecordQueryPort {
+    Page<ImportRecordView> history(long portfolioId, int page, int size);
+}
+```
+
+`ImportRecordView` (record en `application/`): `id, importedAt, fileName, fromDate, toDate, imported, duplicated, errors (List<FlexRowError>), warnings (List<String>)` — se reutiliza `FlexRowError` aquí porque esta vista sí vive en `application/` (el mismo record que ya usa `FlexImportResult`, evita duplicar forma). Se listan **todas** las filas del import (sin paginar dentro del import — el volumen de un solo Flex anual es de decenas, no miles) y se pagina la lista de imports.
+
+### 2.3 Infraestructura — persistencia (`investments/infrastructure/persistence/`)
+
+**Migración `V8__import_record.sql`** (número reservado, sin coordinar con las otras dos ramas paralelas):
+
+```sql
+CREATE TABLE investments.import_record (
+    id                BIGSERIAL PRIMARY KEY,
+    portfolio_id      BIGINT      NOT NULL REFERENCES investments.portfolio (id),
+    imported_at       TIMESTAMP   NOT NULL,
+    file_name         VARCHAR,
+    from_date         DATE,
+    to_date           DATE        NOT NULL,
+    imported_count    INT         NOT NULL,
+    duplicated_count  INT         NOT NULL,
+    errors            JSONB       NOT NULL DEFAULT '[]',
+    warnings          JSONB       NOT NULL DEFAULT '[]'
+);
+
+CREATE INDEX idx_import_record_portfolio ON investments.import_record (portfolio_id, imported_at DESC);
+```
+
+**Decisión: `errors`/`warnings` como `JSONB`, no tabla hija.** Justificación: (a) el resto del contexto `investments` no usa `@OneToMany`/colecciones JPA en ningún sitio — las entidades son planas con FKs como columnas simples (`getReferenceById`), y una tabla hija `import_record_error` introduciría el primer `@OneToMany` del módulo sin necesidad real; (b) errors/warnings nunca se consultan ni filtran a nivel SQL — se leen siempre como bloque completo junto a su import padre, el caso de uso exacto para el que `jsonb` está pensado; (c) volumen pequeño y acotado (decenas de filas por import como mucho). Postgres 17 + `jsonb` con Hibernate 7 vía `@JdbcTypeCode(SqlTypes.JSON)` sobre un `String` (serializado/deserializado a mano con Jackson en el mapper, igual de simple que cualquier otro campo) evita ceremonia.
+
+`ImportRecordJpaEntity` (`@Table(schema = "investments", name = "import_record")`), `ImportRecordJpaRepository extends JpaRepository<ImportRecordJpaEntity, Long>` con método derivado `Page<ImportRecordJpaEntity> findByPortfolioIdOrderByImportedAtDesc(Long portfolioId, Pageable pageable)` (Spring Data pagina de extremo a extremo, igual que ya hace `InvestmentTransactionJpaRepository` — revisar su query concreta antes de implementar para no reinventar el patrón de paginación del contexto), `ImportRecordJpaMapper` (domain↔entity, serializa `List<ImportRowIssue>`/`List<String>` a JSON con `ObjectMapper` inyectado — hay uno ya configurado como bean en el proyecto, reutilizarlo en vez de crear uno nuevo), `ImportRecordPersistenceAdapter implements ImportRecordRepository` (solo `save`), y el propio adapter o uno nuevo `ImportRecordQueryAdapter implements ImportRecordQueryPort` (puede vivir en la misma clase que el adapter de escritura o aparte — decidir en el momento según cómo estén organizados los otros adapters de escritura+lectura del contexto; si `InvestmentQueryAdapter` ya es una clase separada de los adapters de escritura, seguir ese mismo split).
+
+### 2.4 Infraestructura — web (`investments/infrastructure/web/`)
+
+Nuevo endpoint en `PortfolioController` (mismo controlador que ya expone `POST .../import`, coherente con que el historial es "del import de esa cartera"):
+
+```
+GET /api/investments/portfolios/{id}/import-history?page=0&size=25
+```
+
+Respuesta: `Page<ImportRecordView>` serializado tal cual (mismo patrón que el resto de vistas CQRS del contexto — "las views CQRS se serializan tal cual", PRD §13). Defaults `page=0`/`size=25`, igual que `GET /transactions`.
+
+## 3. Diseño frontend
+
+**Ubicación: cuarta y última pestaña "Importaciones" en `pages/investments-operations`**, orden confirmado con el usuario (2026-07-25): **Operaciones / Dividendos / Cerradas / Importaciones** (`activeTab: 'operaciones' | 'dividendos' | 'cerradas' | 'importaciones'` — el valor `'cerradas'` lo añade la rama paralela de posiciones cerradas, en 3ª posición; esta rama va última). Encaja mejor aquí que en el Panel general: es información operativa/de auditoría del import, no un KPI de cartera. Protocolo de integración: la rama que mergee primero añade su pestaña en la posición que le toque dentro de las que existan; la que mergee segunda hace rebase/merge sobre la primera y añade la suya al final, sin reordenar las ya mergeadas.
+
+Contenido de la pestaña:
+- Tabla paginada (reutiliza `app-pagination`, igual que la pestaña Operaciones — mismo componente, 5/10/25/50/100 por página): fecha/hora del import, fichero, periodo cubierto (`fromDate`–`toDate`, o solo `toDate` si `fromDate` es null), importadas, duplicadas, nº errores, nº warnings.
+- Fila expandible (o botón "ver detalle") para desplegar la lista de errores/warnings de ese import concreto, reutilizando el mismo bloque visual `<ul class="errors">`/`<ul class="warnings">` que ya existe en `flex-import-dialog.ts` (extraer a un pequeño componente compartido si el CSS/markup coincide al 90%, o duplicar si diverge — decidir al implementar, no hacer abstracción prematura si solo hay 2 usos).
+- Al completar un import con éxito (`FlexImportDialog.done` ya emite hoy), la pestaña de Importaciones debe recargar si está activa — mismo mecanismo que ya dispara `loadTransactions()`/`loadIncome()` en `investments-operations.ts`.
+
+**Modelos nuevos en `models.ts`:** `ImportRecordView { id, importedAt, fileName, fromDate, toDate, imported, duplicated, errors: FlexRowError[], warnings: string[] }` y `Page<ImportRecordView>` (o reutilizar el `Page<T>` genérico si ya existe uno en el frontend — comprobar si `models.ts` ya tiene un tipo `Page<T>` para las Operaciones paginadas, y reutilizarlo).
+
+**`api.service.ts`:** `getImportHistory(portfolioId: number, page: number, size: number): Observable<Page<ImportRecordView>>` → `GET /investments/portfolios/{portfolioId}/import-history`.
+
+## 4. Plan TDD por hitos
+
+Cada hito cierra con commit propio (tests en verde + PRD actualizado), como manda `CLAUDE.md`.
+
+**H-imp.1 — Dominio.**
+Rojo: `ImportRecordTest` (unit) — `of()` construye correctamente desde un `FlexImportResult`; rechaza `portfolioId`/`toDate` nulos. `ImportRowIssueTest` si tiene alguna validación propia (probablemente no, VO trivial — valorar si merece test dedicado o se cubre indirectamente).
+Verde: `ImportRecord`, `ImportRowIssue`, `ImportRecordRepository` (interfaz, sin implementación).
+
+**H-imp.2 — Persistencia.**
+Rojo: `ImportRecordPersistenceAdapterTest` (`@DataJpaTest` sobre Testcontainers) — guarda un `ImportRecord` con errores/warnings no vacíos y lo relee, comprueba round-trip del JSON (orden y contenido de `errors`/`warnings` preservado), comprueba que `to_date NOT NULL` se respeta a nivel BD.
+Verde: migración `V8__import_record.sql`, `ImportRecordJpaEntity`, `ImportRecordJpaRepository`, `ImportRecordJpaMapper`, `ImportRecordPersistenceAdapter`.
+
+**H-imp.3 — Enganche en el import existente.**
+Rojo: en `FlexImportServiceTest` (aplicación, puertos mockeados) — nuevo test "un import persiste un ImportRecord con los mismos contadores que el FlexImportResult devuelto" y "un import con 0 filas nuevas (todo duplicado) también persiste su ImportRecord" (verifica `Mockito.verify(importRecords).save(...)` con los campos esperados, incluido `fromDate`/`toDate` tomados del `FlexReport`).
+Verde: inyectar `ImportRecordRepository` en `FlexImportService` y añadir la llamada `.save(...)` antes del `return`.
+
+**H-imp.4 — Lectura CQRS + endpoint.**
+Rojo: `ImportRecordQueryAdapterTest` (`@DataJpaTest`) — con 3 imports guardados para una cartera, `history(portfolioId, 0, 2)` devuelve página de 2 ordenada por `importedAt` descendente, `totalElements=3`, `totalPages=2`. `PortfolioControllerTest` (`@WebMvcTest`) — `GET .../import-history?page=0&size=10` devuelve 200 con el `Page<ImportRecordView>` esperado (puerto mockeado).
+Verde: `ImportRecordQueryPort`, `ImportRecordView`, adapter de lectura, endpoint en `PortfolioController`.
+
+**H-imp.5 — Frontend: modelos + servicio.**
+Rojo: `api.service.spec.ts` — `getImportHistory()` llama a la URL correcta con `page`/`size` como query params y mapea la respuesta.
+Verde: `ImportRecordView`/`Page<T>` en `models.ts`, método en `api.service.ts`.
+
+**H-imp.6 — Frontend: pestaña Importaciones.**
+Rojo: `investments-operations.spec.ts` (Vitest) — al activar la pestaña "importaciones" se llama a `getImportHistory`, se renderiza la tabla con los datos devueltos, el `app-pagination` dispara una nueva carga al cambiar de página. Playwright: extender `e2e/investments-operations.spec.ts` con un caso que importa un Flex de fixture, cambia a la pestaña Importaciones y comprueba que aparece la fila con los contadores correctos.
+Verde: pestaña nueva en `investments-operations.ts`/`.html`, tabla + expansión de detalle.
+
+## 5. Actualización de PRD requerida
+
+`docs/prd/inversiones.md`:
+- §4 (RF): nuevo requisito funcional, p. ej. "RF-11: El usuario puede consultar el historial de imports Flex de una cartera (fecha, fichero, periodo cubierto, resumen ok/duplicadas/errores/warnings)".
+- §3 (modelo de datos): añadir tabla `import_record` con su esquema, junto a las 5 existentes.
+- §6 (API): añadir `GET /portfolios/{id}/import-history`.
+- §7 (UI/UX): documentar la tercera pestaña "Importaciones" en `investments-operations`.
+- §10 (backlog): quitar "Historial de imports" del backlog si estaba anotado ahí (revisar; en este PRD no aparece explícitamente en §10, solo en el roadmap externo — puede que no requiera cambio aquí, pero si el hito se referencia en §12/§13 sí hay que añadirlo).
+- §12 (fases): nuevo hito, probablemente dentro de una "F4" ampliada o una fase propia — decidir encaje al implementar, coherente con que F4 ya es "Automatización (backlog)" y este es su precursor, no backlog puro.
+- §13 (referencias de código): añadir el agregado, los adapters y el endpoint una vez implementado.
+- Bump de "Última actualización" y versión.
+
+También tocar `docs/investment/mejoras-modulo-inversiones.md` §1.2: marcar como implementada o mover el texto a "hecho" (documento vivo, no PRD formal, pero mantiene la trazabilidad del roadmap).
+
+## 6. Cómo prepara 2.1 (Flex Web Service) — sin implementarlo
+
+Con este trabajo, un import disparado por un proceso desatendido (futuro scheduler + token IBKR) queda **auditable**: cualquier fallo o warning silencioso se puede consultar después en la pestaña Importaciones sin depender de que alguien estuviera mirando la respuesta HTTP en el momento. El caso de uso `ImportFlexReport` no cambia de forma (mismo puerto de entrada), así que 2.1 solo tendrá que invocarlo con un `MultipartFile` sintético desde el fichero descargado — el logging ya estará resuelto.
+
+## 7. Puntos de fricción con las otras dos ramas paralelas
+
+- **`docs/prd/inversiones.md`**: las tres ramas (precios, historial de imports, posiciones cerradas) tocan este mismo fichero en secciones distintas (RF, modelo, API, UI, backlog, referencias de código) → conflicto de merge garantizado pero de texto, trivial de resolver a mano al integrar una rama cada vez (no las tres juntas).
+- **`PortfolioController.java`**: si la rama de "posiciones cerradas" también añade un endpoint ahí (`GET .../closed-positions` o similar), ambas ramas tocan el mismo fichero en puntos distintos — conflicto de línea baja probabilidad si los métodos nuevos no quedan adyacentes, pero revisar al mergear.
+- **`investments-operations.ts`/`.html`**: **choque confirmado** — "posiciones cerradas" también añade una pestaña a esta misma página. Orden acordado con el usuario: Operaciones / Dividendos / Cerradas / Importaciones (esta rama, última). Ver protocolo de integración en la sección de diseño frontend (§3) arriba.
+- **Numeración de migración**: `V8` está reservada para esta rama. Si "precios" acaba necesitando una migración (p. ej. columna `source` en `price_quote` para distinguir Flex vs. API externa), le corresponde `V9`, no `V8`. "Posiciones cerradas" no debería necesitar migración (es capa de lectura sobre datos existentes).
+- **Menú lateral / rutas**: esta rama no añade páginas ni rutas nuevas (la pestaña vive dentro de una página ya enlazada), así que no debería tocar `app.routes.ts` ni el componente de menú — menor riesgo de choque en ese frente que las otras dos si alguna añade una página nueva.
