@@ -1,13 +1,12 @@
 services:
   db:
     image: postgres:17-alpine
-    container_name: finance-db
     environment:
       POSTGRES_DB: finance
       POSTGRES_USER: finance
       POSTGRES_PASSWORD: finance
     ports:
-      - "5432:5432"
+      - "${FINANCE_DB_PORT:-5432}:5432"
     volumes:
       - finance-data:/var/lib/postgresql/data
     healthcheck:

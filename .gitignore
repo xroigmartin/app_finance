@@ -8,6 +8,7 @@ frontend/.vscode/
 .run/
 logs/
 app.sh
+.env
 .claude/settings.local.json
 docs/investment
 design_handoff_adaptacion_app
