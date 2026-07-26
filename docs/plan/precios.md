@@ -22,29 +22,29 @@ Twelve Data (elegido en la revisión anterior de este plan) se descarta tras ver
 ### Checkpoints de esta migración
 
 **Retirar Twelve Data**
-- [ ] Eliminar `TwelveDataExchangeResolver` + test
-- [ ] Eliminar `TwelveDataPriceProvider` + `TwelveDataEodResponse` + test
-- [ ] Quitar `FINANCE_TWELVEDATA_API_KEY` de `application.properties` (avisar al usuario para que lo retire también de su `.env`)
+- [x] Eliminar `TwelveDataExchangeResolver` + test
+- [x] Eliminar `TwelveDataPriceProvider` + `TwelveDataEodResponse` + test
+- [x] Quitar `FINANCE_TWELVEDATA_API_KEY` de `application.properties` (avisar al usuario para que lo retire también de su `.env`)
 
 **Nuevo adaptador Yahoo Finance (TDD)**
-- [ ] RED+GREEN: `YahooExchangeResolver` (dominio) — tabla exchange IBKR → sufijo Yahoo
-- [ ] TRIANGULATE: casos límite (blank/null, case-insensitive, NASDAQ sin sufijo)
-- [ ] RED+GREEN: `YahooFinancePriceProvider` — caso feliz + conversión GBp→GBP
-- [ ] TRIANGULATE: símbolo no encontrado, timeout, mercado no mapeado, divisa inesperada distinta de GBp
-- [ ] `PriceProviderConfig` sin API key, con `User-Agent` de navegador en el `RestClient`
+- [x] RED+GREEN: `YahooExchangeResolver` (dominio) — tabla exchange IBKR → sufijo Yahoo
+- [x] TRIANGULATE: casos límite (blank/null, case-insensitive, NASDAQ sin sufijo)
+- [x] RED+GREEN: `YahooFinancePriceProvider` — caso feliz + conversión GBp→GBP
+- [x] TRIANGULATE: símbolo no encontrado, timeout, mercado no mapeado, divisa inesperada distinta de GBp
+- [x] `PriceProviderConfig` sin API key, con `User-Agent` de navegador en el `RestClient`
 
 **Verificación de lo que no cambia**
-- [ ] `PriceRefreshServiceTest`/`SecurityControllerMvcTest` siguen en verde sin tocarlos (dependen solo del puerto, no del adaptador)
-- [ ] Frontend (`investment-toolbar.ts`/`api.service.ts`) sin cambios — el contrato del endpoint no varía
+- [x] `PriceRefreshServiceTest`/`SecurityControllerMvcTest` siguen en verde sin tocarlos (dependen solo del puerto, no del adaptador)
+- [x] Frontend (`investment-toolbar.ts`/`api.service.ts`) sin cambios — el contrato del endpoint no varía
 
 **Documentación**
-- [ ] Esta sección de `docs/plan/precios.md` (revisión, ya en curso)
-- [ ] `docs/prd/inversiones.md`: §9 (exchange→sufijo Yahoo en vez de mic_code), §11 (deuda técnica: literal GBp confirmado, riesgo de endpoint no oficial, Milán resuelto), §13 (referencias de código)
+- [x] Esta sección de `docs/plan/precios.md` (revisión, ya en curso)
+- [x] `docs/prd/inversiones.md`: §9 (exchange→sufijo Yahoo en vez de mic_code), §11 (deuda técnica: literal GBp confirmado, riesgo de endpoint no oficial, Milán resuelto), §13 (referencias de código)
 
 **Verificación final**
-- [ ] `mvn test` completo (incluye ArchUnit)
-- [ ] `npm test` completo del frontend
-- [ ] Commits atómicos por hito (mismo criterio TDD que la iteración anterior)
+- [x] `mvn test` completo (incluye ArchUnit)
+- [x] `npm test` completo del frontend
+- [x] Commits atómicos por hito (mismo criterio TDD que la iteración anterior)
 
 ---
 
