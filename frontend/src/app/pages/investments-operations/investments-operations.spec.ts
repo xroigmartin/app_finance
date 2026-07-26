@@ -5,7 +5,7 @@ import { ApiService } from '../../api.service';
 import { InvestmentContextService } from '../../investment-context.service';
 import { InvestmentToolbar } from '../../components/investment-toolbar';
 import {
-  InvestmentIncome, InvestmentSecurity, InvestmentTransactionView, PageResponse, Portfolio
+  ClosedPosition, InvestmentIncome, InvestmentSecurity, InvestmentTransactionView, PageResponse, Portfolio
 } from '../../models';
 import { InvestmentsOperationsPage } from './investments-operations';
 
@@ -32,6 +32,7 @@ describe('InvestmentsOperationsPage', () => {
     getPortfolios: ReturnType<typeof vi.fn>;
     getInvestmentTransactions: ReturnType<typeof vi.fn>;
     getInvestmentIncome: ReturnType<typeof vi.fn>;
+    getClosedPositions: ReturnType<typeof vi.fn>;
     deleteInvestmentTransaction: ReturnType<typeof vi.fn>;
   };
 
@@ -52,6 +53,11 @@ describe('InvestmentsOperationsPage', () => {
     fees: [{ month: '2026-03', amount: 2 }, { month: '2025-03', amount: 1 }],
     taxes: [{ month: '2026-03', amount: 0.5 }, { month: '2025-03', amount: 0.25 }],
   };
+  const closedPositions: ClosedPosition[] = [
+    { securityId: 9, isin: 'US1', name: 'Empresa', ticker: 'EMP', currency: 'EUR', year: 2026, realizedPnl: 50 },
+    { securityId: 9, isin: 'US1', name: 'Empresa', ticker: 'EMP', currency: 'EUR', year: 2025, realizedPnl: 20 },
+    { securityId: 10, isin: 'US2', name: 'Otra', ticker: 'OTR', currency: 'EUR', year: 2026, realizedPnl: -10 },
+  ];
 
   function create(overrides: Partial<typeof api> = {}, portfolios: Portfolio[] = [portfolio]):
     { page: InvestmentsOperationsPage; ctx: InvestmentContextService } {
@@ -60,6 +66,7 @@ describe('InvestmentsOperationsPage', () => {
       getPortfolios: vi.fn().mockReturnValue(of(portfolios)),
       getInvestmentTransactions: vi.fn().mockReturnValue(of(transactionsPage)),
       getInvestmentIncome: vi.fn().mockReturnValue(of(income)),
+      getClosedPositions: vi.fn().mockReturnValue(of(closedPositions)),
       deleteInvestmentTransaction: vi.fn().mockReturnValue(of(undefined)),
       ...overrides,
     };
@@ -250,12 +257,58 @@ describe('InvestmentsOperationsPage', () => {
     });
   });
 
+  describe('cerradas', () => {
+    it('loadClosedPositions calcula los años disponibles, orden descendente', () => {
+      const { page } = create();
+      page.ngOnInit();
+      expect(page.closedYears).toEqual([2026, 2025]);
+    });
+
+    it('si el año seleccionado deja de existir, cae al más reciente disponible', () => {
+      const { page } = create();
+      page.closedYear = 1999;
+      page.ngOnInit();
+      expect(page.closedYear).toBe(2026);
+    });
+
+    it('closedRows agrega por instrumento dentro del año seleccionado', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.closedYear = 2026;
+      expect(page.closedRows).toEqual([
+        { name: 'Empresa', realizedPnl: 50 },
+        { name: 'Otra', realizedPnl: -10 },
+      ]);
+    });
+
+    it('closedRows con "Todo" agrega todos los años', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.closedYear = 'all';
+      expect(page.closedRows.find(r => r.name === 'Empresa')?.realizedPnl).toBe(70);
+    });
+
+    it('closedTotal suma las filas del año seleccionado', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.closedYear = 'all';
+      expect(page.closedTotal).toBe(60);
+    });
+  });
+
   describe('pestañas y gráfico de dividendos', () => {
-    it('setTab cambia de pestaña', () => {
+    it('setTab cambia a dividendos', () => {
       const { page } = create();
       page.ngOnInit();
       page.setTab('dividendos');
       expect(page.activeTab).toBe('dividendos');
+    });
+
+    it('setTab cambia a cerradas', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.setTab('cerradas');
+      expect(page.activeTab).toBe('cerradas');
     });
 
     it('dividendos agrupa por instrumento y por mes del año seleccionado', () => {
