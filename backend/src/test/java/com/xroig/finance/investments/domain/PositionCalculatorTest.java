@@ -246,6 +246,26 @@ class PositionCalculatorTest {
     }
 
     @Test
+    void realizedByYearIsEmptyWhenNeverSold() {
+        PortfolioPositions result = calculate(buyEur(D1, "10", "-1000", null));
+
+        assertThat(position(result).realizedByYear()).isEmpty();
+    }
+
+    @Test
+    void realizedByYearSumsUpToTheRunningTotal() {
+        PortfolioPositions result = calculate(
+                buyEur(D1, "10", "-1000", null),
+                sellEur(LocalDate.of(2025, 4, 1), "-4", "500", null),
+                sellEur(LocalDate.of(2026, 2, 1), "-3", "400", null));
+
+        Position position = position(result);
+        CurrencyMoney sumOfYears = position.realizedByYear().values().stream()
+                .reduce(eur("0"), CurrencyMoney::add);
+        assertThat(sumOfYears).isEqualTo(position.realizedPnl());
+    }
+
+    @Test
     void averageCostIsUndefinedWithoutPositiveQuantity() {
         PortfolioPositions result = calculate(
                 buyEur(D1, "10", "-1000", null),
