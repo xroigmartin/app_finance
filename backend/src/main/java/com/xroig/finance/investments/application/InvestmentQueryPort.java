@@ -25,6 +25,9 @@ public interface InvestmentQueryPort {
     /** TWR (cumulative) and XIRR (annualized) of the total and per position (RN-8). */
     PerformanceView performance(long portfolioId);
 
+    /** Realized P&L per instrument and calendar year (RF-nuevo), average capitalized cost (RN-3). */
+    List<ClosedPositionView> closedPositions(long portfolioId);
+
     /** Aggregate wealth of every portfolio in EUR, for the dashboard card (RF-10). */
     InvestmentsSummaryView globalSummary();
 }

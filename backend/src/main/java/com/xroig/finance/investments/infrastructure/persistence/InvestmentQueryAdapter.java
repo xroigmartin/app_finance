@@ -1,5 +1,6 @@
 package com.xroig.finance.investments.infrastructure.persistence;
 
+import com.xroig.finance.investments.application.ClosedPositionView;
 import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.IncomeView.IncomeEntryView;
 import com.xroig.finance.investments.application.IncomeView.MonthAmountView;
@@ -297,6 +298,37 @@ public class InvestmentQueryAdapter implements InvestmentQueryPort {
     private static BigDecimal ratePercent(java.util.Optional<BigDecimal> rate) {
         return rate.map(r -> r.multiply(HUNDRED).setScale(PERCENT_SCALE, RoundingMode.HALF_UP))
                 .orElse(null);
+    }
+
+    /**
+     * P&L realizado por instrumento y año natural (RF-nuevo): reutiliza el mismo
+     * cálculo de posiciones (RN-3) que {@link #positions(long)} pero, a diferencia
+     * de este, no descarta las posiciones cerradas — expande el
+     * {@code realizedByYear} de cada posición (incluidas las ventas parciales de
+     * instrumentos hoy abiertos, §1 del plan) a una fila por año con importe ≠ 0.
+     */
+    @Override
+    public List<ClosedPositionView> closedPositions(long portfolioId) {
+        Portfolio portfolio = requirePortfolio(portfolioId);
+        Context ctx = load(portfolio, converter());
+        String base = portfolio.baseCurrency();
+        PortfolioPositions computed = calculator.calculate(base, ctx.transactions(), ctx.converter());
+
+        List<ClosedPositionView> rows = new ArrayList<>();
+        for (Position position : computed.positions()) {
+            if (position.realizedByYear().isEmpty()) {
+                continue;
+            }
+            Security security = ctx.security(position.securityId());
+            for (Map.Entry<Integer, CurrencyMoney> entry : position.realizedByYear().entrySet()) {
+                rows.add(new ClosedPositionView(security.id().value(), security.isin(), security.name(),
+                        security.ticker(), security.currency(), entry.getKey(), entry.getValue().amount()));
+            }
+        }
+        return rows.stream()
+                .sorted(Comparator.comparingInt(ClosedPositionView::year)
+                        .thenComparing(ClosedPositionView::name))
+                .toList();
     }
 
     @Override

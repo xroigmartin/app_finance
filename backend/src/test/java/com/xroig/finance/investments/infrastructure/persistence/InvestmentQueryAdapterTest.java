@@ -452,14 +452,19 @@ class InvestmentQueryAdapterTest extends PostgresTestBase {
 
         var rows = adapter.closedPositions(portfolio.value());
 
-        assertThat(rows).hasSize(2);
-        assertThat(rows).extracting(ClosedPositionView::securityId, ClosedPositionView::year,
-                ClosedPositionView::realizedPnl)
-                .containsExactlyInAnyOrder(
-                        org.assertj.core.groups.Tuple.tuple(closed.value(), 2023, new java.math.BigDecimal("200")),
-                        org.assertj.core.groups.Tuple.tuple(stillOpen.value(), 2024, new java.math.BigDecimal("100")));
-        assertThat(rows).extracting(ClosedPositionView::name)
-                .containsExactlyInAnyOrder("Cerrada del todo", "Con venta parcial");
+        assertThat(rows).hasSize(2)
+                .anySatisfy(row -> {
+                    assertThat(row.securityId()).isEqualTo(closed.value());
+                    assertThat(row.name()).isEqualTo("Cerrada del todo");
+                    assertThat(row.year()).isEqualTo(2023);
+                    assertThat(row.realizedPnl()).isEqualByComparingTo("200");
+                })
+                .anySatisfy(row -> {
+                    assertThat(row.securityId()).isEqualTo(stillOpen.value());
+                    assertThat(row.name()).isEqualTo("Con venta parcial");
+                    assertThat(row.year()).isEqualTo(2024);
+                    assertThat(row.realizedPnl()).isEqualByComparingTo("100");
+                });
     }
 
     @Test
