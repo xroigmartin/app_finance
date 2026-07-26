@@ -75,14 +75,14 @@ describe('FlexImportDialog', () => {
       expect(onDone).toHaveBeenCalled();
     });
 
-    it('en éxito sin operaciones importadas, no emite done', () => {
+    it('en éxito sin operaciones importadas, también emite done (RF-11: el intento queda registrado igualmente)', () => {
       const dialog = create();
       api.importFlexReport.mockReturnValue(of({ imported: 0, duplicated: 0, errors: [], warnings: [] }));
       const onDone = vi.fn();
       dialog.done.subscribe(onDone);
       dialog.file = new File(['<xml/>'], 'flex.xml');
       dialog.doImport();
-      expect(onDone).not.toHaveBeenCalled();
+      expect(onDone).toHaveBeenCalled();
     });
 
     it('en error, usa el detail/message de la API o el mensaje genérico', () => {

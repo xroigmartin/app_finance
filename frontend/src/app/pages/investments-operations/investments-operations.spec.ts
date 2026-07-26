@@ -5,7 +5,7 @@ import { ApiService } from '../../api.service';
 import { InvestmentContextService } from '../../investment-context.service';
 import { InvestmentToolbar } from '../../components/investment-toolbar';
 import {
-  InvestmentIncome, InvestmentSecurity, InvestmentTransactionView, PageResponse, Portfolio
+  ImportRecordView, InvestmentIncome, InvestmentSecurity, InvestmentTransactionView, PageResponse, Portfolio
 } from '../../models';
 import { InvestmentsOperationsPage } from './investments-operations';
 
@@ -33,6 +33,7 @@ describe('InvestmentsOperationsPage', () => {
     getInvestmentTransactions: ReturnType<typeof vi.fn>;
     getInvestmentIncome: ReturnType<typeof vi.fn>;
     deleteInvestmentTransaction: ReturnType<typeof vi.fn>;
+    getImportHistory: ReturnType<typeof vi.fn>;
   };
 
   const portfolio: Portfolio = { id: 1, name: 'Cartera E2E', baseCurrency: 'EUR' };
@@ -53,6 +54,10 @@ describe('InvestmentsOperationsPage', () => {
     taxes: [{ month: '2026-03', amount: 0.5 }, { month: '2025-03', amount: 0.25 }],
   };
 
+  const historyPage: PageResponse<ImportRecordView> = {
+    content: [], page: 0, size: 25, totalElements: 0, totalPages: 0,
+  };
+
   function create(overrides: Partial<typeof api> = {}, portfolios: Portfolio[] = [portfolio]):
     { page: InvestmentsOperationsPage; ctx: InvestmentContextService } {
     api = {
@@ -61,6 +66,7 @@ describe('InvestmentsOperationsPage', () => {
       getInvestmentTransactions: vi.fn().mockReturnValue(of(transactionsPage)),
       getInvestmentIncome: vi.fn().mockReturnValue(of(income)),
       deleteInvestmentTransaction: vi.fn().mockReturnValue(of(undefined)),
+      getImportHistory: vi.fn().mockReturnValue(of(historyPage)),
       ...overrides,
     };
     TestBed.configureTestingModule({ providers: [{ provide: ApiService, useValue: api }] });
@@ -285,6 +291,86 @@ describe('InvestmentsOperationsPage', () => {
       const charts = (page as unknown as { charts: { destroy: ReturnType<typeof vi.fn> }[] }).charts;
       page.ngOnDestroy();
       charts.forEach(c => expect(c.destroy).toHaveBeenCalled());
+    });
+  });
+
+  describe('importaciones (RF-11)', () => {
+    it('activar la pestaña carga el historial de la cartera actual', () => {
+      const { page } = create();
+      page.ngOnInit();
+      api.getImportHistory.mockClear();
+      page.setTab('importaciones');
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 0, 25);
+    });
+
+    it('no llama a la API sin cartera seleccionada', () => {
+      const { page } = create({}, []);
+      page.ngOnInit();
+      api.getImportHistory.mockClear();
+      page.setTab('importaciones');
+      expect(api.getImportHistory).not.toHaveBeenCalled();
+    });
+
+    it('vuelca el contenido y el total de la página en el estado', () => {
+      const record: ImportRecordView = {
+        id: 1, importedAt: '2026-07-26T10:15:30Z', fileName: 'flex.csv',
+        fromDate: '2026-01-01', toDate: '2026-06-30', imported: 12, duplicated: 3,
+        errors: [{ section: 'Trades', reference: 'T-1', message: 'Instrumento desconocido' }],
+        warnings: ['2026-03-01: venta sin posición suficiente'],
+      };
+      api.getImportHistory = vi.fn().mockReturnValue(
+        of({ content: [record], page: 0, size: 25, totalElements: 1, totalPages: 1 }));
+      const { page } = create({ getImportHistory: api.getImportHistory });
+      page.ngOnInit();
+      page.setTab('importaciones');
+
+      expect(page.importHistory).toEqual([record]);
+      expect(page.historyTotalElements).toBe(1);
+    });
+
+    it('onHistoryPageChange cambia de página y recarga', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.setTab('importaciones');
+      api.getImportHistory.mockClear();
+      page.onHistoryPageChange(2);
+      expect(page.historyPage).toBe(2);
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 2, 25);
+    });
+
+    it('onHistorySizeChange cambia el tamaño, resetea a la primera página y recarga', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.setTab('importaciones');
+      page.historyPage = 3;
+      api.getImportHistory.mockClear();
+      page.onHistorySizeChange(50);
+      expect(page.historySize).toBe(50);
+      expect(page.historyPage).toBe(0);
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 0, 50);
+    });
+
+    it('toggleHistoryDetail expande y colapsa el detalle de una fila', () => {
+      const { page } = create();
+      page.ngOnInit();
+      expect(page.expandedHistoryId).toBeNull();
+      page.toggleHistoryDetail(1);
+      expect(page.expandedHistoryId).toBe(1);
+      page.toggleHistoryDetail(1);
+      expect(page.expandedHistoryId).toBeNull();
+    });
+
+    it('reloadImportHistoryIfActive solo recarga cuando la pestaña está activa', () => {
+      const { page } = create();
+      page.ngOnInit();
+      api.getImportHistory.mockClear();
+      page.reloadImportHistoryIfActive();
+      expect(api.getImportHistory).not.toHaveBeenCalled();
+
+      page.setTab('importaciones');
+      api.getImportHistory.mockClear();
+      page.reloadImportHistoryIfActive();
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 0, 25);
     });
   });
 });

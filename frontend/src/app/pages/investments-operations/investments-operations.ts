@@ -11,8 +11,8 @@ import { InvestmentContextService } from '../../investment-context.service';
 import { InvestmentToolbar } from '../../components/investment-toolbar';
 import { Pagination } from '../../components/pagination';
 import {
-  INVESTMENT_TYPE_LABELS, InvestmentIncome, InvestmentTransactionFilter, InvestmentTransactionType,
-  InvestmentTransactionView
+  ImportRecordView, INVESTMENT_TYPE_LABELS, InvestmentIncome, InvestmentTransactionFilter,
+  InvestmentTransactionType, InvestmentTransactionView
 } from '../../models';
 
 Chart.register(...registerables);
@@ -38,7 +38,7 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
   private theme = inject(ThemeService);
   readonly ctx = inject(InvestmentContextService);
 
-  activeTab: 'operaciones' | 'dividendos' = 'operaciones';
+  activeTab: 'operaciones' | 'dividendos' | 'importaciones' = 'operaciones';
   readonly typeLabels = INVESTMENT_TYPE_LABELS;
   readonly types = Object.keys(INVESTMENT_TYPE_LABELS) as InvestmentTransactionType[];
   transactions: InvestmentTransactionView[] = [];
@@ -54,6 +54,12 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
   incomeYears: number[] = [];
   incomeYear: number | 'all' = new Date().getFullYear();
 
+  importHistory: ImportRecordView[] = [];
+  historyPage = 0;
+  historySize = 25;
+  historyTotalElements = 0;
+  expandedHistoryId: number | null = null;
+
   @ViewChild(InvestmentToolbar) toolbar?: InvestmentToolbar;
   @ViewChild('dividendChart') dividendCanvas?: ElementRef<HTMLCanvasElement>;
 
@@ -66,6 +72,7 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
     this.portfolioSub = this.ctx.portfolioId$.subscribe(() => {
       this.loadTransactions();
       this.loadIncome();
+      this.reloadImportHistoryIfActive();
     });
     this.ctx.init();
   }
@@ -86,8 +93,9 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
 
   // ---- pestaña operaciones (listado filtrable, RF-2) ----
 
-  setTab(tab: 'operaciones' | 'dividendos'): void {
+  setTab(tab: 'operaciones' | 'dividendos' | 'importaciones'): void {
     this.activeTab = tab;
+    if (tab === 'importaciones') this.loadImportHistory();
     // El canvas de dividendos entra/sale del DOM con la pestaña.
     this.scheduleRenderCharts();
   }
@@ -138,6 +146,41 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
     const label = this.typeLabels[tx.type].toLowerCase();
     if (!confirm(`¿Eliminar la operación de ${label} del ${tx.tradeDate}?`)) return;
     this.api.deleteInvestmentTransaction(tx.id).subscribe(() => this.loadTransactions());
+  }
+
+  // ---- pestaña importaciones (RF-11, historial de imports Flex) ----
+
+  loadImportHistory(): void {
+    const portfolioId = this.ctx.portfolioId;
+    if (portfolioId == null) {
+      this.importHistory = [];
+      this.historyTotalElements = 0;
+      return;
+    }
+    this.api.getImportHistory(portfolioId, this.historyPage, this.historySize).subscribe(p => {
+      this.importHistory = p.content;
+      this.historyTotalElements = p.totalElements;
+    });
+  }
+
+  /** Solo recarga si la pestaña está a la vista — evita peticiones cuando el usuario no la ha abierto. */
+  reloadImportHistoryIfActive(): void {
+    if (this.activeTab === 'importaciones') this.loadImportHistory();
+  }
+
+  onHistoryPageChange(page: number): void {
+    this.historyPage = page;
+    this.loadImportHistory();
+  }
+
+  onHistorySizeChange(size: number): void {
+    this.historyPage = 0;
+    this.historySize = size;
+    this.loadImportHistory();
+  }
+
+  toggleHistoryDetail(id: number): void {
+    this.expandedHistoryId = this.expandedHistoryId === id ? null : id;
   }
 
   // ---- pestaña dividendos (RF-7, §7) ----

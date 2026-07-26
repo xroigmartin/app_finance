@@ -215,7 +215,7 @@ export class FlexImportDialog {
         this.loading = false;
         this.result = result;
         this.file = null;
-        if (result.imported > 0) this.done.emit();
+        this.done.emit();
       },
       error: (e: HttpErrorResponse) => {
         this.loading = false;
