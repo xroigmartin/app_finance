@@ -2,6 +2,8 @@ package com.xroig.finance.investments.infrastructure.web;
 
 import com.xroig.finance.investments.application.FlexImportResult;
 import com.xroig.finance.investments.application.FlexRowError;
+import com.xroig.finance.investments.application.ImportRecordQueryPort;
+import com.xroig.finance.investments.application.ImportRecordView;
 import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
@@ -21,6 +23,7 @@ import com.xroig.finance.investments.domain.Portfolio;
 import com.xroig.finance.investments.domain.PortfolioId;
 import com.xroig.finance.shared.domain.ConflictException;
 import com.xroig.finance.shared.domain.NotFoundException;
+import com.xroig.finance.shared.domain.Page;
 import com.xroig.finance.shared.domain.ValidationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +35,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +66,7 @@ class PortfolioControllerMvcTest {
     @MockitoBean private DeletePortfolio deletePortfolio;
     @MockitoBean private InvestmentQueryPort queries;
     @MockitoBean private ImportFlexReport importFlexReport;
+    @MockitoBean private ImportRecordQueryPort importHistory;
 
     private static Portfolio portfolio(long id, String name) {
         return Portfolio.rehydrate(new PortfolioId(id), name, "EUR");
@@ -170,6 +175,33 @@ class PortfolioControllerMvcTest {
                 .file(new MockMultipartFile(
                         "file", "flex.xml", MediaType.APPLICATION_XML_VALUE, "<FlexQueryResponse/>".getBytes())))
                 .hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void importHistory_returns200WithThePagedView() {
+        when(importHistory.history(7L, 0, 10)).thenReturn(new Page<>(
+                List.of(new ImportRecordView(1L, Instant.parse("2026-07-26T10:15:30Z"), "flex.csv",
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 30), 12, 3,
+                        List.of(new FlexRowError("Trades", "T-1", "Instrumento desconocido")),
+                        List.of("2026-03-01: venta sin posición suficiente"))),
+                0, 10, 1));
+
+        var result = mvc.get().uri("/api/investments/portfolios/7/import-history?page=0&size=10").exchange();
+
+        assertThat(result).hasStatusOk().hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON);
+        assertThat(result).bodyJson().extractingPath("$.totalElements").asNumber().isEqualTo(1);
+        assertThat(result).bodyJson().extractingPath("$.content[0].fileName").isEqualTo("flex.csv");
+        assertThat(result).bodyJson().extractingPath("$.content[0].imported").asNumber().isEqualTo(12);
+        assertThat(result).bodyJson().extractingPath("$.content[0].errors[0].reference").isEqualTo("T-1");
+    }
+
+    @Test
+    void importHistory_defaultsPageAndSize() {
+        when(importHistory.history(7L, 0, 25)).thenReturn(new Page<>(List.of(), 0, 25, 0));
+
+        assertThat(mvc.get().uri("/api/investments/portfolios/7/import-history"))
+                .hasStatusOk();
+        verify(importHistory).history(7L, 0, 25);
     }
 
     @Test

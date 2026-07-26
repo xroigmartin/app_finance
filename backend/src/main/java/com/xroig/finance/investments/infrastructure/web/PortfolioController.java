@@ -1,6 +1,8 @@
 package com.xroig.finance.investments.infrastructure.web;
 
 import com.xroig.finance.investments.application.FlexImportResult;
+import com.xroig.finance.investments.application.ImportRecordQueryPort;
+import com.xroig.finance.investments.application.ImportRecordView;
 import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
@@ -15,6 +17,7 @@ import com.xroig.finance.investments.application.port.FindPortfolios;
 import com.xroig.finance.investments.application.port.ImportFlexReport;
 import com.xroig.finance.investments.application.port.UpdatePortfolio;
 import com.xroig.finance.investments.application.port.UpdatePortfolio.UpdatePortfolioCommand;
+import com.xroig.finance.shared.domain.Page;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -49,16 +52,19 @@ public class PortfolioController {
     private final DeletePortfolio deletePortfolio;
     private final ImportFlexReport importFlexReport;
     private final InvestmentQueryPort queries;
+    private final ImportRecordQueryPort importHistory;
 
     public PortfolioController(FindPortfolios findPortfolios, CreatePortfolio createPortfolio,
                                UpdatePortfolio updatePortfolio, DeletePortfolio deletePortfolio,
-                               ImportFlexReport importFlexReport, InvestmentQueryPort queries) {
+                               ImportFlexReport importFlexReport, InvestmentQueryPort queries,
+                               ImportRecordQueryPort importHistory) {
         this.findPortfolios = findPortfolios;
         this.createPortfolio = createPortfolio;
         this.updatePortfolio = updatePortfolio;
         this.deletePortfolio = deletePortfolio;
         this.importFlexReport = importFlexReport;
         this.queries = queries;
+        this.importHistory = importHistory;
     }
 
     @GetMapping("/portfolios")
@@ -117,5 +123,12 @@ public class PortfolioController {
     @GetMapping("/summary")
     public InvestmentsSummaryView globalSummary() {
         return queries.globalSummary();
+    }
+
+    @GetMapping("/portfolios/{id}/import-history")
+    public Page<ImportRecordView> importHistory(@PathVariable Long id,
+                                                @RequestParam(defaultValue = "0") int page,
+                                                @RequestParam(defaultValue = "25") int size) {
+        return importHistory.history(id, page, size);
     }
 }

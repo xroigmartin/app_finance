@@ -2,8 +2,8 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | ✅ **Implementado** — F1, F2 y F3 completas (modelo + import Flex + posiciones/valoración multidivisa + rentas + alta manual + rentabilidad TWR/XIRR, con UI); F4 (automatización) en backlog |
-| Versión | 0.46 |
+| Estado | ✅ **Implementado** — F1, F2 y F3 completas (modelo + import Flex + posiciones/valoración multidivisa + rentas + alta manual + rentabilidad TWR/XIRR, con UI); F3.5 (historial de imports) backend completo, UI en curso; F4 (automatización) en backlog |
+| Versión | 0.47 |
 | Última actualización | 2026-07-26 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
@@ -145,6 +145,7 @@ Coste asumido del convenio: la API expone los signos "contables" y la UI formate
 | RF-8 | El usuario ve la rentabilidad TWR y XIRR por posición y por cartera. |
 | RF-9 | Toda la valoración agregada se muestra convertida a EUR (o a la divisa base de la cartera), usando el último tipo de cambio disponible. |
 | RF-10 | El dashboard doméstico muestra una tarjeta informativa de patrimonio con el **patrimonio agregado de todas las carteras** y su fecha de valoración (la más antigua de las usadas); con más de una cartera, la tarjeta desglosa el valor de cada una (vía `GET /api/investments/summary`; solo lectura, sin mezclar agregados domésticos). **Comportamiento degradado**: sin carteras o sin valor que mostrar, la tarjeta se **oculta**; si la API de `investments` falla, la tarjeta se muestra con **"—"** y no rompe el resto del dashboard. |
+| RF-11 | El usuario puede consultar el **historial de imports Flex** de una cartera: fecha/hora, fichero, periodo cubierto y el resumen completo (importadas/duplicadas/errores/*warnings*) de cada intento, incluidos los que no importaron ninguna fila nueva. Precursor de la descarga automática (F4, ver `docs/plan/historial-imports.md`). |
 
 ## 5. Reglas de negocio
 
@@ -177,6 +178,7 @@ Base: `/api/investments`.
 | `GET` | `/portfolios/{id}/performance` | TWR/XIRR por posición y total. |
 | `GET` | `/portfolios/{id}/income` | Dividendos/intereses/comisiones agregados. |
 | `GET/POST` | `/securities` · `PUT/DELETE /securities/{id}` | Catálogo de instrumentos (alta automática en import). `DELETE` solo sin operaciones (guarda RN-5 → 409). |
+| `GET` | `/portfolios/{id}/import-history?page=&size=` | Historial de imports Flex (RF-11), paginado (view CQRS), más reciente primero. Defaults `page=0`/`size=25`. |
 
 ## 7. UI/UX (diseño)
 
@@ -310,6 +312,19 @@ La multidivisa ya no es una fase: `exchange_rate`, el parser de *Conversion Rate
 | H3.3 | `PerformanceView` + query adapter + endpoint `GET /portfolios/{id}/performance` (por posición y total). | `@DataJpaTest` + `@WebMvcTest`. |
 | H3.4 | Frontend: TWR/XIRR en el resumen y por posición; gráfico de evolución del valor (Chart.js). | Build + revisión manual. |
 
+### F3.5 — Historial de imports
+
+Precursor obligatorio de F4 (H4.2 Flex Web Service): sin este historial, un import disparado por un proceso desatendido no dejaría rastro de qué falló ni de qué avisó. Plan detallado en `docs/plan/historial-imports.md`.
+
+| Hito | Contenido | Tests |
+|---|---|---|
+| H-imp.1 | Dominio: agregado `ImportRecord` + VO `ImportRowIssue` + puerto `ImportRecordRepository` (solo escritura desde el dominio). | Unitarios de dominio. |
+| H-imp.2 | Migración `V8__import_record.sql` (`errors`/`warnings` como `jsonb`, sin tabla hija) + entidad/mapper/adaptador JPA. | `@DataJpaTest` (Testcontainers): round-trip JSON, `to_date NOT NULL`. |
+| H-imp.3 | Enganche en `FlexImportService.importReport`: persiste un `ImportRecord` al final de cada intento, dentro de la misma transacción, incluidos los imports "vacíos" (todo duplicado). | Aplicación mockeada. |
+| H-imp.4 | Read-side CQRS: `ImportRecordQueryPort`/`ImportRecordView` + `ImportRecordQueryAdapter` (paginado, orden por `importedAt` desc) + endpoint `GET /portfolios/{id}/import-history`. | `@DataJpaTest` + `@WebMvcTest`. |
+| H-imp.5 | Frontend: modelos (`ImportRecordView`) + `api.service.ts` (`getImportHistory`). | Vitest. |
+| H-imp.6 | Frontend: cuarta pestaña "Importaciones" en `investments-operations` (tabla paginada con `app-pagination` + detalle expandible de errores/warnings). | Vitest + Playwright. |
+
 ### F4 — Automatización (backlog)
 
 | Hito | Contenido |
@@ -327,6 +342,7 @@ Implementado hasta H1.13 (backend en `backend/src/main/java/com/xroig/finance/in
 - **Infraestructura** (`infrastructure/persistence/`): migración `V7__investments.sql` (esquema `investments` + 5 tablas); entidades `XJpaEntity` con `@Table(schema = "investments")` (FKs como columnas id planas, sin `@ManyToOne` — los agregados se referencian por id); repositorios Spring Data `XJpaRepository`; mappers `PortfolioJpaMapper`/`SecurityJpaMapper`/`InvestmentTransactionJpaMapper` (divisa propia de fee/tax: columna nula = divisa del apunte); adaptadores `XPersistenceAdapter` (upsert por clave natural en cotizaciones y tipos de cambio); `InvestmentQueryAdapter` (valoración RN-6 con última cotización ≤ hoy, conversión RN-7 dual con degradación 1:1, nada materializado).
 - **Infraestructura** (`infrastructure/web/`): `InvestmentTransactionController` (H2.3: `GET/POST /portfolios/{id}/transactions` con filtros `type/from/to/securityId` + `PUT/DELETE /transactions/{id}`, DTO `InvestmentTransactionRequest` con validación estructural mínima); `PortfolioController` (CRUD `/api/investments/portfolios`, `POST .../{id}/import` multipart —campo `file`; límite subido a 10 MB en `application.properties`, los Flex anuales rondan 1,5 MB—, `GET .../positions|summary|valuation-history|income|performance`, `GET /api/investments/summary`) y `SecurityController` (CRUD `/api/investments/securities`) con DTOs `PortfolioRequest`/`PortfolioResponse`/`SecurityRequest`/`SecurityResponse`; las views CQRS se serializan tal cual. Errores vía `shared.web.DomainExceptionHandler` (400/404/409 `problem+json`).
 - **Infraestructura** (`infrastructure/flex/`): ACL `FlexReportParser` implementando el puerto `FlexReportReader` (application) → `FlexReport` con `FlexRow`/`FlexInstrument`/`FlexQuote`/`FlexRowError` (application): traduce el Flex XML de IBKR según la configuración validada de §9 (Trades→`ORDER` con `FX_TRADE` por signos, Cash→`DETAIL`, Corporate Actions→`DETAIL` FS/RS, FTT→`ORDER_SUMMARY`, Open Positions→cotizaciones a `toDate`, Conversion Rates filtrados divisa→EUR), `external_id` prefijado `ORD-/CT-/FTT-/CA-` (RN-10) y errores por fila sin abortar el resto (§8). Fixture `flex-sample.xml` + smoke test condicional contra los informes reales.
+- **Historial de imports** (H-imp.1–H-imp.4, RF-11): dominio `ImportRecord` (record + factory `of()`, valida `portfolioId`/`importedAt`/`toDate` no nulos) y VO `ImportRowIssue` (`domain/`, duplica la forma de `FlexRowError` para no depender hacia arriba de `application/`) + puerto `ImportRecordRepository` (solo `save`); `FlexImportService.importReport` lo persiste al final de cada intento, dentro de la misma transacción, incluidos los imports sin filas nuevas; migración `V8__import_record.sql` (`errors`/`warnings` como `jsonb`, sin tabla hija) con `ImportRecordJpaEntity`/`ImportRecordJpaMapper` (serializa con el `ObjectMapper` de Jackson 3 — `tools.jackson.databind`, el motor real del proyecto vía `spring-boot-starter-jackson`, no el clásico `com.fasterxml.jackson.databind`) y `ImportRecordPersistenceAdapter`; lectura CQRS `ImportRecordQueryPort`/`ImportRecordView` (reutiliza `FlexRowError` porque esta vista sí vive en `application/`) + `ImportRecordQueryAdapter` (lee `ImportRecordJpaRepository` directamente, sin pasar por el agregado de dominio — es un listado, no un cálculo) y endpoint `GET /portfolios/{id}/import-history` en `PortfolioController`.
 
 - **Frontend** (H2.3): diálogo `components/investment-transaction-dialog.ts` (alta/edición manual con campos condicionales por tipo §3, pistas del convenio de signos y errores 400 del dominio con detalle; método `edit(tx)` para abrirlo desde el listado de H2.4), botón "Nueva operación" en la página de inversión; modelos `InvestmentTransactionView`/`InvestmentTransactionRequest`/`InvestmentSecurity` y llamadas CRUD en `api.service.ts`.
 - **Frontend** (H1.11–H1.13, H2.3–H2.4, H3.4): rentabilidad — tarjetas KPI «Rentabilidad (TWR)» (acumulada del periodo) y «Rentabilidad (XIRR)» (anualizada) con «—» si no calculable, columnas TWR/XIRR por posición en la tabla y gráfico de barras horizontales «Rentabilidad por posición (%)» (XIRR y TWR por instrumento, ordenado por XIRR) junto al de P&L, todo en `pages/investments-dashboard/`; modelo `InvestmentPerformance`/`PositionPerformance` y `getInvestmentPerformance()` en `api.service.ts`. Resto del frontend: tarjeta de **patrimonio invertido** en el dashboard doméstico (RF-10: agregado en EUR + fecha de valoración + desglose con >1 cartera; oculta sin carteras, "—" ante error de API — ver PRD Dashboard RF-8); dos páginas lazy bajo Inversión en el menú lateral (H1.13, §7): `pages/investments-dashboard/` (ruta `/investments/dashboard`, "Panel general") con la cabecera de KPIs (valor total con fecha de valoración o aviso "a coste", aportado neto, P&L latente € y %, efectivo por divisa, dividendos del año en bruto), gráficos Chart.js integrados con `ThemeService` (evolución valor vs aportado —aportado escalonado—, donut de asignación con el efectivo como porción, barras horizontales divergentes de P&L por posición) y tabla de posiciones (cantidades negativas en rojo RN-4, badge "a coste" sin cotización RN-6); y `pages/investments-operations/` (ruta `/investments/operations`, "Operaciones") con las pestañas **Operaciones** — listado filtrable por tipo/fechas/instrumento (etiquetas de tipo compartidas `INVESTMENT_TYPE_LABELS`), columna de origen (manual/importado por `externalId`), editar (reutiliza `investment-transaction-dialog.edit(tx)` vía `InvestmentToolbar.edit(tx)`) y borrar con confirmación; y **Dividendos** — gráfico de barras mensuales apiladas por instrumento (bruto, con el neto en el tooltip) con selector de año y vista «Todo (por año)», tabla de cobros por instrumento (bruto/retenido/neto + total) y totales de comisiones/retenciones pagadas del periodo; los intereses sin instrumento agrupan como «Intereses». Ambas páginas comparten `InvestmentContextService` (`src/app/investment-context.service.ts`: carteras, instrumentos, cartera seleccionada vía `portfolioId$`, alta inline de cartera) y `components/investment-toolbar.ts` (selector/alta de cartera + diálogo `components/flex-import-dialog.ts`, adaptación del patrón `import-dialog.ts`, que sube el XML y muestra el resumen ok/duplicadas/errores/warnings). Modelos en `models.ts` (`Portfolio`, `PositionView`, `PortfolioSummary`, `ValuationPoint`, `InvestmentsSummary`, `FlexImportResult`, `InvestmentTransactionView`, `InvestmentIncome`…) y llamadas en `api.service.ts`.
