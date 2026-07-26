@@ -4,6 +4,9 @@ import com.xroig.finance.investments.application.port.ImportFlexReport;
 import com.xroig.finance.investments.domain.CurrencyConverter;
 import com.xroig.finance.investments.domain.CurrencyMoney;
 import com.xroig.finance.investments.domain.ExchangeRateRepository;
+import com.xroig.finance.investments.domain.ImportRecord;
+import com.xroig.finance.investments.domain.ImportRecordRepository;
+import com.xroig.finance.investments.domain.ImportRowIssue;
 import com.xroig.finance.investments.domain.InvestmentTransaction;
 import com.xroig.finance.investments.domain.InvestmentTransactionRepository;
 import com.xroig.finance.investments.domain.Portfolio;
@@ -24,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -51,16 +55,19 @@ public class FlexImportService implements ImportFlexReport {
     private final InvestmentTransactionRepository transactions;
     private final PriceQuoteRepository priceQuotes;
     private final ExchangeRateRepository exchangeRates;
+    private final ImportRecordRepository importRecords;
 
     public FlexImportService(FlexReportReader reader, PortfolioRepository portfolios,
                              SecurityRepository securities, InvestmentTransactionRepository transactions,
-                             PriceQuoteRepository priceQuotes, ExchangeRateRepository exchangeRates) {
+                             PriceQuoteRepository priceQuotes, ExchangeRateRepository exchangeRates,
+                             ImportRecordRepository importRecords) {
         this.reader = reader;
         this.portfolios = portfolios;
         this.securities = securities;
         this.transactions = transactions;
         this.priceQuotes = priceQuotes;
         this.exchangeRates = exchangeRates;
+        this.importRecords = importRecords;
     }
 
     @Override
@@ -104,7 +111,18 @@ public class FlexImportService implements ImportFlexReport {
         }
         report.exchangeRates().forEach(exchangeRates::upsert);
 
-        return new FlexImportResult(imported, duplicated, List.copyOf(errors), positionWarnings(portfolio));
+        FlexImportResult result = new FlexImportResult(imported, duplicated, List.copyOf(errors),
+                positionWarnings(portfolio));
+        importRecords.save(ImportRecord.of(portfolio.id(), Instant.now(), file.getOriginalFilename(),
+                report.fromDate(), report.toDate(), result.imported(), result.duplicated(),
+                toRowIssues(result.errors()), result.warnings()));
+        return result;
+    }
+
+    private static List<ImportRowIssue> toRowIssues(List<FlexRowError> errors) {
+        return errors.stream()
+                .map(error -> new ImportRowIssue(error.section(), error.reference(), error.message()))
+                .toList();
     }
 
     /**

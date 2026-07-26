@@ -6,6 +6,8 @@ import ch.qos.logback.core.read.ListAppender;
 import com.xroig.finance.investments.domain.CurrencyMoney;
 import com.xroig.finance.investments.domain.ExchangeRate;
 import com.xroig.finance.investments.domain.ExchangeRateRepository;
+import com.xroig.finance.investments.domain.ImportRecord;
+import com.xroig.finance.investments.domain.ImportRecordRepository;
 import com.xroig.finance.investments.domain.InvestmentTransaction;
 import com.xroig.finance.investments.domain.InvestmentTransactionRepository;
 import com.xroig.finance.investments.domain.InvestmentTransactionType;
@@ -60,6 +62,7 @@ class FlexImportServiceTest {
     @Mock private InvestmentTransactionRepository transactions;
     @Mock private PriceQuoteRepository priceQuotes;
     @Mock private ExchangeRateRepository exchangeRates;
+    @Mock private ImportRecordRepository importRecords;
     @Mock private MultipartFile file;
 
     private static final PortfolioId PORTFOLIO_ID = new PortfolioId(7L);
@@ -88,7 +91,7 @@ class FlexImportServiceTest {
 
     private FlexImportService service() {
         return new FlexImportService(reader, portfolios, securities, transactions,
-                priceQuotes, exchangeRates);
+                priceQuotes, exchangeRates, importRecords);
     }
 
     private void givenPortfolio(String baseCurrency) {
@@ -368,6 +371,48 @@ class FlexImportServiceTest {
         assertThat(result.imported()).isEqualTo(1);
         assertThat(result.warnings()).hasSize(1);
         assertThat(result.warnings().getFirst()).contains("venta sin posición suficiente");
+    }
+
+    @Test
+    void importPersistsAnImportRecordWithTheSameCountersAsTheResult() {
+        givenPortfolio("EUR");
+        FlexRow deposit = cashRow(InvestmentTransactionType.DEPOSIT, "CT-100", "1500.00");
+        when(reader.read(file)).thenReturn(report("EUR", List.of(deposit)));
+        when(file.getOriginalFilename()).thenReturn("flex-2025.csv");
+        when(transactions.save(any(InvestmentTransaction.class))).thenAnswer(i -> i.getArgument(0));
+        when(importRecords.save(any(ImportRecord.class))).thenAnswer(i -> i.getArgument(0));
+
+        FlexImportResult result = service().importReport(7L, file);
+
+        ArgumentCaptor<ImportRecord> captor = ArgumentCaptor.forClass(ImportRecord.class);
+        verify(importRecords).save(captor.capture());
+        ImportRecord record = captor.getValue();
+        assertThat(record.portfolioId()).isEqualTo(PORTFOLIO_ID);
+        assertThat(record.fileName()).isEqualTo("flex-2025.csv");
+        assertThat(record.fromDate()).isEqualTo(LocalDate.of(2025, 1, 1));
+        assertThat(record.toDate()).isEqualTo(LocalDate.of(2025, 12, 31));
+        assertThat(record.imported()).isEqualTo(result.imported());
+        assertThat(record.duplicated()).isEqualTo(result.duplicated());
+        assertThat(record.errors()).isEmpty();
+        assertThat(record.warnings()).isEqualTo(result.warnings());
+    }
+
+    @Test
+    void importWithoutNewRows_stillPersistsItsImportRecord() {
+        givenPortfolio("EUR");
+        FlexRow deposit = cashRow(InvestmentTransactionType.DEPOSIT, "CT-100", "1500.00");
+        when(reader.read(file)).thenReturn(report("EUR", List.of(deposit)));
+        when(transactions.existsByPortfolioAndExternalId(PORTFOLIO_ID, "CT-100")).thenReturn(true);
+        when(importRecords.save(any(ImportRecord.class))).thenAnswer(i -> i.getArgument(0));
+
+        FlexImportResult result = service().importReport(7L, file);
+
+        assertThat(result.imported()).isZero();
+        assertThat(result.duplicated()).isEqualTo(1);
+        ArgumentCaptor<ImportRecord> captor = ArgumentCaptor.forClass(ImportRecord.class);
+        verify(importRecords).save(captor.capture());
+        assertThat(captor.getValue().imported()).isZero();
+        assertThat(captor.getValue().duplicated()).isEqualTo(1);
     }
 
     @Test
