@@ -372,6 +372,11 @@ describe('ApiService', () => {
       http.expectOne('/api/investments/portfolios/1/performance').flush({});
     });
 
+    it('getClosedPositions', () => {
+      service.getClosedPositions(1).subscribe();
+      http.expectOne('/api/investments/portfolios/1/closed-positions').flush([]);
+    });
+
     it('getInvestmentsSummary', () => {
       service.getInvestmentsSummary().subscribe();
       http.expectOne('/api/investments/summary').flush({});
