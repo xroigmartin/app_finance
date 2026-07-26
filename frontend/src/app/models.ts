@@ -421,6 +421,18 @@ export interface InvestmentPerformance {
   positions: PositionPerformance[];
 }
 
+/** P&L realizado de un instrumento en un año natural (RF-11), coste promedio (RN-3). */
+export interface ClosedPosition {
+  securityId: number;
+  isin: string;
+  name: string;
+  ticker: string | null;
+  currency: string;
+  year: number;
+  /** En la divisa base de la cartera. */
+  realizedPnl: number;
+}
+
 /** Fila ilegible/no soportada/inválida del import Flex (§8). */
 export interface FlexRowError {
   section: string;
