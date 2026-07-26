@@ -435,3 +435,16 @@ export interface FlexImportResult {
   errors: FlexRowError[];
   warnings: string[];
 }
+
+/** Un intento de import Flex persistido (RF-11): historial paginado por cartera. */
+export interface ImportRecordView {
+  id: number;
+  importedAt: string;
+  fileName: string | null;
+  fromDate: string | null;
+  toDate: string;
+  imported: number;
+  duplicated: number;
+  errors: FlexRowError[];
+  warnings: string[];
+}
