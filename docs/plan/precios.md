@@ -29,6 +29,8 @@
 
 **Por qué se cambia:** el argumento original ("cero secreto que gestionar") es más débil de lo que parece — el proyecto ya gestiona secretos por variable de entorno (`FINANCE_DB_*` en `application.properties`), así que añadir `FINANCE_TWELVEDATA_API_KEY` no es infraestructura nueva, es una línea más del mismo patrón ya establecido. Además, desde 2024 el endpoint `chart` de Yahoo exige un mecanismo de cookie+crumb que caduca en minutos y cambia periódicamente para dificultar el scraping — sin SLA ni contrato, el riesgo de que el botón de refresco deje de funcionar en silencio es real y ya documentado (varios cambios de formato reportados en 2024-2026), no hipotético.
 
+**Documentación oficial**: https://twelvedata.com/docs/introduction/overview — consultarla al implementar el adaptador (endpoints, parámetros, formato de respuesta, límites).
+
 **Twelve Data**: API documentada y estable, free tier de **800 peticiones/día** — con un catálogo de ~10-20 instrumentos y refresco bajo demanda (no scheduler), el consumo real por refresco es de ese mismo orden, muy por debajo del límite. Cobertura confirmada de 50+ bolsas incluyendo LSE (cubre el caso ZEG/GBX, ver 2.3).
 
 Endpoint EOD (cierre, no tiempo real — ver decisión de alcance en §1): `GET https://api.twelvedata.com/eod?symbol={ticker}&exchange={exchange}&apikey={apikey}` (alternativa: parámetro `mic_code` en vez de `exchange`, ver 2.2). Respuesta con metadata (`symbol`, `currency`, `exchange`, `mic_code`) + `close` + `datetime` — el campo `currency` es la clave para detectar GBX (ver 2.3).

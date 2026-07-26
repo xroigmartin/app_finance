@@ -304,7 +304,7 @@ La multidivisa ya no es una fase: `exchange_rate`, el parser de *Conversion Rate
 |---|---|
 | H4.1 | Adaptador externo de `PriceProviderPort` (API de cotizaciones) + acción de refresco de precios. |
 | H4.2 | Flex Web Service: descarga del informe con token IBKR (mismo caso de uso `ImportFlexReport`). |
-| H4.3 | Modo híbrido: precios del Flex al importar + refresco bajo demanda/programado. |
+| H4.3 | Modo híbrido: precios del Flex al importar + refresco bajo demanda/programado. Idea de especificación pendiente de validar: job automático ~10 min tras el cierre de mercado (requiere horario por mercado, no uno único global — la cartera mezcla LSE/NASDAQ/SBF/IBIS/BVME/AEB — y verificar empíricamente cuánto tarda el EOD del proveedor en free tier en estar disponible tras el cierre real). |
 
 ## 13. Referencias de código
 
