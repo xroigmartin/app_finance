@@ -1,5 +1,6 @@
 package com.xroig.finance.investments.infrastructure.web;
 
+import com.xroig.finance.investments.application.ClosedPositionView;
 import com.xroig.finance.investments.application.FlexImportResult;
 import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentQueryPort;
@@ -112,6 +113,11 @@ public class PortfolioController {
     @GetMapping("/portfolios/{id}/performance")
     public PerformanceView performance(@PathVariable Long id) {
         return queries.performance(id);
+    }
+
+    @GetMapping("/portfolios/{id}/closed-positions")
+    public List<ClosedPositionView> closedPositions(@PathVariable Long id) {
+        return queries.closedPositions(id);
     }
 
     @GetMapping("/summary")
