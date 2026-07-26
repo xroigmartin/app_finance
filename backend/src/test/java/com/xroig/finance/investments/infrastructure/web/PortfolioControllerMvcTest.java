@@ -1,5 +1,6 @@
 package com.xroig.finance.investments.infrastructure.web;
 
+import com.xroig.finance.investments.application.ClosedPositionView;
 import com.xroig.finance.investments.application.FlexImportResult;
 import com.xroig.finance.investments.application.FlexRowError;
 import com.xroig.finance.investments.application.IncomeView;
@@ -261,6 +262,25 @@ class PortfolioControllerMvcTest {
         when(queries.positions(99L)).thenThrow(new NotFoundException("Cartera no encontrada"));
 
         assertThat(mvc.get().uri("/api/investments/portfolios/99/positions"))
+                .hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void closedPositions_returns200WithTheViewShape() {
+        when(queries.closedPositions(7L)).thenReturn(List.of(new ClosedPositionView(
+                3L, "IE00BK5BQT80", "Vanguard FTSE All-World", "VWCE", "EUR",
+                2025, new BigDecimal("200.0000"))));
+
+        assertThat(mvc.get().uri("/api/investments/portfolios/7/closed-positions"))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$[0].isin").isEqualTo("IE00BK5BQT80");
+    }
+
+    @Test
+    void closedPositions_ofMissingPortfolio_returns404() {
+        when(queries.closedPositions(99L)).thenThrow(new NotFoundException("Cartera no encontrada"));
+
+        assertThat(mvc.get().uri("/api/investments/portfolios/99/closed-positions"))
                 .hasStatus(HttpStatus.NOT_FOUND);
     }
 
