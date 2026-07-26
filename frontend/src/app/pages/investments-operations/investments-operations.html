@@ -20,6 +20,8 @@
               (click)="setTab('operaciones')">Operaciones</button>
       <button class="tab" [class.active]="activeTab === 'dividendos'"
               (click)="setTab('dividendos')">Dividendos</button>
+      <button class="tab" [class.active]="activeTab === 'cerradas'"
+              (click)="setTab('cerradas')">Cerradas</button>
     </div>
 
     @if (activeTab === 'operaciones') {
@@ -122,7 +124,7 @@
       </table>
       <app-pagination [page]="txPage" [size]="txSize" [totalElements]="txTotalElements"
                       (pageChange)="onTxPageChange($event)" (sizeChange)="onTxSizeChange($event)" />
-    } @else {
+    } @else if (activeTab === 'dividendos') {
       <div class="form-row filters">
         <label>Año
           <select [(ngModel)]="incomeYear" (ngModelChange)="onIncomeYearChange()">
@@ -170,6 +172,48 @@
         </p>
       } @else {
         <p class="muted">Sin rentas registradas en el periodo seleccionado.</p>
+      }
+    } @else {
+      <div class="form-row filters">
+        <label>Año
+          <select [(ngModel)]="closedYear">
+            @for (y of closedYears; track y) {
+              <option [ngValue]="y">{{ y }}</option>
+            }
+            <option [ngValue]="'all'">Todo (por año)</option>
+          </select>
+        </label>
+      </div>
+
+      @if (closedRows.length > 0) {
+        <table class="data closed-positions-table">
+          <thead>
+            <tr>
+              <th>Instrumento</th>
+              <th class="num">P&L realizado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of closedRows; track row.name) {
+              <tr>
+                <td>{{ row.name }}</td>
+                <td class="num" [class.amount-income]="row.realizedPnl > 0"
+                    [class.amount-expense]="row.realizedPnl < 0">
+                  {{ row.realizedPnl | currency:baseCurrency }}
+                </td>
+              </tr>
+            }
+            <tr class="totals">
+              <td>Total</td>
+              <td class="num" [class.amount-income]="closedTotal > 0"
+                  [class.amount-expense]="closedTotal < 0">
+                {{ closedTotal | currency:baseCurrency }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      } @else {
+        <p class="muted">Sin ventas con P&L realizado en el periodo seleccionado.</p>
       }
     }
   </div>

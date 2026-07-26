@@ -11,8 +11,8 @@ import { InvestmentContextService } from '../../investment-context.service';
 import { InvestmentToolbar } from '../../components/investment-toolbar';
 import { Pagination } from '../../components/pagination';
 import {
-  INVESTMENT_TYPE_LABELS, InvestmentIncome, InvestmentTransactionFilter, InvestmentTransactionType,
-  InvestmentTransactionView
+  ClosedPosition, INVESTMENT_TYPE_LABELS, InvestmentIncome, InvestmentTransactionFilter,
+  InvestmentTransactionType, InvestmentTransactionView
 } from '../../models';
 
 Chart.register(...registerables);
@@ -38,7 +38,7 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
   private theme = inject(ThemeService);
   readonly ctx = inject(InvestmentContextService);
 
-  activeTab: 'operaciones' | 'dividendos' = 'operaciones';
+  activeTab: 'operaciones' | 'dividendos' | 'cerradas' = 'operaciones';
   readonly typeLabels = INVESTMENT_TYPE_LABELS;
   readonly types = Object.keys(INVESTMENT_TYPE_LABELS) as InvestmentTransactionType[];
   transactions: InvestmentTransactionView[] = [];
@@ -54,6 +54,10 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
   incomeYears: number[] = [];
   incomeYear: number | 'all' = new Date().getFullYear();
 
+  closedPositions: ClosedPosition[] = [];
+  closedYears: number[] = [];
+  closedYear: number | 'all' = new Date().getFullYear();
+
   @ViewChild(InvestmentToolbar) toolbar?: InvestmentToolbar;
   @ViewChild('dividendChart') dividendCanvas?: ElementRef<HTMLCanvasElement>;
 
@@ -66,6 +70,7 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
     this.portfolioSub = this.ctx.portfolioId$.subscribe(() => {
       this.loadTransactions();
       this.loadIncome();
+      this.loadClosedPositions();
     });
     this.ctx.init();
   }
@@ -86,7 +91,7 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
 
   // ---- pestaña operaciones (listado filtrable, RF-2) ----
 
-  setTab(tab: 'operaciones' | 'dividendos'): void {
+  setTab(tab: 'operaciones' | 'dividendos' | 'cerradas'): void {
     this.activeTab = tab;
     // El canvas de dividendos entra/sale del DOM con la pestaña.
     this.scheduleRenderCharts();
@@ -201,6 +206,41 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
     return (this.income?.taxes ?? [])
       .filter(t => this.inSelectedYear(t.month))
       .reduce((sum, t) => sum + t.amount, 0);
+  }
+
+  // ---- pestaña cerradas (RF-11, §7) ----
+
+  loadClosedPositions(): void {
+    const portfolioId = this.ctx.portfolioId;
+    if (portfolioId == null) {
+      this.closedPositions = [];
+      return;
+    }
+    this.api.getClosedPositions(portfolioId).subscribe(rows => {
+      this.closedPositions = rows;
+      const years = new Set<number>();
+      rows.forEach(r => years.add(r.year));
+      this.closedYears = [...years].sort((a, b) => b - a);
+      if (this.closedYear !== 'all' && !this.closedYears.includes(this.closedYear)) {
+        this.closedYear = this.closedYears[0] ?? new Date().getFullYear();
+      }
+    });
+  }
+
+  /** P&L realizado agregado por instrumento del año seleccionado (RF-11), orden por importe descendente. */
+  get closedRows(): { name: string; realizedPnl: number }[] {
+    const byName = new Map<string, { name: string; realizedPnl: number }>();
+    for (const p of this.closedPositions) {
+      if (this.closedYear !== 'all' && p.year !== this.closedYear) continue;
+      const row = byName.get(p.name) ?? { name: p.name, realizedPnl: 0 };
+      row.realizedPnl += p.realizedPnl;
+      byName.set(p.name, row);
+    }
+    return [...byName.values()].sort((a, b) => b.realizedPnl - a.realizedPnl);
+  }
+
+  get closedTotal(): number {
+    return this.closedRows.reduce((sum, r) => sum + r.realizedPnl, 0);
   }
 
   /** Ver comentario homónimo en investments-dashboard.ts: mismo problema de layout de canvas. */
