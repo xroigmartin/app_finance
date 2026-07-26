@@ -8,8 +8,8 @@ import {
   InvestmentSecurity,
   InvestmentTransactionFilter, InvestmentTransactionRequest, InvestmentTransactionView,
   InvestmentsSummary, MonthlyPoint, Movement, PageResponse, Portfolio, PortfolioSummary, PositionView,
-  RecurringBudget, RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer,
-  TransferRequest, ValuationPoint
+  PriceRefreshResult, RecurringBudget, RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest,
+  Transfer, TransferRequest, ValuationPoint
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -300,6 +300,10 @@ export class ApiService {
     data.append('file', file);
     return this.http.post<FlexImportResult>(
       `${this.base}/investments/portfolios/${portfolioId}/import`, data);
+  }
+
+  refreshPrices(): Observable<PriceRefreshResult> {
+    return this.http.post<PriceRefreshResult>(`${this.base}/investments/securities/prices/refresh`, {});
   }
 
   // Category rules
