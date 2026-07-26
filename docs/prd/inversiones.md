@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | ✅ **Implementado** — F1, F2 y F3 completas (modelo + import Flex + posiciones/valoración multidivisa + rentas + alta manual + rentabilidad TWR/XIRR, con UI); F4 (automatización) en backlog |
-| Versión | 0.45 |
-| Última actualización | 2026-07-24 |
+| Versión | 0.46 |
+| Última actualización | 2026-07-26 |
 | Dominio | Inversiones (`investments`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -118,6 +118,18 @@ Nuevas tablas vía migraciones Flyway `V7+`, todas en `investments.*`. Todo impo
 Coste asumido del convenio: la API expone los signos "contables" y la UI formatea para presentación (p. ej. una venta lista `quantity` negativa). Las agregaciones que necesitan una **magnitud** en vez de un flujo con signo (retenciones/comisiones pagadas en `IncomeCalculator`, RF-7) suman primero los importes con signo (para que una reversa cancele su original) y solo niegan el resultado al final — nunca toman valor absoluto fila a fila, porque eso sumaría una reversa en vez de cancelarla.
 
 **Nada materializado**: posiciones, coste medio, efectivo de la cartera y valoración se calculan siempre a partir de `investment_transaction` + `price_quote` + `exchange_rate`.
+
+**`import_record`** — historial de imports Flex (migración `V8`; precursor de la 2.1 Flex Web Service, ver §12 F4). Un registro por cada llamada a `POST .../import`, tanto si importó filas como si no (import "vacío" o solo duplicadas también se loguea) — de solo-escritura desde el dominio (`ImportRecordRepository.save`), lectura paginada por CQRS (`ImportRecordQueryPort`)
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | `bigint` PK | |
+| `portfolio_id` | FK → `portfolio` | |
+| `imported_at` | `timestamp NOT NULL` | Momento del intento de import. |
+| `file_name` | `varchar`, nullable | `MultipartFile.getOriginalFilename()` puede venir nulo. |
+| `from_date` / `to_date` | `date`, `to_date NOT NULL` | Periodo cubierto por el informe Flex (`FlexReport.fromDate()/toDate()`); `fromDate` es opcional en el propio Flex, `toDate` no. |
+| `imported_count` / `duplicated_count` | `int NOT NULL` | Contadores del `FlexImportResult`. |
+| `errors` / `warnings` | `jsonb NOT NULL DEFAULT '[]'` | Detalle de filas rechazadas (`section`, `reference`, `message`) y avisos no bloqueantes. Se leen siempre como bloque junto a su import padre — sin tabla hija, único `@OneToMany` que introduciría el contexto sin necesidad real. |
 
 ## 4. Requisitos funcionales
 
