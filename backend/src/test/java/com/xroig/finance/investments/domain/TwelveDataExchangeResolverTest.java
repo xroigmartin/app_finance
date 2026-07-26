@@ -37,4 +37,22 @@ class TwelveDataExchangeResolverTest {
     void returnsEmptyForNullExchange() {
         assertThat(resolver.micCodeFor(null)).isEqualTo(Optional.empty());
     }
+
+    @Test
+    void returnsEmptyForBlankExchange() {
+        assertThat(resolver.micCodeFor("   ")).isEqualTo(Optional.empty());
+    }
+
+    @Test
+    void resolvesRemainingPortfolioExchanges() {
+        assertThat(resolver.micCodeFor("SBF")).contains("XPAR");
+        assertThat(resolver.micCodeFor("AEB")).contains("XAMS");
+        assertThat(resolver.micCodeFor("BVME")).contains("XMIL");
+        assertThat(resolver.micCodeFor("IBIS")).contains("XETR");
+    }
+
+    @Test
+    void resolutionIsCaseInsensitive() {
+        assertThat(resolver.micCodeFor("lse")).contains("XLON");
+    }
 }
