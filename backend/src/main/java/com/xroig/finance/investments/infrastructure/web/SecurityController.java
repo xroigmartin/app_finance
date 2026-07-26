@@ -4,6 +4,7 @@ import com.xroig.finance.investments.application.port.CreateSecurity;
 import com.xroig.finance.investments.application.port.CreateSecurity.CreateSecurityCommand;
 import com.xroig.finance.investments.application.port.DeleteSecurity;
 import com.xroig.finance.investments.application.port.FindSecurities;
+import com.xroig.finance.investments.application.port.RefreshPrices;
 import com.xroig.finance.investments.application.port.UpdateSecurity;
 import com.xroig.finance.investments.application.port.UpdateSecurity.UpdateSecurityCommand;
 import jakarta.validation.Valid;
@@ -33,13 +34,16 @@ public class SecurityController {
     private final CreateSecurity createSecurity;
     private final UpdateSecurity updateSecurity;
     private final DeleteSecurity deleteSecurity;
+    private final RefreshPrices refreshPrices;
 
     public SecurityController(FindSecurities findSecurities, CreateSecurity createSecurity,
-                              UpdateSecurity updateSecurity, DeleteSecurity deleteSecurity) {
+                              UpdateSecurity updateSecurity, DeleteSecurity deleteSecurity,
+                              RefreshPrices refreshPrices) {
         this.findSecurities = findSecurities;
         this.createSecurity = createSecurity;
         this.updateSecurity = updateSecurity;
         this.deleteSecurity = deleteSecurity;
+        this.refreshPrices = refreshPrices;
     }
 
     @GetMapping
@@ -65,5 +69,11 @@ public class SecurityController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         deleteSecurity.delete(id);
+    }
+
+    /** Global, on-demand refresh of the whole catalogue's prices (§2.6) — not scoped to a portfolio. */
+    @PostMapping("/prices/refresh")
+    public PriceRefreshResponse refreshPrices() {
+        return PriceRefreshResponse.from(refreshPrices.refresh());
     }
 }
