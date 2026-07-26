@@ -1,5 +1,53 @@
 # Plan de implementación — API externa de cotizaciones (1.1)
 
+## Revisión (2026-07-26): Twelve Data descartado → Yahoo Finance
+
+Twelve Data (elegido en la revisión anterior de este plan) se descarta tras verificación empírica con clave real: su free tier bloquea **todos** los mercados no-US ("This symbol is available starting with the Grow or Venture plan"), incluido LSE — invalida la premisa de cobertura del §2.1 original. Se evaluaron alternativas (EOD Historical Data, Financial Modeling Prep, Marketstack, Alpha Vantage, Stooq, la propia API de IBKR): todos los vendors comerciales de pago-por-defecto repiten el mismo patrón (gratis = solo US) por coste real de licencia; Stooq exige un reto JS anti-bot inviable sin navegador; la vía IBKR (Client Portal Web API) no es automatizable para clientes retail (login manual + gateway Java persistente) y además cobra suscripción de datos por mercado aparte. Alpha Vantage sí cubre LSE/Xetra/Euronext gratis pero **no Milán** (confirmado con dos blue-chips italianos, `ENEL.MIL` vacío) y tiene una cuota muy ajustada (25/día, 5/min).
+
+**Decisión final: Yahoo Finance**, el mismo endpoint (`query1.finance.yahoo.com/v8/finance/chart/{TICKER}`) que este plan proponía en su primerísima versión y que descartó por miedo al mecanismo cookie+crumb. Verificado hoy en real: **no hace falta cookie+crumb**, solo un `User-Agent` de navegador. Confirmado con Portfolio Performance (app open-source de referencia para este mismo problema, activamente mantenida): su `YahooFinanceQuoteFeed.java` usa exactamente este endpoint con el mismo mecanismo — es la vía que usa esa comunidad para todo lo que los vendors de pago no cubren gratis; su propio servicio propietario (`portfolio-report.net`) se está descontinuando.
+
+**Cobertura verificada con llamadas reales (2026-07-26), sin API key:**
+
+| Mercado IBKR | Sufijo Yahoo | Divisa devuelta |
+|---|---|---|
+| NASDAQ | *(sin sufijo)* | `USD` |
+| LSE | `.L` | `GBp` (peniques — literal real confirmado, minúscula) |
+| IBIS (Xetra) | `.DE` | `EUR` |
+| SBF (Euronext París) | `.PA` | `EUR` |
+| AEB (Euronext Ámsterdam) | `.AS` | `EUR` |
+| BVME (Borsa Italiana Milán) | `.MI` | `EUR` |
+
+**Riesgo aceptado, sin cambios respecto al análisis original**: endpoint no oficial, sin SLA, puede cambiar de formato o bloquearse sin aviso. Mitigación ya presente en el diseño: fallo de un instrumento → lista vacía + WARN, nunca rompe el resto del refresco (mismo principio tolerante que el import Flex). Sin API key que gestionar (ventaja frente a Twelve Data): se retira `FINANCE_TWELVEDATA_API_KEY`.
+
+### Checkpoints de esta migración
+
+**Retirar Twelve Data**
+- [ ] Eliminar `TwelveDataExchangeResolver` + test
+- [ ] Eliminar `TwelveDataPriceProvider` + `TwelveDataEodResponse` + test
+- [ ] Quitar `FINANCE_TWELVEDATA_API_KEY` de `application.properties` (avisar al usuario para que lo retire también de su `.env`)
+
+**Nuevo adaptador Yahoo Finance (TDD)**
+- [ ] RED+GREEN: `YahooExchangeResolver` (dominio) — tabla exchange IBKR → sufijo Yahoo
+- [ ] TRIANGULATE: casos límite (blank/null, case-insensitive, NASDAQ sin sufijo)
+- [ ] RED+GREEN: `YahooFinancePriceProvider` — caso feliz + conversión GBp→GBP
+- [ ] TRIANGULATE: símbolo no encontrado, timeout, mercado no mapeado, divisa inesperada distinta de GBp
+- [ ] `PriceProviderConfig` sin API key, con `User-Agent` de navegador en el `RestClient`
+
+**Verificación de lo que no cambia**
+- [ ] `PriceRefreshServiceTest`/`SecurityControllerMvcTest` siguen en verde sin tocarlos (dependen solo del puerto, no del adaptador)
+- [ ] Frontend (`investment-toolbar.ts`/`api.service.ts`) sin cambios — el contrato del endpoint no varía
+
+**Documentación**
+- [ ] Esta sección de `docs/plan/precios.md` (revisión, ya en curso)
+- [ ] `docs/prd/inversiones.md`: §9 (exchange→sufijo Yahoo en vez de mic_code), §11 (deuda técnica: literal GBp confirmado, riesgo de endpoint no oficial, Milán resuelto), §13 (referencias de código)
+
+**Verificación final**
+- [ ] `mvn test` completo (incluye ArchUnit)
+- [ ] `npm test` completo del frontend
+- [ ] Commits atómicos por hito (mismo criterio TDD que la iteración anterior)
+
+---
+
 **Worktree:** `/home/xroig/workspace/app_finance-precios` · **Rama:** `inv-precios`
 **Origen:** `docs/investment/mejoras-modulo-inversiones.md` §1.1, PRD `docs/prd/inversiones.md` §10/§11 (H4.1).
 **Estado del código de partida:** `PriceProviderPort` (dominio) está definido desde v1 pero **sin ningún adaptador ni caller** (0 usos fuera de su propia definición) — literalmente el puerto vacío que el PRD promete rellenar. `PriceQuoteRepository`/`PriceQuotePersistenceAdapter` ya existen y ya soportan upsert por `(security_id, quote_date)` — los usa hoy `FlexReportParser` al importar `Open Positions`.
