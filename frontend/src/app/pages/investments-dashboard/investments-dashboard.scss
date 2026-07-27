@@ -137,7 +137,13 @@ h2 {
   gap: .35rem;
 }
 
-.quote-date-btn {
+.th-info {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+.info-btn {
   width: 15px;
   height: 15px;
   padding: 0;
