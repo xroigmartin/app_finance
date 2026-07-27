@@ -9,9 +9,7 @@ import { ApiService } from '../../api.service';
 import { ThemeService } from '../../theme.service';
 import { InvestmentContextService } from '../../investment-context.service';
 import { InvestmentToolbar } from '../../components/investment-toolbar';
-import {
-  InvestmentPerformance, PortfolioSummary, PositionPerformance, PositionView, ValuationPoint
-} from '../../models';
+import { InvestmentPerformance, PortfolioSummary, PositionView, ValuationPoint } from '../../models';
 
 Chart.register(...registerables);
 Chart.defaults.font.family = "'JetBrains Mono', ui-monospace, monospace";
@@ -21,10 +19,11 @@ const ALLOCATION_COLORS = ['#2563EB', '#16A06B', '#E8A33D', '#8B5CF6', '#0891B2'
 const CASH_COLOR = '#94a3b8';
 
 /**
- * Panel general de inversión (§7): KPIs, gráficos (asignación, evolución,
- * P&L, rentabilidad) y tabla de posiciones de la cartera seleccionada. La
- * cartera es estado compartido con Operaciones vía {@link InvestmentContextService};
- * se recarga sola cuando cambia (toolbar, alta de cartera...).
+ * Panel general de inversión (§7): KPIs y gráficos (asignación, evolución,
+ * P&L, rentabilidad) de la cartera seleccionada. La tabla de posiciones vive
+ * en `pages/investments-positions/`. La cartera es estado compartido con
+ * Operaciones y Posiciones vía {@link InvestmentContextService}; se recarga
+ * sola cuando cambia (toolbar, alta de cartera...).
  */
 @Component({
   selector: 'app-investments-dashboard',
@@ -109,11 +108,6 @@ export class InvestmentsDashboardPage implements OnInit, AfterViewInit, OnDestro
       .map(([currency, amount]) => ({ currency, amount }));
   }
 
-  /** Rentabilidad de una posición (para las columnas TWR/XIRR de la tabla). */
-  perfOf(securityId: number): PositionPerformance | null {
-    return this.performance?.positions.find(p => p.securityId === securityId) ?? null;
-  }
-
   load(): void {
     const portfolioId = this.ctx.portfolioId;
     if (portfolioId == null) {
@@ -137,21 +131,6 @@ export class InvestmentsDashboardPage implements OnInit, AfterViewInit, OnDestro
       // Los canvas viven dentro de @if (summary): esperar a que el DOM se actualice.
       this.scheduleRenderCharts();
     });
-  }
-
-  /** Etiqueta corta para el cuadrado de ticker de una posición. */
-  tickerLabel(p: PositionView): string {
-    return (p.ticker || p.name).slice(0, 4).toUpperCase();
-  }
-
-  /** Color del ticker de la posición i, alineado con la paleta del donut de asignación. */
-  tickerColor(i: number): string {
-    return ALLOCATION_COLORS[i % ALLOCATION_COLORS.length];
-  }
-
-  /** Fondo soft del ticker: el color de la posición con alfa suave. */
-  tickerSoft(i: number): string {
-    return `${this.tickerColor(i)}24`;
   }
 
   private renderCharts(): void {

@@ -4,6 +4,12 @@ h2 {
   color: var(--text);
 }
 
+.chart-title {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
 .empty-state {
   h2 {
     margin-bottom: .5rem;
@@ -63,20 +69,24 @@ h2 {
   }
 }
 
+.chart-full {
+  margin-bottom: 1.5rem;
+}
+
 .charts {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
+  grid-template-columns: 1fr;
   gap: 1rem;
   margin-bottom: 1.5rem;
 
-  &.two {
-    grid-template-columns: 1fr 1fr;
+  &.three {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   @media (max-width: 1000px) {
     grid-template-columns: 1fr;
 
-    &.two {
+    &.three {
       grid-template-columns: 1fr;
     }
   }
@@ -85,62 +95,6 @@ h2 {
 .chart-wrap {
   position: relative;
   height: 300px;
-}
-
-.positions-card {
-  margin-bottom: 1.5rem;
-  overflow-x: auto;
-}
-
-.instrument {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  .tk {
-    width: 30px;
-    height: 30px;
-    border-radius: var(--r-sm);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-
-  .instrument-text {
-    display: flex;
-    flex-direction: column;
-    gap: .15rem;
-    min-width: 0;
-  }
-}
-
-.small-text {
-  font-size: .72rem;
-}
-
-.block {
-  display: block;
-}
-
-.cost-badge {
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-
-.price-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: .35rem;
-}
-
-.th-info {
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
 }
 
 .info-btn {

@@ -1,0 +1,126 @@
+<h1>Posiciones</h1>
+
+<app-investment-toolbar (done)="load()" />
+
+@if (ctx.loaded && ctx.portfolios.length === 0) {
+  <div class="card empty-state">
+    <h2>Sin carteras todavía</h2>
+    <p class="muted">
+      Crea una cartera con la misma divisa base que tu cuenta del broker y después importa
+      el informe Flex Query anual (XML) de Interactive Brokers. La divisa base no se puede
+      cambiar después.
+    </p>
+  </div>
+}
+
+@if (ctx.portfolioId != null) {
+  <div class="card positions-card">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Instrumento</th>
+          <th class="num">Títulos</th>
+          <th class="num">Coste medio</th>
+          <th class="num">Precio</th>
+          <th class="num">Valor</th>
+          <th class="num">P&amp;L</th>
+          <th class="num">P&amp;L %</th>
+          <th class="num">
+            <span class="th-info">
+              TWR
+              <button type="button" class="info-btn"
+                      title="Cómo se ha comportado la inversión en sí, sin que aportar o retirar dinero afecte al resultado."
+                      aria-label="Qué es el TWR">ⓘ</button>
+            </span>
+          </th>
+          <th class="num">
+            <span class="th-info">
+              XIRR
+              <button type="button" class="info-btn"
+                      title="Cuánto te está rindiendo realmente tu dinero, teniendo en cuenta cuándo y cuánto has aportado o retirado."
+                      aria-label="Qué es el XIRR">ⓘ</button>
+            </span>
+          </th>
+          <th class="num">Peso</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of positions; track p.securityId; let i = $index) {
+          <tr>
+            <td>
+              <div class="instrument">
+                <span class="tk" [style.background]="tickerSoft(i)" [style.color]="tickerColor(i)">{{ tickerLabel(p) }}</span>
+                <div class="instrument-text">
+                  <span>{{ p.name }}</span>
+                  <span class="muted small-text">{{ p.ticker || p.isin }} · {{ p.currency }}</span>
+                </div>
+              </div>
+            </td>
+            <td class="num" [class.amount-expense]="p.quantity < 0">{{ p.quantity | number:'1.0-8' }}</td>
+            <td class="num">
+              @if (p.averageCost !== null) {
+                {{ p.averageCost | currency:baseCurrency }}
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="num">
+              @if (p.pricedAtCost) {
+                <span class="badge cost-badge" title="Sin cotización disponible: posición valorada a coste (RN-6)">a coste</span>
+              } @else if (p.marketPrice !== null) {
+                <span class="price-cell">
+                  {{ p.marketPrice | currency:p.currency }}
+                  @if (p.quoteDate) {
+                    <button type="button" class="info-btn"
+                            title="Última cotización: {{ p.quoteDate | date:'dd/MM/yyyy' }}"
+                            attr.aria-label="Última cotización: {{ p.quoteDate | date:'dd/MM/yyyy' }}">ⓘ</button>
+                  }
+                </span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="num">{{ p.marketValue | currency:baseCurrency }}</td>
+            <td class="num" [class.amount-income]="p.latentPnl >= 0"
+                [class.amount-expense]="p.latentPnl < 0">
+              {{ p.latentPnl | currency:baseCurrency }}
+            </td>
+            <td class="num" [class.amount-income]="(p.latentPnlPercent ?? 0) > 0"
+                [class.amount-expense]="(p.latentPnlPercent ?? 0) < 0">
+              @if (p.latentPnlPercent !== null) {
+                {{ p.latentPnlPercent | number:'1.2-2' }}%
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="num" [class.amount-income]="(perfOf(p.securityId)?.twrPercent ?? 0) > 0"
+                [class.amount-expense]="(perfOf(p.securityId)?.twrPercent ?? 0) < 0">
+              @if (perfOf(p.securityId)?.twrPercent != null) {
+                {{ perfOf(p.securityId)!.twrPercent | number:'1.2-2' }}%
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="num" [class.amount-income]="(perfOf(p.securityId)?.xirrPercent ?? 0) > 0"
+                [class.amount-expense]="(perfOf(p.securityId)?.xirrPercent ?? 0) < 0">
+              @if (perfOf(p.securityId)?.xirrPercent != null) {
+                {{ perfOf(p.securityId)!.xirrPercent | number:'1.2-2' }}%
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="num">
+              @if (p.weight !== null) {
+                {{ p.weight | number:'1.1-1' }}%
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="10" class="muted">Sin posiciones: importa un informe Flex para empezar.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
