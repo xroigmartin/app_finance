@@ -31,8 +31,12 @@ test.describe('Inversión — Panel general', () => {
     }
   });
 
-  test('muestra la posición sembrada en la tabla', async ({ page }) => {
-    await expect(page.locator('.positions-card').getByText('Empresa de Pruebas E2E')).toBeVisible();
+  test('los gráficos de P&L latente y rentabilidad por posición tienen un tooltip explicativo en el título', async ({ page }) => {
+    for (const heading of ['P&L latente por posición', 'Rentabilidad por posición (%)']) {
+      const info = page.locator('.chart-card', { hasText: heading })
+        .getByRole('button', { name: 'Qué muestra este gráfico' });
+      await expect(info).toHaveAttribute('title', /.+/);
+    }
   });
 
   test('crea una cartera nueva desde la barra de herramientas', async ({ page }) => {

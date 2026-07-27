@@ -19,6 +19,11 @@ export const routes: Routes = [
       import('./pages/investments-dashboard/investments-dashboard').then(m => m.InvestmentsDashboardPage)
   },
   {
+    path: 'investments/positions',
+    loadComponent: () =>
+      import('./pages/investments-positions/investments-positions').then(m => m.InvestmentsPositionsPage)
+  },
+  {
     path: 'investments/operations',
     loadComponent: () =>
       import('./pages/investments-operations/investments-operations').then(m => m.InvestmentsOperationsPage)

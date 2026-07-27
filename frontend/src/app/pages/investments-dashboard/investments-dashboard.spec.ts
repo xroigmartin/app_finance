@@ -152,27 +152,6 @@ describe('InvestmentsDashboardPage', () => {
       page.ngOnInit();
       expect(page.cashEntries).toEqual([]);
     });
-
-    it('perfOf busca la rentabilidad de una posición', () => {
-      const { page } = create();
-      page.ngOnInit();
-      expect(page.perfOf(9)?.twrPercent).toBe(25);
-      expect(page.perfOf(999)).toBeNull();
-    });
-  });
-
-  describe('ayudas visuales de posición', () => {
-    it('tickerLabel usa el ticker o el nombre, en mayúsculas y máximo 4', () => {
-      const { page } = create();
-      expect(page.tickerLabel(position)).toBe('EMP');
-      expect(page.tickerLabel({ ...position, ticker: null, name: 'empresa' })).toBe('EMPR');
-    });
-
-    it('tickerColor cicla la paleta y tickerSoft le añade alfa', () => {
-      const { page } = create();
-      expect(page.tickerColor(0)).toBe('#2563EB');
-      expect(page.tickerSoft(0)).toBe('#2563EB24');
-    });
   });
 
   describe('gráficos', () => {

@@ -447,3 +447,16 @@ export interface FlexImportResult {
   errors: FlexRowError[];
   warnings: string[];
 }
+
+/** Instrumento cuyo precio no se ha podido refrescar (§2.4 del plan de precios). */
+export interface PriceRefreshFailure {
+  securityId: number;
+  ticker: string | null;
+  reason: string;
+}
+
+/** Resumen del refresco de precios bajo demanda (API externa de cotizaciones). */
+export interface PriceRefreshResult {
+  updated: number;
+  failed: PriceRefreshFailure[];
+}
