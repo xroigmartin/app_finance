@@ -152,8 +152,14 @@
               @if (p.pricedAtCost) {
                 <span class="badge cost-badge" title="Sin cotización disponible: posición valorada a coste (RN-6)">a coste</span>
               } @else if (p.marketPrice !== null) {
-                {{ p.marketPrice | currency:p.currency }}
-                <span class="muted small-text block">{{ p.quoteDate | date:'dd/MM/yyyy' }}</span>
+                <span class="price-cell">
+                  {{ p.marketPrice | currency:p.currency }}
+                  @if (p.quoteDate) {
+                    <button type="button" class="quote-date-btn"
+                            title="Última cotización: {{ p.quoteDate | date:'dd/MM/yyyy' }}"
+                            attr.aria-label="Última cotización: {{ p.quoteDate | date:'dd/MM/yyyy' }}">ⓘ</button>
+                  }
+                </span>
               } @else {
                 <span class="muted">—</span>
               }

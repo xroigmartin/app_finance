@@ -52,14 +52,6 @@ import { InvestmentTransactionDialog } from './investment-transaction-dialog';
           <button class="btn small" (click)="refreshPrices()" [disabled]="refreshingPrices">
             {{ refreshingPrices ? 'Actualizando…' : 'Actualizar precios' }}
           </button>
-          @if (priceRefreshResult) {
-            <span class="muted price-refresh-summary">
-              {{ priceRefreshResult.updated }} instrumentos actualizados
-              @if (priceRefreshResult.failed.length > 0) {
-                <span>, {{ priceRefreshResult.failed.length }} sin cotización disponible</span>
-              }
-            </span>
-          }
           @if (priceRefreshError) {
             <span class="amount-expense">{{ priceRefreshError }}</span>
           }

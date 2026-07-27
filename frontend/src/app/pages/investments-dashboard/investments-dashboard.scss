@@ -130,3 +130,30 @@ h2 {
   background: var(--warn-soft);
   color: var(--warn);
 }
+
+.price-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.quote-date-btn {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: default;
+  transition: color .15s;
+
+  &:hover, &:focus-visible {
+    color: var(--accent);
+  }
+}
