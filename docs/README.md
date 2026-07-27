@@ -18,6 +18,16 @@ Los PRD son de **creación y actualización obligatoria**. Cualquier cambio de c
 | Dashboard | [prd/dashboard.md](prd/dashboard.md) | ✅ Implementado |
 | Importación de extractos | [prd/importacion.md](prd/importacion.md) | ✅ Implementado |
 | Reglas de categorización | [prd/reglas-categorizacion.md](prd/reglas-categorizacion.md) | ✅ Implementado |
+| Inversiones | [prd/inversiones.md](prd/inversiones.md) | ✅ Implementado (F1–F3: import Flex, posiciones/valoración multidivisa, rentas, alta manual y rentabilidad TWR/XIRR con UI; F4 automatización en backlog) |
+| Observabilidad (logging) | [prd/observabilidad.md](prd/observabilidad.md) | 🚧 En curso — transversal, no es un dominio funcional |
+
+## Roadmap
+
+Recordatorio consolidado de mejoras futuras por dominio (priorizado, con foco actual en Inversiones): [roadmap.md](roadmap.md). No sustituye al §10/§11 de cada PRD, que sigue siendo la fuente de verdad.
+
+## Sistema de diseño (frontend)
+
+La UI sigue el sistema de diseño «moderno, minimalista, técnico» documentado en `design_handoff_adaptacion_app/` (`DESIGN_SYSTEM.md` con los tokens OKLCH claro/oscuro y `ADAPTACION_ANGULAR.md` con el mapeo al código): tokens semánticos como CSS custom properties en `frontend/src/styles.scss` (`--bg`, `--surface`, `--text*`, `--accent*`, `--pos/--neg/--warn` + variantes soft, radios `--r-sm/md/lg`, `--shadow`), tipografía Space Grotesk (UI) + JetBrains Mono (toda cifra, con `tabular-nums`), tema claro/oscuro vía `data-theme` en `<html>` (`ThemeService`). Nunca usar colores literales en componentes: siempre referenciar tokens.
 
 ## Documentación de infraestructura
 

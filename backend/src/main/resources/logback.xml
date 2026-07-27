@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Logging de dos niveles (ver docs/prd/observabilidad.md): "system" (root, arranque,
+excepciones no controladas, conexión) y "business" (acciones de negocio: import,
+altas manuales...), en ficheros JSON separados con el mismo shape OTel
+(OtelJsonLogFormatter) para que un futuro OTel Collector los pueda tailar sin tocar
+la app. Ruta configurable con FINANCE_LOG_PATH (por defecto "logs", relativo al
+directorio de trabajo del proceso); nunca versionado (ver .gitignore).
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <property name="LOG_PATH" value="${FINANCE_LOG_PATH:-logs}"/>
+    <property name="OTEL_JSON_ENCODER" value="com.xroig.finance.shared.infrastructure.logging.OtelJsonEncoder"/>
+
+    <appender name="SYSTEM_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/system.log</file>
+        <encoder class="${OTEL_JSON_ENCODER}"/>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/system.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>14</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="BUSINESS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/business.log</file>
+        <encoder class="${OTEL_JSON_ENCODER}"/>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/business.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>14</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Toda acción de negocio loguea bajo el prefijo "business.<contexto>" (p. ej.
+         business.investments, business.transactions); additivity=false evita que
+         además se duplique en system.log. -->
+    <logger name="business" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="BUSINESS_FILE"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="SYSTEM_FILE"/>
+    </root>
+</configuration>

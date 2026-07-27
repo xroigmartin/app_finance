@@ -1,0 +1,79 @@
+# Stack de producción (pensado para una Raspberry Pi 4 de 4GB): las mismas
+# imágenes que docker-compose.yml usa en desarrollo para la BD, más backend y
+# frontend como contenedores propios en vez de procesos mvn/ng sueltos.
+#
+# Uso en la Pi:
+#   git pull
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Variables parametrizables (mismo mecanismo que app.sh: exportarlas o dejarlas
+# en un .env en la raíz del proyecto):
+#   FINANCE_DB_NAME/USER/PASSWORD  (por defecto finance/finance/finance)
+#   FINANCE_DATA_DIR               (carpeta host con los datos de Postgres;
+#                                    por defecto ./data/postgres, sin más que
+#                                    cambiarla el día que se monte el SSD externo)
+#   FINANCE_FRONTEND_PORT          (puerto en el que se publica la app; por defecto 80)
+#
+# Límites de memoria ajustados a los 4GB totales de la Pi (sistema + tres
+# contenedores); MaxRAMPercentage evita que la JVM se quede con el 25% por
+# defecto y desperdicie la mayor parte del límite del contenedor.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: finance-db
+    environment:
+      POSTGRES_DB: ${FINANCE_DB_NAME:-finance}
+      POSTGRES_USER: ${FINANCE_DB_USER:-finance}
+      POSTGRES_PASSWORD: ${FINANCE_DB_PASSWORD:-finance}
+    volumes:
+      - ${FINANCE_DATA_DIR:-./data/postgres}:/var/lib/postgresql/data
+    mem_limit: 512m
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${FINANCE_DB_USER:-finance} -d ${FINANCE_DB_NAME:-finance}',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: finance-backend
+    environment:
+      FINANCE_DB_HOST: db
+      FINANCE_DB_PORT: 5432
+      FINANCE_DB_NAME: ${FINANCE_DB_NAME:-finance}
+      FINANCE_DB_USER: ${FINANCE_DB_USER:-finance}
+      FINANCE_DB_PASSWORD: ${FINANCE_DB_PASSWORD:-finance}
+      JAVA_TOOL_OPTIONS: '-XX:MaxRAMPercentage=75.0'
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 768m
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/actuator/health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: finance-frontend
+    ports:
+      - '${FINANCE_FRONTEND_PORT:-80}:80'
+    depends_on:
+      backend:
+        condition: service_healthy
+    mem_limit: 128m
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:80/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

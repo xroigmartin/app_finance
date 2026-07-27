@@ -31,7 +31,8 @@ public class TransferQueryAdapter implements TransferQueryPort {
         return jpa.findById(id.value()).map(TransferQueryAdapter::toView);
     }
 
-    private static TransferView toView(TransferJpaEntity entity) {
+    /** Reused by {@code reporting}'s combined movements feed to hydrate the transfer side. */
+    public static TransferView toView(TransferJpaEntity entity) {
         return new TransferView(entity.getId(), entity.getDate(), entity.getAmount(), entity.getDescription(),
                 toAccountRef(entity.getFromAccount()), toAccountRef(entity.getToAccount()));
     }

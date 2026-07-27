@@ -58,6 +58,15 @@ export interface TransferRequest {
   toAccountId: number;
 }
 
+/** One row of the combined, paginated "Movimientos" feed (transactions + transfers). */
+export interface Movement {
+  source: 'tx' | 'tr';
+  date: string;
+  id: number;
+  tx: Transaction | null;
+  tr: Transfer | null;
+}
+
 export interface Budget {
   id?: number;
   account: Account;
@@ -214,4 +223,240 @@ export interface AccountSeries {
 export interface AccountComparison {
   months: string[];
   accounts: AccountSeries[];
+}
+
+// ── Inversiones ────────────────────────────────────────────────────────────
+
+export interface Portfolio {
+  id?: number;
+  name: string;
+  /** ISO 4217; inmutable tras la creación (los snapshots RN-7a apuntan a ella). */
+  baseCurrency: string;
+}
+
+/** Posición valorada (view CQRS). Importes monetarios en la divisa base de la cartera. */
+export interface PositionView {
+  securityId: number;
+  isin: string;
+  name: string;
+  ticker: string | null;
+  /** Divisa de cotización del instrumento (la de marketPrice). */
+  currency: string;
+  quantity: number;
+  /** Null en posiciones cerradas o negativas (RN-4). */
+  averageCost: number | null;
+  costBasis: number;
+  marketPrice: number | null;
+  quoteDate: string | null;
+  marketValue: number;
+  latentPnl: number;
+  latentPnlPercent: number | null;
+  /** Peso sobre el valor total (posiciones + efectivo); null si el total es 0. */
+  weight: number | null;
+  /** True cuando no hay cotización y la posición se valora a coste (aviso RN-6). */
+  pricedAtCost: boolean;
+}
+
+/** KPIs de cabecera de una cartera; importes en su divisa base salvo cashByCurrency. */
+export interface PortfolioSummary {
+  portfolioId: number;
+  name: string;
+  baseCurrency: string;
+  totalValue: number;
+  /** Fecha de valoración (la cotización más antigua usada); null sin cotizaciones. */
+  valuationDate: string | null;
+  netContributions: number;
+  latentPnl: number;
+  latentPnlPercent: number | null;
+  cashByCurrency: Record<string, number>;
+  dividendsThisYear: number;
+}
+
+/** Punto de la serie de evolución: valor y aportado acumulado a una fecha. */
+export interface ValuationPoint {
+  date: string;
+  value: number;
+  contributed: number;
+}
+
+/** Resumen global multi-cartera en EUR (tarjeta del dashboard, RF-10). */
+export interface InvestmentsSummary {
+  totalValue: number;
+  valuationDate: string | null;
+  portfolios: PortfolioValue[];
+}
+
+export interface PortfolioValue {
+  portfolioId: number;
+  name: string;
+  baseCurrency: string;
+  value: number;
+  valuationDate: string | null;
+}
+
+export type InvestmentTransactionType =
+  | 'BUY' | 'SELL' | 'DIVIDEND' | 'INTEREST' | 'FEE' | 'TAX' | 'TRADE_TAX'
+  | 'SPLIT' | 'DEPOSIT' | 'WITHDRAWAL' | 'FX_TRADE';
+
+export const INVESTMENT_TYPE_LABELS: Record<InvestmentTransactionType, string> = {
+  BUY: 'Compra', SELL: 'Venta', DIVIDEND: 'Dividendo', INTEREST: 'Interés',
+  FEE: 'Comisión', TAX: 'Retención', TRADE_TAX: 'Tasa de compraventa',
+  SPLIT: 'Split', DEPOSIT: 'Aportación', WITHDRAWAL: 'Retirada',
+  FX_TRADE: 'Conversión de divisa'
+};
+
+/** Instrumento del catálogo (identidad ISIN+divisa; alta automática en import). */
+export interface InvestmentSecurity {
+  id: number;
+  isin: string;
+  currency: string;
+  name: string;
+  ticker: string | null;
+  type: string | null;
+  exchange: string | null;
+  figi: string | null;
+}
+
+/** Una operación de cartera (listado y formulario de alta/edición, RF-2). */
+export interface InvestmentTransactionView {
+  id: number;
+  type: InvestmentTransactionType;
+  tradeDate: string;
+  securityId: number | null;
+  securityName: string | null;
+  quantity: number | null;
+  price: number | null;
+  amount: number;
+  currency: string;
+  counterAmount: number | null;
+  counterCurrency: string | null;
+  fee: number | null;
+  feeCurrency: string | null;
+  tax: number | null;
+  taxCurrency: string | null;
+  fxRateToBase: number | null;
+  description: string | null;
+  /** Nulo en apuntes manuales; prefijado ORD-/CT-/FTT-/CA- en importados (RN-10). */
+  externalId: string | null;
+}
+
+export interface InvestmentTransactionRequest {
+  type: InvestmentTransactionType;
+  tradeDate: string;
+  securityId?: number | null;
+  quantity?: number | null;
+  price?: number | null;
+  amount: number;
+  currency: string;
+  counterAmount?: number | null;
+  counterCurrency?: string | null;
+  fee?: number | null;
+  feeCurrency?: string | null;
+  tax?: number | null;
+  taxCurrency?: string | null;
+  fxRateToBase?: number | null;
+  description?: string | null;
+}
+
+export interface InvestmentTransactionFilter {
+  type?: InvestmentTransactionType;
+  from?: string;
+  to?: string;
+  securityId?: number;
+}
+
+/** Página de un listado paginado por el backend (Operaciones, Movimientos). */
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+/** Renta de un instrumento en un mes (RF-7); importes en la divisa base de la cartera. */
+export interface IncomeEntry {
+  /** Nulos para intereses sin instrumento (interés del broker). */
+  securityId: number | null;
+  name: string | null;
+  /** Mes "YYYY-MM". */
+  month: string;
+  gross: number;
+  withheld: number;
+  net: number;
+}
+
+/** Agregado de un mes (comisiones o retenciones pagadas), magnitud positiva. */
+export interface MonthAmount {
+  month: string;
+  amount: number;
+}
+
+/** Rentas de la cartera (RF-7): dividendos/intereses + comisiones/retenciones por mes. */
+export interface InvestmentIncome {
+  portfolioId: number;
+  baseCurrency: string;
+  incomes: IncomeEntry[];
+  fees: MonthAmount[];
+  taxes: MonthAmount[];
+}
+
+/** Rentabilidad de una posición abierta (RN-8); porcentajes, null si no calculable. */
+export interface PositionPerformance {
+  securityId: number;
+  name: string;
+  /** TWR acumulada del periodo observado, en %. */
+  twrPercent: number | null;
+  /** XIRR anualizada, en %. */
+  xirrPercent: number | null;
+}
+
+/** Rentabilidad de la cartera (RN-8): TWR acumulada y XIRR anual, total y por posición. */
+export interface InvestmentPerformance {
+  portfolioId: number;
+  baseCurrency: string;
+  valuationDate: string | null;
+  twrPercent: number | null;
+  xirrPercent: number | null;
+  positions: PositionPerformance[];
+}
+
+/** P&L realizado de un instrumento en un año natural (RF-11), coste promedio (RN-3). */
+export interface ClosedPosition {
+  securityId: number;
+  isin: string;
+  name: string;
+  ticker: string | null;
+  currency: string;
+  year: number;
+  /** En la divisa base de la cartera. */
+  realizedPnl: number;
+}
+
+/** Fila ilegible/no soportada/inválida del import Flex (§8). */
+export interface FlexRowError {
+  section: string;
+  reference: string | null;
+  message: string;
+}
+
+/** Resumen del import Flex: ok / duplicadas / errores / warnings (RF-4, RN-4). */
+export interface FlexImportResult {
+  imported: number;
+  duplicated: number;
+  errors: FlexRowError[];
+  warnings: string[];
+}
+
+/** Instrumento cuyo precio no se ha podido refrescar (§2.4 del plan de precios). */
+export interface PriceRefreshFailure {
+  securityId: number;
+  ticker: string | null;
+  reason: string;
+}
+
+/** Resumen del refresco de precios bajo demanda (API externa de cotizaciones). */
+export interface PriceRefreshResult {
+  updated: number;
+  failed: PriceRefreshFailure[];
 }

@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, ElementRef, OnInit, inject, viewChild } from '@angular/core';
+
+import { Component, ElementRef, OnInit, inject, viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
@@ -9,8 +9,9 @@ import { Account, Category, CategoryRule, RecurringAmount, RecurringBudget, Rule
 
 @Component({
   selector: 'app-categories',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './categories.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './categories.scss'
 })
 export class CategoriesPage implements OnInit {

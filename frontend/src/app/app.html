@@ -9,13 +9,17 @@
       <button class="collapse-btn" (click)="toggle()" title="Ocultar menú" aria-label="Ocultar menú">‹</button>
     </div>
     <nav>
-      <span class="nav-label">Informes</span>
+      <span class="nav-label">Finanzas Personales</span>
       <a routerLink="/dashboard" routerLinkActive="active">Panel general</a>
       <a routerLink="/transactions" routerLinkActive="active">Movimientos</a>
-      <span class="nav-label">Gestión</span>
       <a routerLink="/budgets" routerLinkActive="active">Presupuestos</a>
       <a routerLink="/accounts" routerLinkActive="active">Cuentas</a>
       <a routerLink="/categories" routerLinkActive="active">Categorías</a>
+      <span class="nav-label">Inversión</span>
+      <a routerLink="/investments/dashboard" routerLinkActive="active">Panel general</a>
+      <a routerLink="/investments/positions" routerLinkActive="active">Posiciones</a>
+      <a routerLink="/investments/operations" routerLinkActive="active">Operaciones</a>
+      <span class="nav-label">Administración</span>
     </nav>
     <button class="theme-btn" (click)="toggleTheme()"
             [title]="theme.theme() === 'dark' ? 'Tema claro' : 'Tema oscuro'"

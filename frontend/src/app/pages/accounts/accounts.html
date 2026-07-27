@@ -1,58 +1,105 @@
-<h1>Cuentas</h1>
-
-<div class="card toolbar">
-  <button class="btn primary" (click)="openNew()">＋ Nueva cuenta</button>
+<div class="page-head">
+  <h1>Cuentas</h1>
+  <button class="btn primary" (click)="openNew()">+ Nueva cuenta</button>
 </div>
 
-@if (showForm) {
-  <div class="card form-card">
-    <h2>{{ editingId ? 'Editar cuenta' : 'Nueva cuenta' }}</h2>
-    @if (error) {
-      <p class="amount-expense">{{ error }}</p>
+<dialog #editDialog class="form-dialog" aria-labelledby="account-form-title" (cancel)="onCancel($event)">
+  <h2 id="account-form-title">{{ editingId ? 'Editar cuenta' : 'Nueva cuenta' }}</h2>
+  @if (error) {
+    <p class="amount-expense">{{ error }}</p>
+  }
+  <form (ngSubmit)="save()" class="form-row">
+    <label>Nombre
+      <input type="text" [(ngModel)]="form.name" name="name" required>
+    </label>
+    <label>Tipo
+      <select [(ngModel)]="form.type" name="type">
+        <option>Banco</option>
+        <option>Efectivo</option>
+        <option>Tarjeta</option>
+        <option>Inversión</option>
+        <option>Otro</option>
+      </select>
+    </label>
+    <label>Saldo inicial
+      <input type="text" inputmode="decimal" pattern="-?\d{1,12}([.,]\d{1,2})?"
+             title="Importe con hasta dos decimales, con coma o punto (ej.: 1234,56)"
+             [(ngModel)]="form.initialBalance" name="initialBalance" required>
+    </label>
+    <button class="btn primary" type="submit">Guardar</button>
+    <button class="btn" type="button" (click)="closeForm()">Cancelar</button>
+  </form>
+</dialog>
+
+@if (summary && accounts.length > 0) {
+  <section class="card patrimony">
+    <div class="patrimony-main">
+      <span class="label">Patrimonio neto</span>
+      <span class="figure">{{ netWorth | currency:'EUR' }}</span>
+      @if (deltaPct !== null) {
+        <span class="delta" [class.up]="deltaPct >= 0" [class.down]="deltaPct < 0">
+          {{ deltaPct >= 0 ? '▲' : '▼' }} {{ deltaPct | number:'1.1-1' }}% este mes
+        </span>
+      }
+    </div>
+    <div class="patrimony-split">
+      <div>
+        <span class="label">Activos</span>
+        <span class="num pos">{{ totalAssets | currency:'EUR' }}</span>
+      </div>
+      <div>
+        <span class="label">Pasivos</span>
+        <span class="num neg">{{ totalLiabilities | currency:'EUR' }}</span>
+      </div>
+    </div>
+    @if (distribution.length > 0) {
+      <div class="dist-bar">
+        @for (g of distribution; track g.type) {
+          <span [style.width.%]="g.pct" [style.background]="g.color" [title]="g.label"></span>
+        }
+      </div>
+      <div class="dist-legend">
+        @for (g of distribution; track g.type) {
+          <span class="legend-item">
+            <span class="dot" [style.background]="g.color"></span>
+            {{ g.label }} {{ g.pct | number:'1.0-0' }}%
+          </span>
+        }
+      </div>
     }
-    <form (ngSubmit)="save()" class="form-row">
-      <label>Nombre
-        <input type="text" [(ngModel)]="form.name" name="name" required>
-      </label>
-      <label>Tipo
-        <select [(ngModel)]="form.type" name="type">
-          <option>Banco</option>
-          <option>Efectivo</option>
-          <option>Tarjeta</option>
-          <option>Inversión</option>
-          <option>Otro</option>
-        </select>
-      </label>
-      <label>Saldo inicial
-        <input type="text" inputmode="decimal" pattern="-?\d{1,12}([.,]\d{1,2})?"
-               title="Importe con hasta dos decimales, con coma o punto (ej.: 1234,56)"
-               [(ngModel)]="form.initialBalance" name="initialBalance" required>
-      </label>
-      <button class="btn primary" type="submit">Guardar</button>
-      <button class="btn" type="button" (click)="showForm = false">Cancelar</button>
-    </form>
-  </div>
+  </section>
 }
 
-<div class="card">
-  <table class="data">
-    <thead>
-      <tr><th>Nombre</th><th>Tipo</th><th class="num">Saldo inicial</th><th></th></tr>
-    </thead>
-    <tbody>
-      @for (a of accounts; track a.id) {
-        <tr>
-          <td>{{ a.name }}</td>
-          <td class="muted">{{ a.type }}</td>
-          <td class="num">{{ a.initialBalance | currency:'EUR' }}</td>
-          <td class="actions">
-            <button class="btn small" (click)="openEdit(a)">Editar</button>
-            <button class="btn small danger" (click)="remove(a)">Eliminar</button>
-          </td>
-        </tr>
-      } @empty {
-        <tr><td colspan="4" class="muted">No hay cuentas</td></tr>
+@for (g of groups; track g.type) {
+  <section class="account-group">
+    <header>
+      <h2>{{ g.label }}</h2>
+      <span class="subtotal">{{ g.total | currency:'EUR' }}</span>
+    </header>
+    <div class="account-cards">
+      @for (r of g.rows; track r.account.id) {
+        <article class="card account-card" (click)="openEdit(r.account)">
+          <span class="avatar" [style.background]="g.soft" [style.color]="g.color">
+            {{ r.account.name.charAt(0) | uppercase }}
+          </span>
+          <div class="info">
+            <span class="name">{{ r.account.name }}</span>
+            <span class="meta">{{ r.account.type }} · inicial {{ r.account.initialBalance | currency:'EUR' }}</span>
+          </div>
+          <span class="balance" [class.neg]="(r.balance ?? 0) < 0">
+            @if (r.balance !== null) {
+              {{ r.balance | currency:'EUR' }}
+            } @else {
+              —
+            }
+          </span>
+          <button class="btn small danger" (click)="remove(r.account, $event)">Eliminar</button>
+        </article>
       }
-    </tbody>
-  </table>
-</div>
+    </div>
+  </section>
+} @empty {
+  <div class="card">
+    <p class="muted empty">No hay cuentas. Crea la primera con «+ Nueva cuenta».</p>
+  </div>
+}

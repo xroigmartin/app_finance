@@ -4,13 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular 20 frontend + PostgreSQL 17. UI text, README, and commit context are in Spanish.
+Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular 22 frontend + PostgreSQL 17. UI text, README, and commit context are in Spanish.
 
 ## Product docs (PRDs) — mandatory maintenance
 
 **Rule: every code change automatically creates or updates the project documentation.** Whenever you modify code, you must, in the same change, update the affected domain's PRD (or create it if it does not exist yet) so the docs never drift from the code. This is not optional.
 
 Per-domain PRDs live in `docs/prd/` (index and template in `docs/README.md`), written in Spanish. A change "affects a domain" when it touches its data model, business rules, API endpoints, or UI. Concretely: when you finish a code change, identify which domain(s) under `docs/prd/` it touches, and edit the matching PRD(s) — bump "Última actualización", and adjust the relevant sections (model, rules, API, UI, validations). If no PRD exists for the affected domain, create one following the existing template.
+
+## Development methodology — TDD (mandatory, backend and frontend)
+
+**Rule: all development is done with TDD (Test-Driven Development), with each phase explicitly executed — never write production code without a failing test first.** This applies equally to the backend and the frontend; there is no "build it then add tests" path on either side. For every behavior/milestone:
+
+1. **Red** — write the test(s) that specify the behavior, run them, and confirm they fail for the expected reason (compilation failure of a not-yet-existing class/component counts as red).
+2. **Green** — write the minimum production code needed to make those tests pass; run the tests and confirm they pass.
+3. **Refactor** — with tests green, clean up code and tests (naming, duplication, design); re-run the tests to confirm they stay green.
+
+Work in small red-green-refactor cycles (one behavior/invariant at a time), following the existing test taxonomy:
+- **Backend**: domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence tests on Testcontainers, `@WebMvcTest` contract tests, ArchUnit for boundaries.
+- **Frontend**: Vitest unit tests per component/service/pipe (`*.spec.ts`, run via `npm test -- --watch=false`), and Playwright E2E specs per domain page (`npm run test:e2e`) for the critical user flows a unit test can't cover (navigation, dialogs chained together, chart rendering). A UI behavior gets its Vitest red before the component code that implements it; an end-to-end flow gets its Playwright spec before the flow is wired up.
+
+**Commit at the end of every milestone**: when a cycle (or a small coherent group of cycles that forms a milestone, e.g. an aggregate with its invariants, a use case, an adapter, a component, a page flow) is complete — tests green, refactor done, PRD updated — create a commit before moving on. Never batch several milestones into one commit, and never commit with failing tests. This holds on the frontend too: a page/component change is not done until its Vitest (and, where relevant, Playwright) coverage was written first and is green, same discipline as the backend's ArchUnit/`@WebMvcTest` gate.
 
 ## Git workflow — commit every change
 
@@ -29,36 +43,25 @@ On first boot against an empty DB the app seeds the **default global categories*
 Manual equivalents:
 
 ```bash
-docker compose up -d                  # dev PostgreSQL (db-dev) on :5433, volume finance-data-dev
-cd backend && mvn spring-boot:run     # API on :8080 (defaults point at db-dev :5433)
-cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (proxy.conf.json)
+docker compose up -d                  # PostgreSQL on :5432
+cd backend && mvn spring-boot:run     # API on :8080
+cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (proxy.conf.js)
 ```
 
-Full Docker stack (compose profile `app`, docs in `docs/despliegue-docker.md`):
+Ports are overridable via `FINANCE_DB_PORT`/`FINANCE_BACKEND_PORT`/`FINANCE_FRONTEND_PORT` (read by `docker-compose.yml`, `application.properties` and `proxy.conf.js`), so a second full stack can run alongside the default one — e.g. one per git worktree when developing independent features in parallel. `app.sh` auto-loads a `.env` file in the project root if present (gitignored, one per worktree) instead of requiring the vars to be exported by hand; unset, everything defaults to the classic `:5432`/`:8080`/`:4200`.
+
+Production deployment (e.g. a Raspberry Pi, see `docs/despliegue-docker.md`) uses `docker-compose.prod.yml` instead of `./app.sh`/local `mvn`/`ng` processes: multi-stage images (`backend/Dockerfile`, `frontend/Dockerfile` + `frontend/nginx.conf`, nginx serving the Angular build and proxying `/api` to the backend, whose port is not published to the host) for db/backend/frontend, all with `restart: unless-stopped`. The backend healthcheck hits `/actuator/health` (actuator only exposes `health`).
 
 ```bash
-docker compose --profile app up -d --build   # build images + run db/backend/frontend; UI on :80, restart: unless-stopped
-docker compose --profile app down            # stop the app (volumes persist; plain `docker compose up -d` starts db-dev only)
+docker compose -f docker-compose.prod.yml up -d --build   # build images + run db/backend/frontend; UI on :80
 ```
-
-Production (`db`, :5432, volume `finance-data`) and development (`db-dev`, :5433, volume `finance-data-dev`) are **separate PostgreSQL instances with separate data**: local testing never touches production data, and a dev branch's Flyway migrations never alter the production schema. `./app.sh stop` runs `docker compose stop db-dev` (never `down`), so it cannot break the running production stack. Never run `docker compose down -v` (it would also remove the production volume); to reset the dev DB see below.
-
-Backend and frontend images are multi-stage builds (`backend/Dockerfile`, `frontend/Dockerfile` + `frontend/nginx.conf`); nginx serves the Angular build and proxies `/api` to the backend, whose port is not published to the host. The backend healthcheck hits `/actuator/health` (actuator only exposes `health`).
-
-Containerized dev stack (`docker-compose.dev.yml`; no JDK/Node needed on the host; uses the same ports 8080/4200 as `./app.sh`'s local services, so don't run both):
-
-```bash
-docker compose -f docker-compose.dev.yml up -d                   # db + mvn spring-boot:run (:8080) + ng serve hot reload (:4200), source bind-mounted
-docker compose -f docker-compose.dev.yml restart backend-dev     # recompile after backend changes (no devtools)
-docker compose -f docker-compose.dev.yml rm -sf backend-dev frontend-dev   # stop the dev app only (db keeps running)
-```
-
-The `db-dev` service `extends` the one in `docker-compose.yml` (same container and `finance-data-dev` volume as the `./app.sh` flow; independent from production). `ng serve` uses `frontend/proxy.conf.docker.json` (targets `backend-dev:8080`). Maven repo, `target/`, `node_modules/` and `.angular/` live in named volumes so the root-run containers never leave root-owned files in the host working copy.
 
 - Backend tests: `cd backend && mvn test` (single test: `mvn test -Dtest=ClassName#method`). The suite (domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence-adapter tests on real PostgreSQL via Testcontainers, `@WebMvcTest` contract tests, and an ArchUnit boundary test) is the migration's safety net; keep it green and coverage ≥ 99 %.
-- Frontend tests: `cd frontend && npm test` (Karma/Jasmine; only `app.spec.ts` exists).
+- Frontend requires **Node.js ≥ 24.15.0** (Angular 22's CLI hard-refuses to run on anything older, e.g. plain `24.0.x`); `nvm use 24.18.0` if the shell's default Node doesn't satisfy that.
+- Frontend unit tests: `cd frontend && npm test` (Vitest via the `@angular/build:unit-test` runner — still `[EXPERIMENTAL]` per Angular's own tooling, watch mode by default, `-- --watch=false` for a single run). Coverage gate is native (`coverageThresholds` in `angular.json`, not a custom script): 85 % statements/branches/functions/lines; keep it green — currently well above floor at 96/87/93/98 %.
+- Frontend E2E tests: `cd frontend && npm run test:e2e` (Playwright, one spec per domain page). Fully isolated from the dev stack: resets/seeds a dedicated `db-e2e` Postgres (`docker-compose.e2e.yml`, its own Compose project `finance-e2e`) and runs a throwaway backend on `:8081` + frontend on `:4201` — the dev stack on `:5432`/`:8080`/`:4200` is never touched. See `docs/testing-plan-frontend.md` for the full design (seed fixtures, per-domain specs, the canvas-content regression check for the dashboard/investment charts) and the gotchas found along the way (`[ngValue]`+`selectOption`, dialogs chained in a row, etc.).
 - Frontend build: `cd frontend && npm run build`.
-- Reset dev DB: `./app.sh stop && docker compose rm -sf db-dev && docker volume rm app_finance_finance-data-dev`, then `./app.sh start` (seeds default categories only). Do NOT use `docker compose down -v` — it would also delete the production volume.
+- Reset DB: `./app.sh stop && docker compose down -v`, then `./app.sh start` (seeds default categories only).
 
 ## Architecture
 
@@ -89,7 +92,7 @@ A leaf, account-bound category may declare a **recurrence** (`RecurringBudget` a
 
 ### Database
 
-Schema is owned by Flyway (`backend/src/main/resources/db/migration/`); Hibernate runs with `ddl-auto=validate`. Any schema change requires a new `V<n>__*.sql` migration — never edit existing migrations or rely on Hibernate to alter tables. Connection settings come from `FINANCE_DB_*` env vars (finance/finance/finance; default port 5433 = the dev DB `db-dev`, production compose injects 5432).
+Schema is owned by Flyway (`backend/src/main/resources/db/migration/`); Hibernate runs with `ddl-auto=validate`. Any schema change requires a new `V<n>__*.sql` migration — never edit existing migrations or rely on Hibernate to alter tables. Connection settings come from `FINANCE_DB_*` env vars (defaults match docker-compose: finance/finance/finance).
 
 ### Frontend (`frontend/src/app/`)
 

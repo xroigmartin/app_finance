@@ -46,12 +46,16 @@ table.annual {
 
   th,
   td {
-    border: 1px solid var(--line);
-    padding: .25rem .4rem;
+    border-bottom: 1px solid var(--border);
+    padding: .35rem .5rem;
     text-align: right;
   }
 
-  .num { text-align: right; }
+  .num {
+    text-align: right;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
 
   /* Columna de categoría: fija a la izquierda */
   th.cat {
@@ -61,7 +65,7 @@ table.annual {
     z-index: 2;
     background: var(--surface);
     min-width: 13rem;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   thead {
@@ -70,25 +74,28 @@ table.annual {
     z-index: 3;
 
     th {
-      background: var(--navy);
-      color: #fff;
-      font-weight: 600;
+      background: var(--surface);
+      color: var(--text-faint);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .05em;
     }
 
     th.cat {
-      background: var(--navy);
-      color: #fff;
+      background: var(--surface);
       z-index: 4;
     }
 
     .months-head th { border-bottom: none; }
-    .sub-head th { font-weight: 500; font-size: .68rem; }
+    .sub-head th { border-bottom: 1px solid var(--border-strong); }
   }
 
   .dot {
     display: inline-block;
-    width: .6rem;
-    height: .6rem;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     margin-right: .4rem;
     vertical-align: middle;
@@ -97,42 +104,43 @@ table.annual {
   /* Columna "Real" levemente sombreada para separar bloques de mes */
   td.real { background: rgba(0, 0, 0, .025); }
 
-  tbody tr:hover td:not(.real) { background: rgba(150, 118, 42, .06); }
+  tbody tr:hover td:not(.real) { background: var(--surface-2); }
 
+  /* Filas de sección (INGRESOS / GASTOS) sobre --surface-2 */
   .section th {
-    background: var(--paper);
-    color: var(--heading);
+    background: var(--surface-2);
+    color: var(--text);
     text-transform: uppercase;
     letter-spacing: .04em;
     font-size: .72rem;
+    font-weight: 600;
     text-align: left;
   }
 
   .total th.cat,
   .total td {
-    font-weight: 700;
-    background: #eef1f6;
+    font-weight: 600;
+    background: var(--surface-2);
   }
-  .total td.real { background: #e7ebf2; }
 
-  .income-total th.cat { color: var(--income); }
-  .expense-total th.cat { color: var(--expense); }
+  .income-total th.cat { color: var(--pos); }
+  .expense-total th.cat { color: var(--neg); }
 
+  /* Fila AHORRO sobre --accent-soft */
   .savings th.cat,
   .savings td {
-    background: var(--navy);
-    color: #fff;
+    background: var(--accent-soft);
+    color: var(--accent-hover);
   }
-  .savings td.real { background: var(--navy-2); }
-  .savings .amount-income { color: #7ad6a4; }
-  .savings .amount-expense { color: #f0a39c; }
 
   .cumulative th.cat,
-  .cumulative td { background: #f4efe2; font-weight: 600; }
-  .cumulative td.real { background: #efe8d4; }
+  .cumulative td {
+    background: var(--surface-2);
+    font-weight: 600;
+  }
 
   .rate {
-    th.cat, td { font-style: italic; color: var(--muted); }
+    th.cat, td { font-style: italic; color: var(--text-muted); }
   }
 }
 
@@ -142,33 +150,24 @@ table.annual {
   background: transparent;
   text-align: right;
   font: inherit;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
   padding: .1rem .2rem;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 
-  &:hover { border-color: var(--line-strong); }
+  &:hover { border-color: var(--border-strong); }
   &:focus {
     outline: none;
-    border-color: var(--gold-soft);
-    background: #fff;
+    border-color: var(--accent);
+    background: var(--surface);
   }
 }
 
-/* ---- Ajustes para tema oscuro (los fondos claros fijos no encajan) ---- */
+/* ---- Ajustes para tema oscuro (la sombra fija de "Real" no encaja) ---- */
 :host-context([data-theme='dark']) {
   table.annual {
     td.real { background: rgba(255, 255, 255, .03); }
-    tbody tr:hover td:not(.real) { background: rgba(193, 160, 80, .1); }
-
-    .total th.cat,
-    .total td { background: #262b36; }
-    .total td.real { background: #2c323e; }
-
-    .cumulative th.cat,
-    .cumulative td { background: #23252e; }
-    .cumulative td.real { background: #282b34; }
   }
-
-  .cell-input:focus { background: #11141b; }
 }
 
 /* ---- Resumen anual ---- */
@@ -180,18 +179,29 @@ table.summary-table {
 
   th, td {
     padding: .4rem .8rem;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
     text-align: left;
   }
-  td.num, th.num { text-align: right; }
-  thead th { color: var(--muted); font-weight: 600; }
+  td.num, th.num {
+    text-align: right;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  thead th {
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
   tr.savings th, tr.savings td { font-weight: 700; }
 }
 
 /* ---- Jerarquía de categorías en la matriz ---- */
 table.annual {
   tr.parent-agg th.cat { font-weight: 700; }
-  tr.parent-agg td.num { color: var(--muted); }
+  tr.parent-agg td.num { color: var(--text-muted); }
 
   tr.sub-row th.cat.sub {
     padding-left: 1.6rem;

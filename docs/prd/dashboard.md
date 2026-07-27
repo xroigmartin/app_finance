@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.1 |
-| Última actualización | 2026-06-27 |
+| Versión | 1.2 |
+| Última actualización | 2026-07-20 |
 | Dominio | Dashboard / agregaciones (`/api/dashboard`) |
 | Responsable | Equipo Mis Finanzas |
 
@@ -55,6 +55,7 @@ El dashboard **no tiene tablas propias**. Lee de `transactions`, `transfers`, `a
 | RF-5 | Comparativa de ingresos/gastos por cuenta a lo largo de N meses. |
 | RF-6 | Estado de los presupuestos del mes (planificado, gastado, restante). |
 | RF-7 | Todos los endpoints aceptan filtrar por cuenta (salvo la comparativa por cuenta, que siempre cubre todas). |
+| RF-8 | Tarjeta informativa de **patrimonio invertido**: agregado de todas las carteras de inversión en EUR con fecha de valoración, y desglose por cartera cuando hay más de una (lee `GET /api/investments/summary`; RF-10 del PRD Inversiones). Independiente de los filtros de mes/cuenta; los agregados domésticos (ingresos/gastos/saldos) **no** incorporan nada de inversión. |
 
 ## 5. Reglas de negocio
 
@@ -93,9 +94,12 @@ Página `pages/dashboard` (componente `DashboardPage`), con **Chart.js** directa
 - Selector de **cuenta** y de **mes/año**; al cambiarlos se recargan todas las cifras y gráficos.
 - **Tarjetas de resumen**: saldo total, ingresos/gastos/ahorro del mes y del año, con sus porcentajes.
 - **Gráficos**: barras de ingresos/gastos mensuales; doughnut de gastos por categoría; doughnut de ingresos por categoría; línea de ahorro mensual; línea de evolución del patrimonio; barras comparativas de ingresos por cuenta y de gastos por cuenta.
-- **Progreso de presupuestos**: lista con barra de porcentaje gastado por categoría.
-- **Últimos movimientos**: las 10 transacciones recientes (`/api/transactions/recent`).
-- **Tema**: los gráficos leen colores de `ThemeService` (`chartText()` / `chartGrid()`) y se redibujan mediante un `effect` al cambiar de tema claro/oscuro.
+- **Tarjeta de patrimonio invertido** (RF-8): en el grid de KPIs anuales; muestra el total en EUR con "valorado a <fecha>" (o "valorado a coste" sin cotizaciones) y, con más de una cartera, el desglose nombre → valor. Degradación: se **oculta** si no hay carteras; ante error de la API de inversiones muestra **"—" (no disponible)** sin afectar al resto del dashboard.
+- **Progreso de presupuestos**: lista con barra de porcentaje gastado por categoría; según el sistema de diseño, la categoría es un **chip** con punto de color, la cifra `gastado / límite` va en mono y la barra es un track de 7px sobre `--surface-2` con relleno `--accent` (relleno y cifra en `--warn` al superar el límite).
+- **Últimos movimientos**: las 10 transacciones recientes (`/api/transactions/recent`), como **filas con avatar** de 38px (inicial del concepto sobre el color soft de su categoría), concepto + meta (fecha · categoría) y el importe en mono coloreado por signo.
+- **Tarjetas KPI** (sistema de diseño): label en JetBrains Mono 11px uppercase `--text-faint`, cifra en mono 22px/600 y sub-etiqueta 12px `--text-faint`.
+- **Tema**: los gráficos leen colores de `ThemeService` (`chartText()` / `chartGrid()` y los semánticos `chartAccent()/chartAccentSoft()/chartPos()/chartNeg()/chartWarn()`) y se redibujan mediante un `effect` al cambiar de tema claro/oscuro.
+- **Carga inicial de los gráficos**: `renderCharts()` no dibuja nada hasta que la vista está lista (`ngAfterViewInit`) **y** han llegado los datos de `fetchChartData()` (flag `dataLoaded`). `ngAfterViewInit` se dispara siempre antes de que resuelvan las peticiones HTTP (asíncronas); sin esta guarda se creaban los 7 gráficos con datasets vacíos nada más montar la vista y se destruían/recreaban en cuanto llegaban los datos reales, lo que en algunos navegadores dejaba el canvas en blanco de forma intermitente.
 
 ## 8. Validaciones y errores
 

@@ -27,6 +27,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
+            <!-- RestClient (cliente de Twelve Data, docs/plan/precios.md §2.1): no lo
+                 trae spring-boot-starter-web transitivamente en el Boot 4 modularizado. -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
@@ -37,6 +43,16 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Autoconfiguración de Spring Boot 4 para OpenTelemetry: crea el bean
+                 OpenTelemetry/SdkTracerProvider y el listener que rellena el MDC de
+                 SLF4J (traceId/spanId) por petición HTTP (docs/prd/observabilidad.md
+                 RF-6). Sin ningún exporter configurado: los spans se crean y descartan
+                 en memoria, no se envían a ningún sitio hasta que exista un collector
+                 (p. ej. SigNoz) al que apuntar. -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
         </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>

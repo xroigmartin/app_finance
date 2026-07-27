@@ -6,5 +6,10 @@ frontend/.angular/
 frontend/.vscode/
 .DS_Store
 .run/
+logs/
+data/
 app.sh
+.env
 .claude/settings.local.json
+docs/investment
+design_handoff_adaptacion_app

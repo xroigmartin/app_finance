@@ -1,0 +1,220 @@
+<h1>Operaciones</h1>
+
+<app-investment-toolbar (done)="loadTransactions(); loadIncome()" />
+
+@if (ctx.loaded && ctx.portfolios.length === 0) {
+  <div class="card empty-state">
+    <h2>Sin carteras todavía</h2>
+    <p class="muted">
+      Crea una cartera con la misma divisa base que tu cuenta del broker y después importa
+      el informe Flex Query anual (XML) de Interactive Brokers. La divisa base no se puede
+      cambiar después.
+    </p>
+  </div>
+}
+
+@if (ctx.portfolioId != null) {
+  <div class="card tabs-card">
+    <div class="tabs">
+      <button class="tab" [class.active]="activeTab === 'operaciones'"
+              (click)="setTab('operaciones')">Operaciones</button>
+      <button class="tab" [class.active]="activeTab === 'dividendos'"
+              (click)="setTab('dividendos')">Dividendos</button>
+      <button class="tab" [class.active]="activeTab === 'cerradas'"
+              (click)="setTab('cerradas')">Cerradas</button>
+    </div>
+
+    @if (activeTab === 'operaciones') {
+      <div class="form-row filters">
+        <label>Tipo
+          <select [(ngModel)]="filterType" (ngModelChange)="onFiltersChange()">
+            <option [ngValue]="null">Todos</option>
+            @for (t of types; track t) {
+              <option [ngValue]="t">{{ typeLabels[t] }}</option>
+            }
+          </select>
+        </label>
+        <label>Desde
+          <input type="date" [(ngModel)]="filterFrom" (ngModelChange)="onFiltersChange()">
+        </label>
+        <label>Hasta
+          <input type="date" [(ngModel)]="filterTo" (ngModelChange)="onFiltersChange()">
+        </label>
+        <label>Instrumento
+          <select [(ngModel)]="filterSecurityId" (ngModelChange)="onFiltersChange()">
+            <option [ngValue]="null">Todos</option>
+            @for (s of ctx.securities; track s.id) {
+              <option [ngValue]="s.id">{{ s.name }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Instrumento</th>
+            <th class="num">Títulos</th>
+            <th class="num">Precio</th>
+            <th class="num">Importe</th>
+            <th class="num">Comisión</th>
+            <th>Origen</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (tx of transactions; track tx.id) {
+            <tr>
+              <td>{{ tx.tradeDate | date:'dd/MM/yyyy' }}</td>
+              <td>{{ typeLabels[tx.type] }}</td>
+              <td>
+                <div class="instrument">
+                  <div class="instrument-text">
+                    <span>{{ tx.securityName ?? '—' }}</span>
+                    @if (tx.description) {
+                      <span class="muted small-text">{{ tx.description }}</span>
+                    }
+                  </div>
+                </div>
+              </td>
+              <td class="num" [class.amount-expense]="(tx.quantity ?? 0) < 0">
+                @if (tx.quantity !== null) {
+                  {{ tx.quantity | number:'1.0-8' }}
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td class="num">
+                @if (tx.price !== null) {
+                  {{ tx.price | number:'1.2-8' }}
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td class="num" [class.amount-income]="tx.amount > 0"
+                  [class.amount-expense]="tx.amount < 0">
+                {{ tx.amount | currency:tx.currency }}
+                @if (tx.counterAmount !== null) {
+                  <span class="muted small-text block">
+                    +{{ tx.counterAmount | currency:tx.counterCurrency ?? tx.currency }}
+                  </span>
+                }
+              </td>
+              <td class="num">
+                @if (tx.fee !== null) {
+                  {{ tx.fee | currency:tx.feeCurrency ?? tx.currency }}
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td>
+                <span class="muted small-text">{{ tx.externalId ? 'importado' : 'manual' }}</span>
+              </td>
+              <td class="row-actions">
+                <button class="btn small" (click)="editTransaction(tx)">Editar</button>
+                <button class="btn small danger" (click)="deleteTransaction(tx)">Borrar</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="9" class="muted">Sin operaciones con los filtros actuales.</td></tr>
+          }
+        </tbody>
+      </table>
+      <app-pagination [page]="txPage" [size]="txSize" [totalElements]="txTotalElements"
+                      (pageChange)="onTxPageChange($event)" (sizeChange)="onTxSizeChange($event)" />
+    } @else if (activeTab === 'dividendos') {
+      <div class="form-row filters">
+        <label>Año
+          <select [(ngModel)]="incomeYear" (ngModelChange)="onIncomeYearChange()">
+            @for (y of incomeYears; track y) {
+              <option [ngValue]="y">{{ y }}</option>
+            }
+            <option [ngValue]="'all'">Todo (por año)</option>
+          </select>
+        </label>
+      </div>
+
+      @if (income && incomeRows.length > 0) {
+        <div class="chart-wrap"><canvas #dividendChart></canvas></div>
+
+        <table class="data income-table">
+          <thead>
+            <tr>
+              <th>Instrumento</th>
+              <th class="num">Bruto</th>
+              <th class="num">Retenido</th>
+              <th class="num">Neto</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of incomeRows; track row.name) {
+              <tr>
+                <td>{{ row.name }}</td>
+                <td class="num">{{ row.gross | currency:baseCurrency }}</td>
+                <td class="num">{{ row.withheld | currency:baseCurrency }}</td>
+                <td class="num amount-income">{{ row.net | currency:baseCurrency }}</td>
+              </tr>
+            }
+            <tr class="totals">
+              <td>Total</td>
+              <td class="num">{{ incomeTotals.gross | currency:baseCurrency }}</td>
+              <td class="num">{{ incomeTotals.withheld | currency:baseCurrency }}</td>
+              <td class="num amount-income">{{ incomeTotals.net | currency:baseCurrency }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="muted paid-summary">
+          Comisiones pagadas: {{ feesTotal | currency:baseCurrency }} ·
+          Retenciones pagadas: {{ taxesTotal | currency:baseCurrency }}
+        </p>
+      } @else {
+        <p class="muted">Sin rentas registradas en el periodo seleccionado.</p>
+      }
+    } @else {
+      <div class="form-row filters">
+        <label>Año
+          <select [(ngModel)]="closedYear">
+            @for (y of closedYears; track y) {
+              <option [ngValue]="y">{{ y }}</option>
+            }
+            <option [ngValue]="'all'">Todo (por año)</option>
+          </select>
+        </label>
+      </div>
+
+      @if (closedRows.length > 0) {
+        <table class="data closed-positions-table">
+          <thead>
+            <tr>
+              <th>Instrumento</th>
+              <th class="num">P&L realizado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of closedRows; track row.name) {
+              <tr>
+                <td>{{ row.name }}</td>
+                <td class="num" [class.amount-income]="row.realizedPnl > 0"
+                    [class.amount-expense]="row.realizedPnl < 0">
+                  {{ row.realizedPnl | currency:baseCurrency }}
+                </td>
+              </tr>
+            }
+            <tr class="totals">
+              <td>Total</td>
+              <td class="num" [class.amount-income]="closedTotal > 0"
+                  [class.amount-expense]="closedTotal < 0">
+                {{ closedTotal | currency:baseCurrency }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      } @else {
+        <p class="muted">Sin ventas con P&L realizado en el periodo seleccionado.</p>
+      }
+    }
+  </div>
+}

@@ -1,0 +1,121 @@
+<h1>Panel general</h1>
+
+<app-investment-toolbar (done)="load()" />
+
+@if (ctx.loaded && ctx.portfolios.length === 0) {
+  <div class="card empty-state">
+    <h2>Sin carteras todavía</h2>
+    <p class="muted">
+      Crea una cartera con la misma divisa base que tu cuenta del broker y después importa
+      el informe Flex Query anual (XML) de Interactive Brokers. La divisa base no se puede
+      cambiar después.
+    </p>
+  </div>
+}
+
+@if (summary) {
+  <div class="kpis">
+    <div class="card kpi">
+      <span class="kpi-label">Valor total</span>
+      <span class="kpi-value">{{ summary.totalValue | currency:baseCurrency }}</span>
+      <span class="kpi-sub">
+        @if (summary.valuationDate) {
+          valorado a {{ summary.valuationDate | date:'dd/MM/yyyy' }}
+        } @else {
+          sin cotizaciones: valorado a coste
+        }
+      </span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Aportado neto</span>
+      <span class="kpi-value">{{ summary.netContributions | currency:baseCurrency }}</span>
+      <span class="kpi-sub">aportaciones − retiradas</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">P&amp;L latente</span>
+      <span class="kpi-value" [class.amount-income]="summary.latentPnl >= 0"
+            [class.amount-expense]="summary.latentPnl < 0">
+        {{ summary.latentPnl | currency:baseCurrency }}
+      </span>
+      <span class="kpi-sub">
+        @if (summary.latentPnlPercent !== null) {
+          {{ summary.latentPnlPercent | number:'1.2-2' }}% sobre el coste de adquisición
+        } @else {
+          —
+        }
+      </span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Efectivo disponible</span>
+      @if (cashEntries.length > 0) {
+        <span class="kpi-value cash-list">
+          @for (c of cashEntries; track c.currency) {
+            <span class="cash-line">{{ c.amount | currency:c.currency }}</span>
+          }
+        </span>
+      } @else {
+        <span class="kpi-value">—</span>
+      }
+      <span class="kpi-sub">por divisa</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Dividendos {{ currentYear }}</span>
+      <span class="kpi-value amount-income">{{ summary.dividendsThisYear | currency:baseCurrency }}</span>
+      <span class="kpi-sub">en bruto, antes de retenciones</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Rentabilidad (TWR)</span>
+      <span class="kpi-value" [class.amount-income]="(performance?.twrPercent ?? 0) > 0"
+            [class.amount-expense]="(performance?.twrPercent ?? 0) < 0">
+        @if (performance?.twrPercent != null) {
+          {{ performance!.twrPercent | number:'1.2-2' }}%
+        } @else {
+          —
+        }
+      </span>
+      <span class="kpi-sub">acumulada del periodo, neutraliza aportaciones</span>
+    </div>
+    <div class="card kpi">
+      <span class="kpi-label">Rentabilidad (XIRR)</span>
+      <span class="kpi-value" [class.amount-income]="(performance?.xirrPercent ?? 0) > 0"
+            [class.amount-expense]="(performance?.xirrPercent ?? 0) < 0">
+        @if (performance?.xirrPercent != null) {
+          {{ performance!.xirrPercent | number:'1.2-2' }}%
+        } @else {
+          —
+        }
+      </span>
+      <span class="kpi-sub">anualizada, sobre tus flujos reales</span>
+    </div>
+  </div>
+
+  <div class="card chart-card chart-full">
+    <h2>Evolución: valor vs aportado</h2>
+    <div class="chart-wrap"><canvas #evolutionChart></canvas></div>
+  </div>
+
+  <div class="charts three">
+    <div class="card chart-card">
+      <h2>Asignación de la cartera</h2>
+      <div class="chart-wrap"><canvas #allocationChart></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <h2 class="chart-title">
+        P&amp;L latente por posición
+        <button type="button" class="info-btn"
+                title="Compara, de mayor a menor, cuánto ganarías o perderías hoy si vendieras cada posición al precio actual, antes de impuestos."
+                aria-label="Qué muestra este gráfico">ⓘ</button>
+      </h2>
+      <div class="chart-wrap"><canvas #pnlChart></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <h2 class="chart-title">
+        Rentabilidad por posición (%)
+        <button type="button" class="info-btn"
+                title="Compara el rendimiento de cada posición: XIRR (lo que realmente ha ganado tu dinero) y TWR (cómo se ha comportado la inversión en sí), de mayor a menor XIRR."
+                aria-label="Qué muestra este gráfico">ⓘ</button>
+      </h2>
+      <div class="chart-wrap"><canvas #performanceChart></canvas></div>
+    </div>
+  </div>
+}

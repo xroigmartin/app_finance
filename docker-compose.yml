@@ -1,35 +1,12 @@
 services:
-  # BD de desarrollo (sin profile): la usan ./app.sh y docker-compose.dev.yml.
-  # Datos propios (finance-data-dev), independientes de la BD de producción.
-  db-dev:
-    image: postgres:17-alpine
-    container_name: finance-db-dev
-    environment:
-      POSTGRES_DB: finance
-      POSTGRES_USER: finance
-      POSTGRES_PASSWORD: finance
-    ports:
-      - "5433:5432"
-    volumes:
-      - finance-data-dev:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finance -d finance"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  # BD de producción (profile "app"): solo la usa el stack completo
   db:
     image: postgres:17-alpine
-    container_name: finance-db
-    profiles: ["app"]
-    restart: unless-stopped
     environment:
       POSTGRES_DB: finance
       POSTGRES_USER: finance
       POSTGRES_PASSWORD: finance
     ports:
-      - "5432:5432"
+      - "${FINANCE_DB_PORT:-5432}:5432"
     volumes:
       - finance-data:/var/lib/postgresql/data
     healthcheck:
@@ -38,44 +15,5 @@ services:
       timeout: 3s
       retries: 10
 
-  # Stack completo (profile "app"): docker compose --profile app up -d --build
-  backend:
-    build: ./backend
-    container_name: finance-backend
-    profiles: ["app"]
-    restart: unless-stopped
-    environment:
-      FINANCE_DB_HOST: db
-      FINANCE_DB_PORT: 5432
-      FINANCE_DB_NAME: finance
-      FINANCE_DB_USER: finance
-      FINANCE_DB_PASSWORD: finance
-    depends_on:
-      db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 40s
-
-  frontend:
-    build: ./frontend
-    container_name: finance-frontend
-    profiles: ["app"]
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
 volumes:
   finance-data:
-  finance-data-dev:

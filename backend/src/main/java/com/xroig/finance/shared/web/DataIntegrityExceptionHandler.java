@@ -1,5 +1,7 @@
 package com.xroig.finance.shared.web;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -18,13 +20,24 @@ import java.util.Locale;
  * application services and surface as {@link com.xroig.finance.shared.domain.ConflictException}
  * via {@link DomainExceptionHandler}. The cases that are only guarded by a database
  * constraint (e.g. category name uniqueness per scope) land here instead.
+ *
+ * <p>Also leaves a WARN trace in {@code system.log} (RF-4 of
+ * {@code docs/prd/observabilidad.md}).
  */
 @RestControllerAdvice
 public class DataIntegrityExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(DataIntegrityExceptionHandler.class);
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, messageFor(ex));
+        String detail = messageFor(ex);
+        log.atWarn()
+                .setMessage("data_integrity_violation")
+                .addKeyValue("exception", ex.getClass().getSimpleName())
+                .addKeyValue("detail", detail)
+                .log();
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, detail);
     }
 
     /** Maps the offending constraint to a user-facing Spanish message. */
