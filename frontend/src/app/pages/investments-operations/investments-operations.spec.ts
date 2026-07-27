@@ -372,5 +372,28 @@ describe('InvestmentsOperationsPage', () => {
       page.reloadImportHistoryIfActive();
       expect(api.getImportHistory).toHaveBeenCalledWith(1, 0, 25);
     });
+
+    it('cambiar de cartera con la pestaña activa recarga el historial de la nueva cartera', () => {
+      const { page, ctx } = create();
+      page.ngOnInit();
+      page.setTab('importaciones');
+      ctx.portfolios = [portfolio, { id: 2, name: 'Otra', baseCurrency: 'USD' }];
+      api.getImportHistory.mockClear();
+
+      ctx.portfolioId = 2;
+
+      expect(api.getImportHistory).toHaveBeenCalledWith(2, 0, 25);
+    });
+
+    it('cambiar de cartera con otra pestaña activa no llama al historial de imports', () => {
+      const { page, ctx } = create();
+      page.ngOnInit();
+      ctx.portfolios = [portfolio, { id: 2, name: 'Otra', baseCurrency: 'USD' }];
+      api.getImportHistory.mockClear();
+
+      ctx.portfolioId = 2;
+
+      expect(api.getImportHistory).not.toHaveBeenCalled();
+    });
   });
 });

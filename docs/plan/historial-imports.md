@@ -178,3 +178,30 @@ Con este trabajo, un import disparado por un proceso desatendido (futuro schedul
 - **`investments-operations.ts`/`.html`**: **choque confirmado** — "posiciones cerradas" también añade una pestaña a esta misma página. Orden acordado con el usuario: Operaciones / Dividendos / Cerradas / Importaciones (esta rama, última). Ver protocolo de integración en la sección de diseño frontend (§3) arriba.
 - **Numeración de migración**: `V8` está reservada para esta rama. Si "precios" acaba necesitando una migración (p. ej. columna `source` en `price_quote` para distinguir Flex vs. API externa), le corresponde `V9`, no `V8`. "Posiciones cerradas" no debería necesitar migración (es capa de lectura sobre datos existentes).
 - **Menú lateral / rutas**: esta rama no añade páginas ni rutas nuevas (la pestaña vive dentro de una página ya enlazada), así que no debería tocar `app.routes.ts` ni el componente de menú — menor riesgo de choque en ese frente que las otras dos si alguna añade una página nueva.
+
+## 8. Plan de pruebas de validación manual
+
+Complementa la suite automatizada (H-imp.1–H-imp.6, todos verdes: 758 tests backend, 361 Vitest, 27 Playwright). Pensado para ejecutarse a mano contra el stack real (`./app.sh start`), navegador en `http://localhost:4200`. Marca cada caso al ejecutarlo; si algo falla, anota el hallazgo antes de seguir.
+
+**Preparación:**
+- Stack arrancado (`./app.sh status` para confirmar `db`/`backend`/`frontend` arriba).
+- Fichero `backend/src/test/resources/investments/flex/flex-sample.xml` (o `frontend/e2e/fixtures/flex-sample.xml`, idéntico) a mano para subir desde el navegador.
+- Una copia del mismo fichero **sin el atributo `fromDate`** en `<FlexStatement>` (para MT-5) — duplícalo y edita esa línea a mano.
+- Una cartera nueva con divisa base EUR (crear desde "Nueva cartera" en Operaciones).
+
+| # | Caso | Pasos | Resultado esperado |
+|---|---|---|---|
+| MT-1 | Import feliz | Importar `flex-sample.xml` en una cartera nueva. Ir a la pestaña Importaciones. | Aparece una fila: fecha/hora actual, fichero `flex-sample.xml`, periodo `05/01/2024 – 31/12/2024`, importadas 11, duplicadas 0, errores 3, avisos 0. |
+| MT-2 | Reimport (todo duplicado) | Importar el mismo fichero otra vez en la misma cartera. | Se añade una **segunda** fila (más reciente, arriba): importadas 0, duplicadas 11, errores 3 — no desaparece ni se fusiona con la anterior. Esto es justo lo que motivó el RF-11 (antes esta información se perdía). |
+| MT-3 | Detalle de errores | En la fila de MT-1, pulsar "Ver detalle". | Se despliega una fila con `<ul class="errors">` de 3 líneas (fila de opción no soportada, etc.), texto legible. Pulsar de nuevo colapsa. |
+| MT-4 | Detalle de avisos | Editar la copia de `flex-sample.xml` para añadir una venta de un instrumento sin posición previa (o usar `frontend/e2e/fixtures/flex-sample-warning.xml`, ya preparado para esto) e importarla. | La fila muestra avisos ≥ 1; "Ver detalle" muestra `<ul class="warnings">` con el texto "venta sin posición suficiente". **Ojo**: esto solo se puede provocar vía import — el alta manual de una operación rechaza la misma situación con un error 400 (RN-4, lado duro), a diferencia del import (RN-4, lado blando). No es un bug, es la regla de negocio; no lo confundas con un fallo si lo pruebas primero a mano. |
+| MT-5 | `fromDate` nulo | Importar la copia sin `fromDate`. | La columna Periodo muestra solo la fecha de fin (`31/12/2024`), sin guion ni "–" colgando. |
+| MT-6 | `fileName` nulo | Con `curl`/Postman, `POST /api/investments/portfolios/{id}/import` con un `multipart/form-data` cuya parte de fichero no lleve `filename`. | El import se procesa igual; en la pestaña Importaciones esa fila muestra "—" en la columna Fichero en vez de vacío o `null`. |
+| MT-7 | Aislamiento por cartera | Repetir MT-1 en una segunda cartera distinta. | El historial de cada cartera solo muestra sus propios imports; cambiar de cartera en el selector superior recarga la tabla con los del historial correcto. |
+| MT-8 | Estado vacío | Crear una tercera cartera y entrar directamente en Importaciones sin haber importado nada. | Tabla vacía con el mensaje "Sin imports registrados todavía." (no un error, no un spinner colgado). |
+| MT-9 | Carga perezosa | Abrir la página con la pestaña Operaciones activa (por defecto) y mirar la pestaña Red del navegador. Cambiar de cartera sin tocar la pestaña Importaciones. | **No** debe verse ninguna llamada a `import-history` hasta la primera vez que se activa esa pestaña. |
+| MT-10 | Recarga en caliente tras import | Con la pestaña Importaciones activa, pulsar "Importar Flex" y completar un import (con o sin filas nuevas). | Al cerrar el diálogo, la tabla de Importaciones se refresca sola con la nueva fila, sin recargar la página a mano — incluye el caso "todo duplicado" (antes de este trabajo ese caso no refrescaba nada). |
+| MT-11 | Paginación | Generar más de 25 imports en una cartera (repetir MT-1/MT-2 las veces que haga falta, o vía `curl` en bucle) y cambiar el tamaño de página (5/10/25/50/100). | La tabla, el indicador "Página X de Y" y los botones Anterior/Siguiente se comportan igual que en Operaciones; cambiar el tamaño no deja una página "fantasma" con el tamaño antiguo (mismo bug ya cubierto por regresión en Operaciones/Movimientos). |
+| MT-12 | Tema oscuro | Activar el tema oscuro (interruptor de la barra lateral) con la pestaña Importaciones abierta y el detalle desplegado. | Contraste correcto en la tabla y en las listas de errores/avisos; nada ilegible ni con fondo blanco residual. |
+| MT-13 | API directa | `curl http://localhost:8080/api/investments/portfolios/{id}/import-history?page=0&size=10` | JSON `{content, page, size, totalElements, totalPages}` con la forma de `ImportRecordView`; probar también sin `page`/`size` (defaults 0/25). |
+| MT-14 | Regresión de pestañas hermanas | Con imports ya registrados, navegar libremente entre Operaciones/Dividendos/Importaciones varias veces seguidas. | Ninguna pestaña pierde su estado (filtros, año de dividendos, página de historial) de forma inesperada; los gráficos de Dividendos se siguen pintando. |

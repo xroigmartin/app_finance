@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { post } from './fixtures/seed';
 
 const FLEX_FIXTURE = path.join(__dirname, 'fixtures', 'flex-sample.xml');
+const FLEX_WARNING_FIXTURE = path.join(__dirname, 'fixtures', 'flex-sample-warning.xml');
 
 test.describe('Inversión — Operaciones', () => {
   test.beforeEach(async ({ page }) => {
@@ -124,5 +125,23 @@ test.describe('Inversión — Operaciones', () => {
     await page.getByRole('button', { name: 'Cerrar' }).click();
 
     await expect(page.locator('tbody tr', { hasText: 'flex-sample.xml' })).toHaveCount(2);
+
+    // Un segundo fichero con una venta sin posición previa (RN-4, lado
+    // "blando" — solo se endurece a rechazo en el alta manual, ver
+    // InvestmentTransactionService): también deja rastro, esta vez con avisos
+    // en vez de errores, ejercitando la rama <ul class="warnings"> del detalle.
+    await page.getByRole('button', { name: 'Importar Flex' }).click();
+    await page.locator('input[type="file"]').setInputFiles(FLEX_WARNING_FIXTURE);
+    await page.getByRole('button', { name: 'Importar', exact: true }).click();
+    await expect(page.getByText(/operaciones importadas/)).toBeVisible();
+    await page.getByRole('button', { name: 'Cerrar' }).click();
+
+    const warningRow = page.locator('tbody tr', { hasText: 'flex-sample-warning.xml' });
+    await expect(warningRow).toBeVisible();
+    await expect(warningRow.locator('td').nth(3)).toHaveText('1'); // importadas
+    await expect(warningRow.locator('td').nth(6)).toHaveText('1'); // avisos
+    await warningRow.getByRole('button', { name: 'Ver detalle' }).click();
+    await expect(page.locator('.history-detail .warnings li')).toHaveCount(1);
+    await expect(page.locator('.history-detail .warnings li')).toContainText('posición suficiente');
   });
 });
