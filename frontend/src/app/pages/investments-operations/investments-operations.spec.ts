@@ -1,5 +1,6 @@
 import { ElementRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { InvestmentContextService } from '../../investment-context.service';
@@ -58,8 +59,10 @@ describe('InvestmentsOperationsPage', () => {
     content: [], page: 0, size: 25, totalElements: 0, totalPages: 0,
   };
 
-  function create(overrides: Partial<typeof api> = {}, portfolios: Portfolio[] = [portfolio]):
-    { page: InvestmentsOperationsPage; ctx: InvestmentContextService } {
+  function create(
+    overrides: Partial<typeof api> = {}, portfolios: Portfolio[] = [portfolio],
+    queryParams: Record<string, string> = {},
+  ): { page: InvestmentsOperationsPage; ctx: InvestmentContextService; router: { navigate: ReturnType<typeof vi.fn> } } {
     api = {
       getSecurities: vi.fn().mockReturnValue(of([security])),
       getPortfolios: vi.fn().mockReturnValue(of(portfolios)),
@@ -69,10 +72,18 @@ describe('InvestmentsOperationsPage', () => {
       getImportHistory: vi.fn().mockReturnValue(of(historyPage)),
       ...overrides,
     };
-    TestBed.configureTestingModule({ providers: [{ provide: ApiService, useValue: api }] });
+    const router = { navigate: vi.fn() };
+    const activatedRoute = { queryParamMap: of(convertToParamMap(queryParams)) };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ApiService, useValue: api },
+        { provide: Router, useValue: router },
+        { provide: ActivatedRoute, useValue: activatedRoute },
+      ],
+    });
     const ctx = TestBed.inject(InvestmentContextService);
     const page = TestBed.createComponent(InvestmentsOperationsPage).componentInstance;
-    return { page, ctx };
+    return { page, ctx, router };
   }
 
   function fakeCanvas(): ElementRef<HTMLCanvasElement> {
@@ -394,6 +405,27 @@ describe('InvestmentsOperationsPage', () => {
       ctx.portfolioId = 2;
 
       expect(api.getImportHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deep-link ?tab=importaciones (enlace desde el diálogo de import)', () => {
+    it('activa la pestaña Importaciones y carga su historial si la URL trae el query param', () => {
+      const { page } = create({}, [portfolio], { tab: 'importaciones' });
+      page.ngOnInit();
+      expect(page.activeTab).toBe('importaciones');
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 0, 25);
+    });
+
+    it('limpia el query param tras aplicarlo, para no fijar la pestaña en recargas futuras', () => {
+      const { page, router } = create({}, [portfolio], { tab: 'importaciones' });
+      page.ngOnInit();
+      expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: {} }));
+    });
+
+    it('sin el query param, no fuerza ninguna pestaña', () => {
+      const { page } = create();
+      page.ngOnInit();
+      expect(page.activeTab).toBe('operaciones');
     });
   });
 });

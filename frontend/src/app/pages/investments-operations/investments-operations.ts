@@ -3,6 +3,7 @@ import {
   AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, ChangeDetectionStrategy
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
@@ -36,6 +37,8 @@ const ALLOCATION_COLORS = ['#2563EB', '#16A06B', '#E8A33D', '#8B5CF6', '#0891B2'
 export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestroy {
   private api = inject(ApiService);
   private theme = inject(ThemeService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   readonly ctx = inject(InvestmentContextService);
 
   activeTab: 'operaciones' | 'dividendos' | 'importaciones' = 'operaciones';
@@ -67,6 +70,7 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
   private viewReady = false;
   private renderScheduled = false;
   private portfolioSub?: Subscription;
+  private queryParamsSub?: Subscription;
 
   ngOnInit(): void {
     this.portfolioSub = this.ctx.portfolioId$.subscribe(() => {
@@ -75,6 +79,14 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
       this.reloadImportHistoryIfActive();
     });
     this.ctx.init();
+    // Deep link desde el enlace "Ver detalle en Importaciones" del diálogo de import (RF-11):
+    // ?tab=importaciones abre esa pestaña y se limpia para no fijarla en recargas futuras.
+    this.queryParamsSub = this.route.queryParamMap.subscribe(params => {
+      if (params.get('tab') === 'importaciones') {
+        this.setTab('importaciones');
+        this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -84,6 +96,7 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
 
   ngOnDestroy(): void {
     this.portfolioSub?.unsubscribe();
+    this.queryParamsSub?.unsubscribe();
     this.charts.forEach(c => c.destroy());
   }
 

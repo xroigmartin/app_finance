@@ -1,6 +1,7 @@
 
 import { Component, EventEmitter, Input, Output, inject, ChangeDetectionStrategy } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { ApiService } from '../api.service';
 import { FlexImportResult } from '../models';
 
@@ -65,6 +66,9 @@ import { FlexImportResult } from '../models';
                     <li>{{ w }}</li>
                   }
                 </ul>
+              }
+              @if (result.errors.length > 0 || result.warnings.length > 0) {
+                <button class="btn small" (click)="goToImportHistory()">Ver detalle en Importaciones →</button>
               }
             </div>
           }
@@ -176,6 +180,7 @@ import { FlexImportResult } from '../models';
 })
 export class FlexImportDialog {
   private api = inject(ApiService);
+  private router = inject(Router);
 
   @Input({ required: true }) portfolioId!: number;
   @Input() label = 'Importar Flex';
@@ -222,5 +227,11 @@ export class FlexImportDialog {
         this.error = e.error?.detail ?? e.error?.message ?? 'Error al importar el informe.';
       }
     });
+  }
+
+  /** Cierra el diálogo y lleva al detalle persistido (RF-11) por si el usuario quiere revisarlo. */
+  goToImportHistory(): void {
+    this.close();
+    this.router.navigate(['/investments/operations'], { queryParams: { tab: 'importaciones' } });
   }
 }

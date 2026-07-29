@@ -125,6 +125,8 @@ Contenido de la pestaña:
 
 **`api.service.ts`:** `getImportHistory(portfolioId: number, page: number, size: number): Observable<Page<ImportRecordView>>` → `GET /investments/portfolios/{portfolioId}/import-history`.
 
+**H-imp.7 (post-implementación, a petición del usuario tras probar MT-1 desde el Panel general):** el diálogo `FlexImportDialog` ya mostraba el resumen/errores/*warnings* de un import de forma inmediata (comportamiento previo a este RF), pero eso solo cubre el momento del import — el historial persistido (RF-11) vive en otra pestaña, y de otra página si el import se lanzó desde el Panel general. Para tender el puente sin forzar navegación no solicitada: cuando `result.errors.length > 0 || result.warnings.length > 0`, el diálogo muestra un botón **"Ver detalle en Importaciones →"** que cierra el diálogo y navega a `/investments/operations?tab=importaciones` (`FlexImportDialog.goToImportHistory()`); si el usuario no lo pulsa, "Cerrar" se comporta exactamente igual que antes (se queda en la página en la que estaba). `InvestmentsOperationsPage` consume el query param en `ngOnInit` (suscripción a `ActivatedRoute.queryParamMap`), activa la pestaña y lo limpia de la URL (`router.navigate([], { queryParams: {}, replaceUrl: true })`) para que no quede pegado en recargas futuras. No hace falta pasar el `portfolioId` por la URL: la cartera es estado compartido (`InvestmentContextService`), así que el historial que aparece es el de la cartera con la que se acaba de importar.
+
 ## 4. Plan TDD por hitos
 
 Cada hito cierra con commit propio (tests en verde + PRD actualizado), como manda `CLAUDE.md`.
@@ -152,6 +154,10 @@ Verde: `ImportRecordView`/`Page<T>` en `models.ts`, método en `api.service.ts`.
 **H-imp.6 — Frontend: pestaña Importaciones.**
 Rojo: `investments-operations.spec.ts` (Vitest) — al activar la pestaña "importaciones" se llama a `getImportHistory`, se renderiza la tabla con los datos devueltos, el `app-pagination` dispara una nueva carga al cambiar de página. Playwright: extender `e2e/investments-operations.spec.ts` con un caso que importa un Flex de fixture, cambia a la pestaña Importaciones y comprueba que aparece la fila con los contadores correctos.
 Verde: pestaña nueva en `investments-operations.ts`/`.html`, tabla + expansión de detalle.
+
+**H-imp.7 — Frontend: enlace desde el diálogo al historial (post-implementación, ver §3).**
+Rojo: `flex-import-dialog.spec.ts` — `goToImportHistory()` cierra el diálogo (`visible = false`) y navega con `Router.navigate(['/investments/operations'], { queryParams: { tab: 'importaciones' } })`. `investments-operations.spec.ts` — con `?tab=importaciones` en la ruta, `ngOnInit` activa la pestaña, carga el historial y limpia el query param; sin el query param no fuerza ninguna pestaña. Playwright: `e2e/investments-dashboard.spec.ts` — un import con errores lanzado desde el Panel general, clic en "Ver detalle en Importaciones →", aterriza en Operaciones con la fila y el contador de errores visibles.
+Verde: `goToImportHistory()` + botón condicional en `flex-import-dialog.ts`; suscripción a `ActivatedRoute.queryParamMap` en `investments-operations.ts`.
 
 ## 5. Actualización de PRD requerida
 
@@ -181,7 +187,9 @@ Con este trabajo, un import disparado por un proceso desatendido (futuro schedul
 
 ## 8. Plan de pruebas de validación manual
 
-Complementa la suite automatizada (H-imp.1–H-imp.6, todos verdes: 758 tests backend, 361 Vitest, 27 Playwright). Pensado para ejecutarse a mano contra el stack real (`./app.sh start`), navegador en `http://localhost:4200`. Marca cada caso al ejecutarlo; si algo falla, anota el hallazgo antes de seguir.
+Complementa la suite automatizada (H-imp.1–H-imp.7, todos verdes: 758 tests backend, 365 Vitest, 28 Playwright). Pensado para ejecutarse a mano contra el stack real (`./app.sh start`), navegador en `http://localhost:4200`. Marca cada caso al ejecutarlo; si algo falla, anota el hallazgo antes de seguir.
+
+**Nota sobre MT-1/MT-3 (aclaración surgida al ejecutarlas la primera vez):** el resumen que aparece **dentro del propio diálogo** de import (importadas/duplicadas/errores/warnings, con el detalle de errores en línea) es comportamiento **previo** a este RF-11, no la pestaña Importaciones. Para ver la fila persistida hay que cerrar el diálogo (o pulsar el nuevo enlace de MT-15) e ir a Operaciones → Importaciones.
 
 **Preparación:**
 - Stack arrancado (`./app.sh status` para confirmar `db`/`backend`/`frontend` arriba).
@@ -205,3 +213,4 @@ Complementa la suite automatizada (H-imp.1–H-imp.6, todos verdes: 758 tests ba
 | MT-12 | Tema oscuro | Activar el tema oscuro (interruptor de la barra lateral) con la pestaña Importaciones abierta y el detalle desplegado. | Contraste correcto en la tabla y en las listas de errores/avisos; nada ilegible ni con fondo blanco residual. |
 | MT-13 | API directa | `curl http://localhost:8080/api/investments/portfolios/{id}/import-history?page=0&size=10` | JSON `{content, page, size, totalElements, totalPages}` con la forma de `ImportRecordView`; probar también sin `page`/`size` (defaults 0/25). |
 | MT-14 | Regresión de pestañas hermanas | Con imports ya registrados, navegar libremente entre Operaciones/Dividendos/Importaciones varias veces seguidas. | Ninguna pestaña pierde su estado (filtros, año de dividendos, página de historial) de forma inesperada; los gráficos de Dividendos se siguen pintando. |
+| MT-15 | Enlace al historial desde el diálogo (H-imp.7) | Desde el **Panel general** (no Operaciones), importar `flex-sample.xml` (deja 3 errores). En el diálogo, pulsar **"Ver detalle en Importaciones →"**. | El diálogo se cierra y la app navega a Operaciones con la pestaña **Importaciones** ya activa, mostrando la fila del import recién hecho (misma cartera, sin selección manual). Repetir el import sin errores/warnings (p. ej. reimportando el mismo fichero hasta que solo queden errores tolerados — o comprobar directamente que el botón **no aparece** cuando `errors`/`warnings` están vacíos) y comprobar que "Cerrar" se comporta como antes: el diálogo se cierra y la página no cambia. |

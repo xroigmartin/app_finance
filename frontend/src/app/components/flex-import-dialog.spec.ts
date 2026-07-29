@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ApiService } from '../api.service';
 import { FlexImportResult } from '../models';
@@ -6,12 +7,19 @@ import { FlexImportDialog } from './flex-import-dialog';
 
 describe('FlexImportDialog', () => {
   let api: { importFlexReport: ReturnType<typeof vi.fn> };
+  let router: { navigate: ReturnType<typeof vi.fn> };
 
   const okResult: FlexImportResult = { imported: 3, duplicated: 1, errors: [], warnings: [] };
 
   function create(): FlexImportDialog {
     api = { importFlexReport: vi.fn().mockReturnValue(of(okResult)) };
-    TestBed.configureTestingModule({ providers: [{ provide: ApiService, useValue: api }] });
+    router = { navigate: vi.fn() };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ApiService, useValue: api },
+        { provide: Router, useValue: router },
+      ],
+    });
     const dialog = TestBed.createComponent(FlexImportDialog).componentInstance;
     dialog.portfolioId = 1;
     return dialog;
@@ -95,6 +103,17 @@ describe('FlexImportDialog', () => {
       api.importFlexReport.mockReturnValue(throwError(() => ({ error: null })));
       dialog.doImport();
       expect(dialog.error).toBe('Error al importar el informe.');
+    });
+  });
+
+  describe('goToImportHistory', () => {
+    it('cierra el diálogo y navega a la pestaña Importaciones de Operaciones', () => {
+      const dialog = create();
+      dialog.visible = true;
+      dialog.goToImportHistory();
+      expect(dialog.visible).toBe(false);
+      expect(router.navigate).toHaveBeenCalledWith(
+        ['/investments/operations'], { queryParams: { tab: 'importaciones' } });
     });
   });
 });
