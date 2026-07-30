@@ -1,3 +1,9 @@
+---
+dominio: observabilidad
+estado: en-curso
+tags: [prd, transversal]
+---
+
 # PRD — Observabilidad (logging)
 
 | Campo | Valor |
@@ -10,11 +16,13 @@
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento del logging (formato, enrutado, campos, retención). Ver `docs/README.md`.
 
+**Relacionado:** [[prd/inversiones]] (caso piloto de logging de negocio)
+
 ---
 
 ## 1. Propósito
 
-Origen: al diagnosticar un fallo real de import de Inversiones (reversas de IBKR violando el convenio de signos §3 del PRD de Inversiones, ver `docs/prd/inversiones.md` §11) hubo que abrir el XML original del Flex —fuera de git por contener datos financieros reales (`docs/investment/`, ver `.gitignore`)— porque la app no dejaba ningún rastro del fallo. El sistema de logging existe para que **cualquier fallo, de sistema o de una acción de negocio, se pueda diagnosticar leyendo los logs de la propia app, sin depender de abrir el fichero fuente con datos reales**.
+Origen: al diagnosticar un fallo real de import de Inversiones (reversas de IBKR violando el convenio de signos §3 del PRD de Inversiones, ver [[prd/inversiones]] §11) hubo que abrir el XML original del Flex —fuera de git por contener datos financieros reales (`docs/investment/`, ver `.gitignore`)— porque la app no dejaba ningún rastro del fallo. El sistema de logging existe para que **cualquier fallo, de sistema o de una acción de negocio, se pueda diagnosticar leyendo los logs de la propia app, sin depender de abrir el fichero fuente con datos reales**.
 
 ## 2. Objetivos y no-objetivos
 

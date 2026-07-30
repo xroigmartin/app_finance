@@ -1,3 +1,9 @@
+---
+dominio: inversiones
+estado: en-curso
+tags: [prd, dominio/inversiones]
+---
+
 # PRD — Inversiones
 
 | Campo | Valor |
@@ -9,6 +15,8 @@
 | Responsable | Equipo Mis Finanzas |
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento del módulo de inversión (modelo, API, reglas de negocio o UI). Ver `docs/README.md`.
+
+**Relacionado:** [[prd/observabilidad]] (logging de negocio del import Flex), [[plan/inversiones]] (seguimiento de implementación)
 
 ---
 

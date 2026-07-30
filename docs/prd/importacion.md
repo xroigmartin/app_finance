@@ -1,3 +1,9 @@
+---
+dominio: importacion
+estado: implementado
+tags: [prd, dominio/importacion]
+---
+
 # PRD — Importación de extractos
 
 | Campo | Valor |
@@ -9,6 +15,8 @@
 | Responsable | Equipo Mis Finanzas |
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento de la importación (parser, mapeo de columnas, deduplicación o UI). Ver `docs/README.md`.
+
+**Relacionado:** [[prd/movimientos]], [[prd/transferencias]] (destino de las filas importadas), [[prd/reglas-categorizacion]] (autocategoriza filas sin categoría), [[prd/categorias]] (categorías desconocidas se crean automáticamente)
 
 ---
 

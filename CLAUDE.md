@@ -10,6 +10,8 @@ Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular
 
 **Rule: every code change automatically creates or updates the project documentation.** Whenever you modify code, you must, in the same change, update the affected domain's PRD (or create it if it does not exist yet) so the docs never drift from the code. This is not optional.
 
+**Rule: read the PRD before exploring the code.** `docs/README.md` has a domain table (PRD ↔ backend package ↔ frontend page). Before grepping/reading source to understand a domain's behavior, read its PRD first — it's the source of truth for business rules, so the code only needs to be explored to locate the exact implementation, not to re-derive rules already documented. `docs/` is also an Obsidian vault (`[[wikilink]]`s between related PRDs, frontmatter with `dominio`/`estado`/`tags`) for browsing the docs as a knowledge graph.
+
 Per-domain PRDs live in `docs/prd/` (index and template in `docs/README.md`), written in Spanish. A change "affects a domain" when it touches its data model, business rules, API endpoints, or UI. Concretely: when you finish a code change, identify which domain(s) under `docs/prd/` it touches, and edit the matching PRD(s) — bump "Última actualización", and adjust the relevant sections (model, rules, API, UI, validations). If no PRD exists for the affected domain, create one following the existing template.
 
 ## Development methodology — TDD (mandatory, backend and frontend)

@@ -1,3 +1,9 @@
+---
+dominio: presupuestos
+estado: implementado
+tags: [prd, dominio/presupuestos]
+---
+
 # PRD — Presupuestos
 
 | Campo | Valor |
@@ -9,6 +15,8 @@
 | Responsable | Equipo Mis Finanzas |
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento de los presupuestos (modelo, API, reglas de negocio o UI). Ver `docs/README.md`.
+
+**Relacionado:** [[prd/categorias]] (presupuestos y recurrencias viven en categorías hoja), [[prd/dashboard]] (matriz anual usa lo real de movimientos)
 
 ---
 

@@ -1,3 +1,9 @@
+---
+dominio: cuentas
+estado: implementado
+tags: [prd, dominio/cuentas]
+---
+
 # PRD — Cuentas
 
 | Campo | Valor |
@@ -9,6 +15,8 @@
 | Responsable | Equipo Mis Finanzas |
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento de las cuentas (modelo, API, reglas de negocio o UI). Ver `docs/README.md`.
+
+**Relacionado:** [[prd/movimientos]], [[prd/transferencias]] (ambos referencian cuentas), [[prd/dashboard]] (comparativa entre cuentas)
 
 ---
 

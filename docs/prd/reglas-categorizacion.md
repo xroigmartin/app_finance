@@ -1,3 +1,9 @@
+---
+dominio: reglas-categorizacion
+estado: implementado
+tags: [prd, dominio/reglas-categorizacion]
+---
+
 # PRD — Reglas de categorización automática
 
 | Campo | Valor |
@@ -9,6 +15,8 @@
 | Responsable | Equipo Mis Finanzas |
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento de las reglas (modelo, API, lógica de coincidencia o UI). Ver `docs/README.md`.
+
+**Relacionado:** [[prd/importacion]] (las reglas se aplican durante la importación), [[prd/categorias]] (categoría destino de la regla)
 
 ---
 
