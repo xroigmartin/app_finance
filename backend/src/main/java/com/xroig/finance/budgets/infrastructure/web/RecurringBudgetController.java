@@ -6,6 +6,10 @@ import com.xroig.finance.budgets.application.port.FindRecurrence;
 import com.xroig.finance.budgets.application.port.UpsertRecurrence;
 import com.xroig.finance.budgets.application.port.UpsertRecurrence.AmountInput;
 import com.xroig.finance.budgets.application.port.UpsertRecurrence.RecurrenceCommand;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/categories/{categoryId}/recurrence")
+@Tag(name = "Presupuestos recurrentes", description = "Recurrencia de una categoría hoja ligada a cuenta: meses activos + histórico de importes con fecha de vigencia. Solo alimenta el lado planificado de la matriz anual.")
 public class RecurringBudgetController {
 
     private final FindRecurrence findRecurrence;
@@ -37,17 +42,27 @@ public class RecurringBudgetController {
         this.deleteRecurrence = deleteRecurrence;
     }
 
+    @Operation(summary = "Consultar recurrencia de una categoría")
+    @ApiResponse(responseCode = "200", description = "Recurrencia configurada")
+    @ApiResponse(responseCode = "404", description = "La categoría no tiene recurrencia configurada", content = @Content)
     @GetMapping
     public RecurringBudgetView get(@PathVariable Long categoryId) {
         return findRecurrence.get(categoryId);
     }
 
+    @Operation(summary = "Crear o reemplazar la recurrencia de una categoría",
+            description = "Solo válido para categorías hoja ligadas a una cuenta concreta, sin recurrencia previa incompatible.")
+    @ApiResponse(responseCode = "200", description = "Recurrencia guardada")
+    @ApiResponse(responseCode = "400", description = "Categoría global, con subcategorías, o meses/importes inválidos", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Categoría no encontrada", content = @Content)
     @PutMapping
     public RecurringBudgetView upsert(@PathVariable Long categoryId,
                                       @Valid @RequestBody RecurringBudgetRequest request) {
         return upsertRecurrence.upsert(categoryId, toCommand(request));
     }
 
+    @Operation(summary = "Eliminar la recurrencia de una categoría", description = "Idempotente: no falla si la categoría no tenía ninguna recurrencia configurada.")
+    @ApiResponse(responseCode = "204", description = "Recurrencia eliminada (o inexistente)")
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long categoryId) {

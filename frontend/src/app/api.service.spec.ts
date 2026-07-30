@@ -437,6 +437,30 @@ describe('ApiService', () => {
       expect(req.request.body).toBeInstanceOf(FormData);
       req.flush({});
     });
+
+    it('getImportHistory sin página/tamaño usa los valores por defecto', () => {
+      service.getImportHistory(1).subscribe();
+      const req = http.expectOne(r => r.url === '/api/investments/portfolios/1/import-history');
+      expect(req.request.params.get('page')).toBe('0');
+      expect(req.request.params.get('size')).toBe('25');
+      req.flush({ content: [], page: 0, size: 25, totalElements: 0, totalPages: 0 });
+    });
+
+    it('getImportHistory con página/tamaño explícitos y mapea la respuesta', () => {
+      let result: { totalElements: number } | undefined;
+      service.getImportHistory(1, 2, 10).subscribe(page => (result = page));
+      const req = http.expectOne('/api/investments/portfolios/1/import-history?page=2&size=10');
+      req.flush({
+        content: [{
+          id: 1, importedAt: '2026-07-26T10:15:30Z', fileName: 'flex.csv',
+          fromDate: '2026-01-01', toDate: '2026-06-30', imported: 12, duplicated: 3,
+          errors: [{ section: 'Trades', reference: 'T-1', message: 'Instrumento desconocido' }],
+          warnings: ['2026-03-01: venta sin posición suficiente'],
+        }],
+        page: 2, size: 10, totalElements: 1, totalPages: 1,
+      });
+      expect(result?.totalElements).toBe(1);
+    });
   });
 
   describe('reglas de categorización', () => {

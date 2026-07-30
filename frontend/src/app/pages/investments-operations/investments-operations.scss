@@ -110,3 +110,22 @@ h2 {
   margin: .75rem 0 0;
   font-size: .85rem;
 }
+
+.history-detail td {
+  background: var(--surface-2);
+  padding: .5rem .75rem;
+}
+
+.errors {
+  margin: 0 0 .5rem;
+  padding-left: 1.2rem;
+  font-size: .85rem;
+  color: var(--neg);
+}
+
+.warnings {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: .85rem;
+  color: var(--accent);
+}

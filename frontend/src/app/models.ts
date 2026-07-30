@@ -460,3 +460,16 @@ export interface PriceRefreshResult {
   updated: number;
   failed: PriceRefreshFailure[];
 }
+
+/** Un intento de import Flex persistido (RF-12): historial paginado por cartera. */
+export interface ImportRecordView {
+  id: number;
+  importedAt: string;
+  fileName: string | null;
+  fromDate: string | null;
+  toDate: string;
+  imported: number;
+  duplicated: number;
+  errors: FlexRowError[];
+  warnings: string[];
+}

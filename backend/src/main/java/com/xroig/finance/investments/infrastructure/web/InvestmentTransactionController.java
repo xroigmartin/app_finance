@@ -8,6 +8,10 @@ import com.xroig.finance.investments.application.port.FindInvestmentTransactions
 import com.xroig.finance.investments.application.port.UpdateInvestmentTransaction;
 import com.xroig.finance.investments.domain.InvestmentTransactionType;
 import com.xroig.finance.shared.domain.Page;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -32,6 +36,7 @@ import java.time.LocalDate;
  */
 @RestController
 @RequestMapping("/api/investments")
+@Tag(name = "Operaciones de cartera", description = "Compras, ventas, dividendos y demás operaciones manuales sobre una cartera. Las ventas están sujetas a la RN-4: no pueden superar la cantidad en posición a esa fecha.")
 public class InvestmentTransactionController {
 
     private final FindInvestmentTransactions findTransactions;
@@ -49,6 +54,10 @@ public class InvestmentTransactionController {
         this.deleteTransaction = deleteTransaction;
     }
 
+    @Operation(summary = "Listar operaciones de una cartera", description = "Filtrable por tipo, rango de fechas e instrumento; paginado.")
+    @ApiResponse(responseCode = "200", description = "Página de operaciones")
+    @ApiResponse(responseCode = "400", description = "page/size inválidos", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Cartera no encontrada", content = @Content)
     @GetMapping("/portfolios/{id}/transactions")
     public Page<InvestmentTransactionView> find(
             @PathVariable Long id,
@@ -61,6 +70,10 @@ public class InvestmentTransactionController {
         return findTransactions.find(id, new TransactionFilter(type, from, to, securityId), page, size);
     }
 
+    @Operation(summary = "Crear operación en una cartera", description = "El signo de cantidad/importe debe ser coherente con el tipo de operación; una venta no puede superar la posición mantenida a esa fecha (RN-4).")
+    @ApiResponse(responseCode = "201", description = "Operación creada")
+    @ApiResponse(responseCode = "400", description = "Datos inválidos, signos incoherentes con el tipo, o venta sin posición suficiente (RN-4)", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Cartera o instrumento no encontrado", content = @Content)
     @PostMapping("/portfolios/{id}/transactions")
     @ResponseStatus(HttpStatus.CREATED)
     public InvestmentTransactionView create(@PathVariable Long id,
@@ -68,12 +81,18 @@ public class InvestmentTransactionController {
         return createTransaction.create(id, request.toCommand());
     }
 
+    @Operation(summary = "Actualizar operación")
+    @ApiResponse(responseCode = "200", description = "Operación actualizada")
+    @ApiResponse(responseCode = "400", description = "Datos inválidos, signos incoherentes con el tipo, o venta sin posición suficiente (RN-4)", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Operación o instrumento no encontrado", content = @Content)
     @PutMapping("/transactions/{id}")
     public InvestmentTransactionView update(@PathVariable Long id,
                                             @Valid @RequestBody InvestmentTransactionRequest request) {
         return updateTransaction.update(id, request.toCommand());
     }
 
+    @Operation(summary = "Eliminar operación", description = "Idempotente: no falla si la operación no existía.")
+    @ApiResponse(responseCode = "204", description = "Operación eliminada (o inexistente)")
     @DeleteMapping("/transactions/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {

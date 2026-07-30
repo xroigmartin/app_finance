@@ -7,6 +7,10 @@ import com.xroig.finance.categorization.application.port.CreateRule.RuleCommand;
 import com.xroig.finance.categorization.application.port.DeleteRule;
 import com.xroig.finance.categorization.application.port.FindRules;
 import com.xroig.finance.categorization.application.port.UpdateRule;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,6 +32,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/category-rules")
+@Tag(name = "Reglas de categorización", description = "Reglas de patrón (alternativas separadas por '|', insensibles a mayúsculas/acentos) que auto-categorizan movimientos importados sin categoría, moviendo también los que ya cayeron en el fallback 'Otros gastos'/'Otros ingresos'.")
 public class CategoryRuleController {
 
     private final FindRules findRules;
@@ -43,22 +48,33 @@ public class CategoryRuleController {
         this.deleteRule = deleteRule;
     }
 
+    @Operation(summary = "Listar reglas de categorización")
+    @ApiResponse(responseCode = "200", description = "Listado de reglas")
     @GetMapping
     public List<CategoryRuleView> findAll() {
         return findRules.findAll();
     }
 
+    @Operation(summary = "Crear regla", description = "Al crearla se aplica de inmediato a los movimientos ya existentes en el fallback que coincidan con el patrón.")
+    @ApiResponse(responseCode = "201", description = "Regla creada, junto con el número de movimientos recategorizados")
+    @ApiResponse(responseCode = "400", description = "Patrón vacío o categoría no válida", content = @Content)
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public RuleSaved create(@Valid @RequestBody CategoryRuleRequest request) {
         return createRule.create(toCommand(request));
     }
 
+    @Operation(summary = "Actualizar regla", description = "Al guardar se vuelve a aplicar a los movimientos del fallback que coincidan con el nuevo patrón/categoría.")
+    @ApiResponse(responseCode = "200", description = "Regla actualizada, junto con el número de movimientos recategorizados")
+    @ApiResponse(responseCode = "400", description = "Patrón vacío o categoría no válida", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Regla no encontrada", content = @Content)
     @PutMapping("/{id}")
     public RuleSaved update(@PathVariable Long id, @Valid @RequestBody CategoryRuleRequest request) {
         return updateRule.update(id, toCommand(request));
     }
 
+    @Operation(summary = "Eliminar regla", description = "Idempotente: no falla si la regla no existía. No afecta a los movimientos ya categorizados.")
+    @ApiResponse(responseCode = "204", description = "Regla eliminada (o inexistente)")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {

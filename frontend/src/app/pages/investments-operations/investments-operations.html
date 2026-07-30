@@ -1,6 +1,6 @@
 <h1>Operaciones</h1>
 
-<app-investment-toolbar (done)="loadTransactions(); loadIncome()" />
+<app-investment-toolbar (done)="loadTransactions(); loadIncome(); reloadImportHistoryIfActive()" />
 
 @if (ctx.loaded && ctx.portfolios.length === 0) {
   <div class="card empty-state">
@@ -22,6 +22,8 @@
               (click)="setTab('dividendos')">Dividendos</button>
       <button class="tab" [class.active]="activeTab === 'cerradas'"
               (click)="setTab('cerradas')">Cerradas</button>
+      <button class="tab" [class.active]="activeTab === 'importaciones'"
+              (click)="setTab('importaciones')">Importaciones</button>
     </div>
 
     @if (activeTab === 'operaciones') {
@@ -173,7 +175,7 @@
       } @else {
         <p class="muted">Sin rentas registradas en el periodo seleccionado.</p>
       }
-    } @else {
+    } @else if (activeTab === 'cerradas') {
       <div class="form-row filters">
         <label>Año
           <select [(ngModel)]="closedYear">
@@ -215,6 +217,71 @@
       } @else {
         <p class="muted">Sin ventas con P&L realizado en el periodo seleccionado.</p>
       }
+    } @else {
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Fichero</th>
+            <th>Periodo</th>
+            <th class="num">Importadas</th>
+            <th class="num">Duplicadas</th>
+            <th class="num">Errores</th>
+            <th class="num">Avisos</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (record of importHistory; track record.id) {
+            <tr>
+              <td>{{ record.importedAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ record.fileName ?? '—' }}</td>
+              <td>
+                @if (record.fromDate) {
+                  {{ record.fromDate | date:'dd/MM/yyyy' }} – {{ record.toDate | date:'dd/MM/yyyy' }}
+                } @else {
+                  {{ record.toDate | date:'dd/MM/yyyy' }}
+                }
+              </td>
+              <td class="num">{{ record.imported }}</td>
+              <td class="num">{{ record.duplicated }}</td>
+              <td class="num" [class.amount-expense]="record.errors.length > 0">{{ record.errors.length }}</td>
+              <td class="num">{{ record.warnings.length }}</td>
+              <td class="row-actions">
+                @if (record.errors.length > 0 || record.warnings.length > 0) {
+                  <button class="btn small" (click)="toggleHistoryDetail(record.id)">
+                    {{ expandedHistoryId === record.id ? 'Ocultar' : 'Ver detalle' }}
+                  </button>
+                }
+              </td>
+            </tr>
+            @if (expandedHistoryId === record.id) {
+              <tr class="history-detail">
+                <td colspan="8">
+                  @if (record.errors.length > 0) {
+                    <ul class="errors">
+                      @for (e of record.errors; track $index) {
+                        <li>{{ e.section }}@if (e.reference) {<span> ({{ e.reference }})</span>}: {{ e.message }}</li>
+                      }
+                    </ul>
+                  }
+                  @if (record.warnings.length > 0) {
+                    <ul class="warnings">
+                      @for (w of record.warnings; track $index) {
+                        <li>{{ w }}</li>
+                      }
+                    </ul>
+                  }
+                </td>
+              </tr>
+            }
+          } @empty {
+            <tr><td colspan="8" class="muted">Sin imports registrados todavía.</td></tr>
+          }
+        </tbody>
+      </table>
+      <app-pagination [page]="historyPage" [size]="historySize" [totalElements]="historyTotalElements"
+                      (pageChange)="onHistoryPageChange($event)" (sizeChange)="onHistorySizeChange($event)" />
     }
   </div>
 }

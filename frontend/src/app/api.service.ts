@@ -4,9 +4,8 @@ import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
   Account, AccountComparison, AnnualBudget, BalancePoint, Budget, BudgetRequest, BudgetStatus,
-  Category, CategoryAmount, CategoryRule, ClosedPosition, FlexImportResult, ImportResult, InvestmentIncome,
-  InvestmentPerformance,
-  InvestmentSecurity,
+  Category, CategoryAmount, CategoryRule, ClosedPosition, FlexImportResult, ImportRecordView, ImportResult,
+  InvestmentIncome, InvestmentPerformance, InvestmentSecurity,
   InvestmentTransactionFilter, InvestmentTransactionRequest, InvestmentTransactionView,
   InvestmentsSummary, MonthlyPoint, Movement, PageResponse, Portfolio, PortfolioSummary, PositionView,
   PriceRefreshResult, RecurringBudget, RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest,
@@ -310,6 +309,11 @@ export class ApiService {
 
   refreshPrices(): Observable<PriceRefreshResult> {
     return this.http.post<PriceRefreshResult>(`${this.base}/investments/securities/prices/refresh`, {});
+  }
+
+  getImportHistory(portfolioId: number, page = 0, size = 25): Observable<PageResponse<ImportRecordView>> {
+    return this.http.get<PageResponse<ImportRecordView>>(
+      `${this.base}/investments/portfolios/${portfolioId}/import-history`, { params: { page, size } });
   }
 
   // Category rules

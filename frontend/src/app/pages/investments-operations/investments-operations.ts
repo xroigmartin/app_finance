@@ -3,6 +3,7 @@ import {
   AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, ChangeDetectionStrategy
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
@@ -11,7 +12,7 @@ import { InvestmentContextService } from '../../investment-context.service';
 import { InvestmentToolbar } from '../../components/investment-toolbar';
 import { Pagination } from '../../components/pagination';
 import {
-  ClosedPosition, INVESTMENT_TYPE_LABELS, InvestmentIncome, InvestmentTransactionFilter,
+  ClosedPosition, ImportRecordView, INVESTMENT_TYPE_LABELS, InvestmentIncome, InvestmentTransactionFilter,
   InvestmentTransactionType, InvestmentTransactionView
 } from '../../models';
 
@@ -36,9 +37,11 @@ const ALLOCATION_COLORS = ['#2563EB', '#16A06B', '#E8A33D', '#8B5CF6', '#0891B2'
 export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestroy {
   private api = inject(ApiService);
   private theme = inject(ThemeService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   readonly ctx = inject(InvestmentContextService);
 
-  activeTab: 'operaciones' | 'dividendos' | 'cerradas' = 'operaciones';
+  activeTab: 'operaciones' | 'dividendos' | 'cerradas' | 'importaciones' = 'operaciones';
   readonly typeLabels = INVESTMENT_TYPE_LABELS;
   readonly types = Object.keys(INVESTMENT_TYPE_LABELS) as InvestmentTransactionType[];
   transactions: InvestmentTransactionView[] = [];
@@ -58,6 +61,12 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
   closedYears: number[] = [];
   closedYear: number | 'all' = new Date().getFullYear();
 
+  importHistory: ImportRecordView[] = [];
+  historyPage = 0;
+  historySize = 25;
+  historyTotalElements = 0;
+  expandedHistoryId: number | null = null;
+
   @ViewChild(InvestmentToolbar) toolbar?: InvestmentToolbar;
   @ViewChild('dividendChart') dividendCanvas?: ElementRef<HTMLCanvasElement>;
 
@@ -65,14 +74,24 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
   private viewReady = false;
   private renderScheduled = false;
   private portfolioSub?: Subscription;
+  private queryParamsSub?: Subscription;
 
   ngOnInit(): void {
     this.portfolioSub = this.ctx.portfolioId$.subscribe(() => {
       this.loadTransactions();
       this.loadIncome();
       this.loadClosedPositions();
+      this.reloadImportHistoryIfActive();
     });
     this.ctx.init();
+    // Deep link desde el enlace "Ver detalle en Importaciones" del diálogo de import (RF-12):
+    // ?tab=importaciones abre esa pestaña y se limpia para no fijarla en recargas futuras.
+    this.queryParamsSub = this.route.queryParamMap.subscribe(params => {
+      if (params.get('tab') === 'importaciones') {
+        this.setTab('importaciones');
+        this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -82,6 +101,7 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
 
   ngOnDestroy(): void {
     this.portfolioSub?.unsubscribe();
+    this.queryParamsSub?.unsubscribe();
     this.charts.forEach(c => c.destroy());
   }
 
@@ -91,8 +111,9 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
 
   // ---- pestaña operaciones (listado filtrable, RF-2) ----
 
-  setTab(tab: 'operaciones' | 'dividendos' | 'cerradas'): void {
+  setTab(tab: 'operaciones' | 'dividendos' | 'cerradas' | 'importaciones'): void {
     this.activeTab = tab;
+    if (tab === 'importaciones') this.loadImportHistory();
     // El canvas de dividendos entra/sale del DOM con la pestaña.
     this.scheduleRenderCharts();
   }
@@ -143,6 +164,41 @@ export class InvestmentsOperationsPage implements OnInit, AfterViewInit, OnDestr
     const label = this.typeLabels[tx.type].toLowerCase();
     if (!confirm(`¿Eliminar la operación de ${label} del ${tx.tradeDate}?`)) return;
     this.api.deleteInvestmentTransaction(tx.id).subscribe(() => this.loadTransactions());
+  }
+
+  // ---- pestaña importaciones (RF-12, historial de imports Flex) ----
+
+  loadImportHistory(): void {
+    const portfolioId = this.ctx.portfolioId;
+    if (portfolioId == null) {
+      this.importHistory = [];
+      this.historyTotalElements = 0;
+      return;
+    }
+    this.api.getImportHistory(portfolioId, this.historyPage, this.historySize).subscribe(p => {
+      this.importHistory = p.content;
+      this.historyTotalElements = p.totalElements;
+    });
+  }
+
+  /** Solo recarga si la pestaña está a la vista — evita peticiones cuando el usuario no la ha abierto. */
+  reloadImportHistoryIfActive(): void {
+    if (this.activeTab === 'importaciones') this.loadImportHistory();
+  }
+
+  onHistoryPageChange(page: number): void {
+    this.historyPage = page;
+    this.loadImportHistory();
+  }
+
+  onHistorySizeChange(size: number): void {
+    this.historyPage = 0;
+    this.historySize = size;
+    this.loadImportHistory();
+  }
+
+  toggleHistoryDetail(id: number): void {
+    this.expandedHistoryId = this.expandedHistoryId === id ? null : id;
   }
 
   // ---- pestaña dividendos (RF-7, §7) ----
