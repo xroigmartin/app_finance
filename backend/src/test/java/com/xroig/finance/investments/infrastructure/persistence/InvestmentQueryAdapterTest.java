@@ -1,6 +1,7 @@
 package com.xroig.finance.investments.infrastructure.persistence;
 
 import com.xroig.finance.PostgresTestBase;
+import com.xroig.finance.investments.application.ClosedPositionView;
 import com.xroig.finance.investments.application.IncomeView;
 import com.xroig.finance.investments.application.InvestmentsSummaryView;
 import com.xroig.finance.investments.application.PerformanceView;
@@ -433,6 +434,51 @@ class InvestmentQueryAdapterTest extends PostgresTestBase {
     @Test
     void income_unknownPortfolioThrowsNotFound() {
         assertThatThrownBy(() -> adapter.income(999L)).isInstanceOf(NotFoundException.class);
+    }
+
+    // ---- closed positions (H2, RF-nuevo) ----
+
+    @Test
+    void closedPositions_includesFullAndPartialSalesGroupedByYear() {
+        PortfolioId portfolio = portfolios.save(Portfolio.create("IBKR", "EUR")).id();
+        SecurityId closed = persistSecurity("IE00BK5BQT80", "EUR", "Cerrada del todo");
+        SecurityId stillOpen = persistSecurity("US0378331005", "EUR", "Con venta parcial");
+        // Cerrada: compra 2022, vende toda en 2023 con ganancia de 200.
+        transactions.save(buy(portfolio, closed, LocalDate.of(2022, 1, 10), "10", "100", "-1000", null));
+        transactions.save(sell(portfolio, closed, LocalDate.of(2023, 6, 1), "-10", "120", "1200"));
+        // Sigue abierta: compra 2022, vende una parte en 2024 con ganancia de 100, quedan 6 títulos.
+        transactions.save(buy(portfolio, stillOpen, LocalDate.of(2022, 2, 15), "10", "100", "-1000", null));
+        transactions.save(sell(portfolio, stillOpen, LocalDate.of(2024, 3, 1), "-4", "125", "500"));
+
+        var rows = adapter.closedPositions(portfolio.value());
+
+        assertThat(rows).hasSize(2)
+                .anySatisfy(row -> {
+                    assertThat(row.securityId()).isEqualTo(closed.value());
+                    assertThat(row.name()).isEqualTo("Cerrada del todo");
+                    assertThat(row.year()).isEqualTo(2023);
+                    assertThat(row.realizedPnl()).isEqualByComparingTo("200");
+                })
+                .anySatisfy(row -> {
+                    assertThat(row.securityId()).isEqualTo(stillOpen.value());
+                    assertThat(row.name()).isEqualTo("Con venta parcial");
+                    assertThat(row.year()).isEqualTo(2024);
+                    assertThat(row.realizedPnl()).isEqualByComparingTo("100");
+                });
+    }
+
+    @Test
+    void closedPositions_emptyWithoutSales() {
+        PortfolioId portfolio = portfolios.save(Portfolio.create("IBKR", "EUR")).id();
+        SecurityId security = persistSecurity("IE00BK5BQT80", "EUR", "VWCE");
+        transactions.save(buy(portfolio, security, TODAY.minusDays(10), "10", "100", "-1000", null));
+
+        assertThat(adapter.closedPositions(portfolio.value())).isEmpty();
+    }
+
+    @Test
+    void closedPositions_unknownPortfolioThrowsNotFound() {
+        assertThatThrownBy(() -> adapter.closedPositions(999L)).isInstanceOf(NotFoundException.class);
     }
 
     private SecurityId persistSecurity(String isin, String currency, String name) {

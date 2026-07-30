@@ -1,0 +1,10 @@
+<FlexQueryResponse queryName="app finance" type="AF">
+<FlexStatements count="1">
+<FlexStatement accountId="U1234567" toDate="2024-12-31" period="" whenGenerated="2026-07-27;074556">
+<AccountInformation accountId="U1234567" currency="EUR" />
+<Trades>
+<Order accountId="U1234567" currency="EUR" fxRateToBase="1" assetCategory="STK" subCategory="COMMON" symbol="ZZZ" description="EMPRESA SIN POSICION PREVIA" securityID="ES0000000099" securityIDType="ISIN" isin="ES0000000099" figi="" listingExchange="SBF" tradeID="" reportDate="2024-09-10" dateTime="2024-09-10;100000" tradeDate="2024-09-10" quantity="-3" tradePrice="10" tradeMoney="-30" proceeds="30" taxes="0" ibCommission="-1" ibCommissionCurrency="EUR" netCash="29" buySell="SELL" ibOrderID="900000001" transactionID="" levelOfDetail="ORDER" orderType="MKT" />
+</Trades>
+</FlexStatement>
+</FlexStatements>
+</FlexQueryResponse>

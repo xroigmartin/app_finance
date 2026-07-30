@@ -1,11 +1,13 @@
 import { ElementRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { InvestmentContextService } from '../../investment-context.service';
 import { InvestmentToolbar } from '../../components/investment-toolbar';
 import {
-  InvestmentIncome, InvestmentSecurity, InvestmentTransactionView, PageResponse, Portfolio
+  ClosedPosition, ImportRecordView, InvestmentIncome, InvestmentSecurity, InvestmentTransactionView, PageResponse,
+  Portfolio
 } from '../../models';
 import { InvestmentsOperationsPage } from './investments-operations';
 
@@ -32,7 +34,9 @@ describe('InvestmentsOperationsPage', () => {
     getPortfolios: ReturnType<typeof vi.fn>;
     getInvestmentTransactions: ReturnType<typeof vi.fn>;
     getInvestmentIncome: ReturnType<typeof vi.fn>;
+    getClosedPositions: ReturnType<typeof vi.fn>;
     deleteInvestmentTransaction: ReturnType<typeof vi.fn>;
+    getImportHistory: ReturnType<typeof vi.fn>;
   };
 
   const portfolio: Portfolio = { id: 1, name: 'Cartera E2E', baseCurrency: 'EUR' };
@@ -52,21 +56,42 @@ describe('InvestmentsOperationsPage', () => {
     fees: [{ month: '2026-03', amount: 2 }, { month: '2025-03', amount: 1 }],
     taxes: [{ month: '2026-03', amount: 0.5 }, { month: '2025-03', amount: 0.25 }],
   };
+  const closedPositions: ClosedPosition[] = [
+    { securityId: 9, isin: 'US1', name: 'Empresa', ticker: 'EMP', currency: 'EUR', year: 2026, realizedPnl: 50 },
+    { securityId: 9, isin: 'US1', name: 'Empresa', ticker: 'EMP', currency: 'EUR', year: 2025, realizedPnl: 20 },
+    { securityId: 10, isin: 'US2', name: 'Otra', ticker: 'OTR', currency: 'EUR', year: 2026, realizedPnl: -10 },
+  ];
 
-  function create(overrides: Partial<typeof api> = {}, portfolios: Portfolio[] = [portfolio]):
-    { page: InvestmentsOperationsPage; ctx: InvestmentContextService } {
+  const historyPage: PageResponse<ImportRecordView> = {
+    content: [], page: 0, size: 25, totalElements: 0, totalPages: 0,
+  };
+
+  function create(
+    overrides: Partial<typeof api> = {}, portfolios: Portfolio[] = [portfolio],
+    queryParams: Record<string, string> = {},
+  ): { page: InvestmentsOperationsPage; ctx: InvestmentContextService; router: { navigate: ReturnType<typeof vi.fn> } } {
     api = {
       getSecurities: vi.fn().mockReturnValue(of([security])),
       getPortfolios: vi.fn().mockReturnValue(of(portfolios)),
       getInvestmentTransactions: vi.fn().mockReturnValue(of(transactionsPage)),
       getInvestmentIncome: vi.fn().mockReturnValue(of(income)),
+      getClosedPositions: vi.fn().mockReturnValue(of(closedPositions)),
       deleteInvestmentTransaction: vi.fn().mockReturnValue(of(undefined)),
+      getImportHistory: vi.fn().mockReturnValue(of(historyPage)),
       ...overrides,
     };
-    TestBed.configureTestingModule({ providers: [{ provide: ApiService, useValue: api }] });
+    const router = { navigate: vi.fn() };
+    const activatedRoute = { queryParamMap: of(convertToParamMap(queryParams)) };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ApiService, useValue: api },
+        { provide: Router, useValue: router },
+        { provide: ActivatedRoute, useValue: activatedRoute },
+      ],
+    });
     const ctx = TestBed.inject(InvestmentContextService);
     const page = TestBed.createComponent(InvestmentsOperationsPage).componentInstance;
-    return { page, ctx };
+    return { page, ctx, router };
   }
 
   function fakeCanvas(): ElementRef<HTMLCanvasElement> {
@@ -250,12 +275,58 @@ describe('InvestmentsOperationsPage', () => {
     });
   });
 
+  describe('cerradas', () => {
+    it('loadClosedPositions calcula los años disponibles, orden descendente', () => {
+      const { page } = create();
+      page.ngOnInit();
+      expect(page.closedYears).toEqual([2026, 2025]);
+    });
+
+    it('si el año seleccionado deja de existir, cae al más reciente disponible', () => {
+      const { page } = create();
+      page.closedYear = 1999;
+      page.ngOnInit();
+      expect(page.closedYear).toBe(2026);
+    });
+
+    it('closedRows agrega por instrumento dentro del año seleccionado', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.closedYear = 2026;
+      expect(page.closedRows).toEqual([
+        { name: 'Empresa', realizedPnl: 50 },
+        { name: 'Otra', realizedPnl: -10 },
+      ]);
+    });
+
+    it('closedRows con "Todo" agrega todos los años', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.closedYear = 'all';
+      expect(page.closedRows.find(r => r.name === 'Empresa')?.realizedPnl).toBe(70);
+    });
+
+    it('closedTotal suma las filas del año seleccionado', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.closedYear = 'all';
+      expect(page.closedTotal).toBe(60);
+    });
+  });
+
   describe('pestañas y gráfico de dividendos', () => {
-    it('setTab cambia de pestaña', () => {
+    it('setTab cambia a dividendos', () => {
       const { page } = create();
       page.ngOnInit();
       page.setTab('dividendos');
       expect(page.activeTab).toBe('dividendos');
+    });
+
+    it('setTab cambia a cerradas', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.setTab('cerradas');
+      expect(page.activeTab).toBe('cerradas');
     });
 
     it('dividendos agrupa por instrumento y por mes del año seleccionado', () => {
@@ -285,6 +356,130 @@ describe('InvestmentsOperationsPage', () => {
       const charts = (page as unknown as { charts: { destroy: ReturnType<typeof vi.fn> }[] }).charts;
       page.ngOnDestroy();
       charts.forEach(c => expect(c.destroy).toHaveBeenCalled());
+    });
+  });
+
+  describe('importaciones (RF-11)', () => {
+    it('activar la pestaña carga el historial de la cartera actual', () => {
+      const { page } = create();
+      page.ngOnInit();
+      api.getImportHistory.mockClear();
+      page.setTab('importaciones');
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 0, 25);
+    });
+
+    it('no llama a la API sin cartera seleccionada', () => {
+      const { page } = create({}, []);
+      page.ngOnInit();
+      api.getImportHistory.mockClear();
+      page.setTab('importaciones');
+      expect(api.getImportHistory).not.toHaveBeenCalled();
+    });
+
+    it('vuelca el contenido y el total de la página en el estado', () => {
+      const record: ImportRecordView = {
+        id: 1, importedAt: '2026-07-26T10:15:30Z', fileName: 'flex.csv',
+        fromDate: '2026-01-01', toDate: '2026-06-30', imported: 12, duplicated: 3,
+        errors: [{ section: 'Trades', reference: 'T-1', message: 'Instrumento desconocido' }],
+        warnings: ['2026-03-01: venta sin posición suficiente'],
+      };
+      api.getImportHistory = vi.fn().mockReturnValue(
+        of({ content: [record], page: 0, size: 25, totalElements: 1, totalPages: 1 }));
+      const { page } = create({ getImportHistory: api.getImportHistory });
+      page.ngOnInit();
+      page.setTab('importaciones');
+
+      expect(page.importHistory).toEqual([record]);
+      expect(page.historyTotalElements).toBe(1);
+    });
+
+    it('onHistoryPageChange cambia de página y recarga', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.setTab('importaciones');
+      api.getImportHistory.mockClear();
+      page.onHistoryPageChange(2);
+      expect(page.historyPage).toBe(2);
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 2, 25);
+    });
+
+    it('onHistorySizeChange cambia el tamaño, resetea a la primera página y recarga', () => {
+      const { page } = create();
+      page.ngOnInit();
+      page.setTab('importaciones');
+      page.historyPage = 3;
+      api.getImportHistory.mockClear();
+      page.onHistorySizeChange(50);
+      expect(page.historySize).toBe(50);
+      expect(page.historyPage).toBe(0);
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 0, 50);
+    });
+
+    it('toggleHistoryDetail expande y colapsa el detalle de una fila', () => {
+      const { page } = create();
+      page.ngOnInit();
+      expect(page.expandedHistoryId).toBeNull();
+      page.toggleHistoryDetail(1);
+      expect(page.expandedHistoryId).toBe(1);
+      page.toggleHistoryDetail(1);
+      expect(page.expandedHistoryId).toBeNull();
+    });
+
+    it('reloadImportHistoryIfActive solo recarga cuando la pestaña está activa', () => {
+      const { page } = create();
+      page.ngOnInit();
+      api.getImportHistory.mockClear();
+      page.reloadImportHistoryIfActive();
+      expect(api.getImportHistory).not.toHaveBeenCalled();
+
+      page.setTab('importaciones');
+      api.getImportHistory.mockClear();
+      page.reloadImportHistoryIfActive();
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 0, 25);
+    });
+
+    it('cambiar de cartera con la pestaña activa recarga el historial de la nueva cartera', () => {
+      const { page, ctx } = create();
+      page.ngOnInit();
+      page.setTab('importaciones');
+      ctx.portfolios = [portfolio, { id: 2, name: 'Otra', baseCurrency: 'USD' }];
+      api.getImportHistory.mockClear();
+
+      ctx.portfolioId = 2;
+
+      expect(api.getImportHistory).toHaveBeenCalledWith(2, 0, 25);
+    });
+
+    it('cambiar de cartera con otra pestaña activa no llama al historial de imports', () => {
+      const { page, ctx } = create();
+      page.ngOnInit();
+      ctx.portfolios = [portfolio, { id: 2, name: 'Otra', baseCurrency: 'USD' }];
+      api.getImportHistory.mockClear();
+
+      ctx.portfolioId = 2;
+
+      expect(api.getImportHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deep-link ?tab=importaciones (enlace desde el diálogo de import)', () => {
+    it('activa la pestaña Importaciones y carga su historial si la URL trae el query param', () => {
+      const { page } = create({}, [portfolio], { tab: 'importaciones' });
+      page.ngOnInit();
+      expect(page.activeTab).toBe('importaciones');
+      expect(api.getImportHistory).toHaveBeenCalledWith(1, 0, 25);
+    });
+
+    it('limpia el query param tras aplicarlo, para no fijar la pestaña en recargas futuras', () => {
+      const { page, router } = create({}, [portfolio], { tab: 'importaciones' });
+      page.ngOnInit();
+      expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: {} }));
+    });
+
+    it('sin el query param, no fuerza ninguna pestaña', () => {
+      const { page } = create();
+      page.ngOnInit();
+      expect(page.activeTab).toBe('operaciones');
     });
   });
 });

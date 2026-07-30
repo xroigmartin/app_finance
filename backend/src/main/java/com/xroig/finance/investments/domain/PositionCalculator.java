@@ -127,7 +127,9 @@ public class PositionCalculator {
                 .add(feeToBase(tx, base, rates, warnings))
                 .subtract(consumeTradeTax(tradeTaxBuckets, tx, base));
 
-        position.realized = position.realized.add(netProceeds.subtract(costOfSold));
+        CurrencyMoney realizedOnSale = netProceeds.subtract(costOfSold);
+        position.realized = position.realized.add(realizedOnSale);
+        position.realizedByYear.merge(tx.tradeDate().getYear(), realizedOnSale, CurrencyMoney::add);
         position.addQuantity(tx.quantity());
         position.cost = position.cost.subtract(costOfSold);
         if (!position.quantity.exceeds(Quantity.ZERO)) {
@@ -188,6 +190,7 @@ public class PositionCalculator {
         private Quantity quantity = Quantity.ZERO;
         private CurrencyMoney cost;
         private CurrencyMoney realized;
+        private final Map<Integer, CurrencyMoney> realizedByYear = new LinkedHashMap<>();
 
         private MutablePosition(String base) {
             this.cost = CurrencyMoney.zero(base);
@@ -199,7 +202,7 @@ public class PositionCalculator {
         }
 
         private Position toPosition(SecurityId securityId) {
-            return new Position(securityId, quantity, cost, realized);
+            return new Position(securityId, quantity, cost, realized, Map.copyOf(realizedByYear));
         }
     }
 }

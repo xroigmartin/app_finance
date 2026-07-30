@@ -421,6 +421,18 @@ export interface InvestmentPerformance {
   positions: PositionPerformance[];
 }
 
+/** P&L realizado de un instrumento en un año natural (RF-11), coste promedio (RN-3). */
+export interface ClosedPosition {
+  securityId: number;
+  isin: string;
+  name: string;
+  ticker: string | null;
+  currency: string;
+  year: number;
+  /** En la divisa base de la cartera. */
+  realizedPnl: number;
+}
+
 /** Fila ilegible/no soportada/inválida del import Flex (§8). */
 export interface FlexRowError {
   section: string;
@@ -430,6 +442,32 @@ export interface FlexRowError {
 
 /** Resumen del import Flex: ok / duplicadas / errores / warnings (RF-4, RN-4). */
 export interface FlexImportResult {
+  imported: number;
+  duplicated: number;
+  errors: FlexRowError[];
+  warnings: string[];
+}
+
+/** Instrumento cuyo precio no se ha podido refrescar (§2.4 del plan de precios). */
+export interface PriceRefreshFailure {
+  securityId: number;
+  ticker: string | null;
+  reason: string;
+}
+
+/** Resumen del refresco de precios bajo demanda (API externa de cotizaciones). */
+export interface PriceRefreshResult {
+  updated: number;
+  failed: PriceRefreshFailure[];
+}
+
+/** Un intento de import Flex persistido (RF-12): historial paginado por cartera. */
+export interface ImportRecordView {
+  id: number;
+  importedAt: string;
+  fileName: string | null;
+  fromDate: string | null;
+  toDate: string;
   imported: number;
   duplicated: number;
   errors: FlexRowError[];

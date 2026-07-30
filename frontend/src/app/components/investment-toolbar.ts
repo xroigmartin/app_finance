@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, Output, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ApiService } from '../api.service';
 import { InvestmentContextService } from '../investment-context.service';
-import { InvestmentTransactionView } from '../models';
+import { InvestmentTransactionView, PriceRefreshResult } from '../models';
 import { FlexImportDialog } from './flex-import-dialog';
 import { InvestmentTransactionDialog } from './investment-transaction-dialog';
 
@@ -47,6 +49,12 @@ import { InvestmentTransactionDialog } from './investment-transaction-dialog';
           <app-investment-transaction-dialog [portfolioId]="ctx.portfolioId"
                                              [baseCurrency]="ctx.baseCurrency" (done)="done.emit()" />
           <app-flex-import-dialog [portfolioId]="ctx.portfolioId" (done)="done.emit()" />
+          <button class="btn small" (click)="refreshPrices()" [disabled]="refreshingPrices">
+            {{ refreshingPrices ? 'Actualizando…' : 'Actualizar precios' }}
+          </button>
+          @if (priceRefreshError) {
+            <span class="amount-expense">{{ priceRefreshError }}</span>
+          }
         </div>
       }
     </div>
@@ -56,12 +64,34 @@ import { InvestmentTransactionDialog } from './investment-transaction-dialog';
 })
 export class InvestmentToolbar {
   readonly ctx = inject(InvestmentContextService);
+  private api = inject(ApiService);
 
   @Output() done = new EventEmitter<void>();
 
   @ViewChild(InvestmentTransactionDialog) txDialog?: InvestmentTransactionDialog;
 
+  refreshingPrices = false;
+  priceRefreshResult: PriceRefreshResult | null = null;
+  priceRefreshError = '';
+
   edit(tx: InvestmentTransactionView): void {
     this.txDialog?.edit(tx);
+  }
+
+  refreshPrices(): void {
+    this.refreshingPrices = true;
+    this.priceRefreshResult = null;
+    this.priceRefreshError = '';
+    this.api.refreshPrices().subscribe({
+      next: result => {
+        this.refreshingPrices = false;
+        this.priceRefreshResult = result;
+        this.done.emit();
+      },
+      error: (e: HttpErrorResponse) => {
+        this.refreshingPrices = false;
+        this.priceRefreshError = e.error?.detail ?? e.error?.message ?? 'Error al actualizar los precios.';
+      }
+    });
   }
 }

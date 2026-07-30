@@ -45,8 +45,10 @@ Manual equivalents:
 ```bash
 docker compose up -d                  # PostgreSQL on :5432
 cd backend && mvn spring-boot:run     # API on :8080
-cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (proxy.conf.json)
+cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (proxy.conf.js)
 ```
+
+Ports are overridable via `FINANCE_DB_PORT`/`FINANCE_BACKEND_PORT`/`FINANCE_FRONTEND_PORT` (read by `docker-compose.yml`, `application.properties` and `proxy.conf.js`), so a second full stack can run alongside the default one — e.g. one per git worktree when developing independent features in parallel. `app.sh` auto-loads a `.env` file in the project root if present (gitignored, one per worktree) instead of requiring the vars to be exported by hand; unset, everything defaults to the classic `:5432`/`:8080`/`:4200`.
 
 - Backend tests: `cd backend && mvn test` (single test: `mvn test -Dtest=ClassName#method`). The suite (domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence-adapter tests on real PostgreSQL via Testcontainers, `@WebMvcTest` contract tests, and an ArchUnit boundary test) is the migration's safety net; keep it green and coverage ≥ 99 %.
 - Frontend requires **Node.js ≥ 24.15.0** (Angular 22's CLI hard-refuses to run on anything older, e.g. plain `24.0.x`); `nvm use 24.18.0` if the shell's default Node doesn't satisfy that.

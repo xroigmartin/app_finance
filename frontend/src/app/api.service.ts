@@ -4,12 +4,12 @@ import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
   Account, AccountComparison, AnnualBudget, BalancePoint, Budget, BudgetRequest, BudgetStatus,
-  Category, CategoryAmount, CategoryRule, FlexImportResult, ImportResult, InvestmentIncome, InvestmentPerformance,
-  InvestmentSecurity,
+  Category, CategoryAmount, CategoryRule, ClosedPosition, FlexImportResult, ImportRecordView, ImportResult,
+  InvestmentIncome, InvestmentPerformance, InvestmentSecurity,
   InvestmentTransactionFilter, InvestmentTransactionRequest, InvestmentTransactionView,
   InvestmentsSummary, MonthlyPoint, Movement, PageResponse, Portfolio, PortfolioSummary, PositionView,
-  RecurringBudget, RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest, Transfer,
-  TransferRequest, ValuationPoint
+  PriceRefreshResult, RecurringBudget, RuleRequest, RuleSaveResult, Summary, Transaction, TransactionRequest,
+  Transfer, TransferRequest, ValuationPoint
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -261,6 +261,11 @@ export class ApiService {
       `${this.base}/investments/portfolios/${portfolioId}/performance`);
   }
 
+  getClosedPositions(portfolioId: number): Observable<ClosedPosition[]> {
+    return this.http.get<ClosedPosition[]>(
+      `${this.base}/investments/portfolios/${portfolioId}/closed-positions`);
+  }
+
   getInvestmentsSummary(): Observable<InvestmentsSummary> {
     return this.http.get<InvestmentsSummary>(`${this.base}/investments/summary`);
   }
@@ -300,6 +305,15 @@ export class ApiService {
     data.append('file', file);
     return this.http.post<FlexImportResult>(
       `${this.base}/investments/portfolios/${portfolioId}/import`, data);
+  }
+
+  refreshPrices(): Observable<PriceRefreshResult> {
+    return this.http.post<PriceRefreshResult>(`${this.base}/investments/securities/prices/refresh`, {});
+  }
+
+  getImportHistory(portfolioId: number, page = 0, size = 25): Observable<PageResponse<ImportRecordView>> {
+    return this.http.get<PageResponse<ImportRecordView>>(
+      `${this.base}/investments/portfolios/${portfolioId}/import-history`, { params: { page, size } });
   }
 
   // Category rules

@@ -1,4 +1,8 @@
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { post } from './fixtures/seed';
+
+const FLEX_FIXTURE = path.join(__dirname, 'fixtures', 'flex-sample.xml');
 
 test.describe('Inversión — Panel general', () => {
   test.beforeEach(async ({ page }) => {
@@ -31,8 +35,12 @@ test.describe('Inversión — Panel general', () => {
     }
   });
 
-  test('muestra la posición sembrada en la tabla', async ({ page }) => {
-    await expect(page.locator('.positions-card').getByText('Empresa de Pruebas E2E')).toBeVisible();
+  test('los gráficos de P&L latente y rentabilidad por posición tienen un tooltip explicativo en el título', async ({ page }) => {
+    for (const heading of ['P&L latente por posición', 'Rentabilidad por posición (%)']) {
+      const info = page.locator('.chart-card', { hasText: heading })
+        .getByRole('button', { name: 'Qué muestra este gráfico' });
+      await expect(info).toHaveAttribute('title', /.+/);
+    }
   });
 
   test('crea una cartera nueva desde la barra de herramientas', async ({ page }) => {
@@ -41,5 +49,31 @@ test.describe('Inversión — Panel general', () => {
     await page.getByPlaceholder('EUR').fill('USD');
     await page.getByRole('button', { name: 'Crear' }).click();
     await expect(page.getByRole('option', { name: /Cartera Nueva E2E/ })).toBeAttached();
+  });
+
+  test('un import con errores desde el Panel general enlaza al detalle en Importaciones (RF-12)', async ({ page }) => {
+    // El diálogo de import vive en la barra de herramientas compartida con
+    // Operaciones (investment-toolbar.ts): desde el Panel general, tras un
+    // import con errores, el enlace debe cerrar el diálogo y cruzar de página
+    // dejando la pestaña Importaciones ya abierta con el detalle a la vista —
+    // justo lo que un test unitario de un solo componente no puede probar.
+    const portfolio = await post<{ id: number }>('/api/investments/portfolios', {
+      name: 'Enlace import Dashboard E2E', baseCurrency: 'EUR',
+    });
+    await page.reload();
+    await expect(page.getByRole('option', { name: /Enlace import Dashboard E2E/ })).toBeAttached();
+    await page.getByLabel('Cartera').selectOption({ label: 'Enlace import Dashboard E2E (EUR)' });
+
+    await page.getByRole('button', { name: 'Importar Flex' }).click();
+    await page.locator('input[type="file"]').setInputFiles(FLEX_FIXTURE);
+    await page.getByRole('button', { name: 'Importar', exact: true }).click();
+    await expect(page.getByText(/operaciones importadas/)).toBeVisible();
+
+    await page.getByRole('button', { name: /Ver detalle en Importaciones/ }).click();
+
+    await expect(page).toHaveURL(/\/investments\/operations$/);
+    const row = page.locator('tbody tr', { hasText: 'flex-sample.xml' });
+    await expect(row).toBeVisible();
+    await expect(row.locator('td').nth(5)).toHaveText('3'); // errores
   });
 });

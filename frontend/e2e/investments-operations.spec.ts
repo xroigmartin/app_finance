@@ -1,5 +1,9 @@
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { post } from './fixtures/seed';
+
+const FLEX_FIXTURE = path.join(__dirname, 'fixtures', 'flex-sample.xml');
+const FLEX_WARNING_FIXTURE = path.join(__dirname, 'fixtures', 'flex-sample-warning.xml');
 
 test.describe('Inversión — Operaciones', () => {
   test.beforeEach(async ({ page }) => {
@@ -87,5 +91,57 @@ test.describe('Inversión — Operaciones', () => {
     await sizeSelect.selectOption('25');
     await expect(page.locator('.tabs-card tbody tr')).toHaveCount(12);
     await expect(page.locator('.page-indicator')).toHaveText('Página 1 de 1');
+  });
+
+  test('importar un Flex real deja rastro en la pestaña Importaciones (RF-11)', async ({ page }) => {
+    const portfolio = await post<{ id: number }>('/api/investments/portfolios', {
+      name: 'Historial de imports E2E', baseCurrency: 'EUR',
+    });
+    await page.reload();
+    await expect(page.getByRole('option', { name: /Historial de imports E2E/ })).toBeAttached();
+    await page.getByLabel('Cartera').selectOption({ label: `Historial de imports E2E (EUR)` });
+
+    await page.getByRole('button', { name: 'Importar Flex' }).click();
+    await page.locator('input[type="file"]').setInputFiles(FLEX_FIXTURE);
+    await page.getByRole('button', { name: 'Importar', exact: true }).click();
+    await expect(page.getByText(/operaciones importadas/)).toBeVisible();
+    await page.getByRole('button', { name: 'Cerrar' }).click();
+
+    await page.getByRole('button', { name: 'Importaciones' }).click();
+    const row = page.locator('tbody tr', { hasText: 'flex-sample.xml' });
+    await expect(row).toBeVisible();
+    await expect(row.locator('td').nth(3)).toHaveText('11'); // importadas
+    await expect(row.locator('td').nth(4)).toHaveText('0'); // duplicadas
+    await expect(row.locator('td').nth(5)).toHaveText('3'); // errores
+
+    await row.getByRole('button', { name: 'Ver detalle' }).click();
+    await expect(page.locator('.history-detail .errors li')).toHaveCount(3);
+
+    // Reimportar el mismo fichero: 0 nuevas, todo duplicado, se sigue registrando (§1 del plan).
+    await page.getByRole('button', { name: 'Importar Flex' }).click();
+    await page.locator('input[type="file"]').setInputFiles(FLEX_FIXTURE);
+    await page.getByRole('button', { name: 'Importar', exact: true }).click();
+    await expect(page.getByText(/operaciones importadas/)).toBeVisible();
+    await page.getByRole('button', { name: 'Cerrar' }).click();
+
+    await expect(page.locator('tbody tr', { hasText: 'flex-sample.xml' })).toHaveCount(2);
+
+    // Un segundo fichero con una venta sin posición previa (RN-4, lado
+    // "blando" — solo se endurece a rechazo en el alta manual, ver
+    // InvestmentTransactionService): también deja rastro, esta vez con avisos
+    // en vez de errores, ejercitando la rama <ul class="warnings"> del detalle.
+    await page.getByRole('button', { name: 'Importar Flex' }).click();
+    await page.locator('input[type="file"]').setInputFiles(FLEX_WARNING_FIXTURE);
+    await page.getByRole('button', { name: 'Importar', exact: true }).click();
+    await expect(page.getByText(/operaciones importadas/)).toBeVisible();
+    await page.getByRole('button', { name: 'Cerrar' }).click();
+
+    const warningRow = page.locator('tbody tr', { hasText: 'flex-sample-warning.xml' });
+    await expect(warningRow).toBeVisible();
+    await expect(warningRow.locator('td').nth(3)).toHaveText('1'); // importadas
+    await expect(warningRow.locator('td').nth(6)).toHaveText('1'); // avisos
+    await warningRow.getByRole('button', { name: 'Ver detalle' }).click();
+    await expect(page.locator('.history-detail .warnings li')).toHaveCount(1);
+    await expect(page.locator('.history-detail .warnings li')).toContainText('posición suficiente');
   });
 });

@@ -38,7 +38,7 @@ describe('routes', () => {
   // build`/`ng serve` funcionan bien y navegar entre páginas reales también.
   // Qué carga cada ruta lo verifica el smoke E2E (CP2/CP8) navegando de
   // verdad; aquí solo se comprueba la forma de la configuración de rutas.
-  it.each(['dashboard', 'transactions', 'investments/dashboard', 'investments/operations', 'budgets', 'accounts', 'categories'])(
+  it.each(['dashboard', 'transactions', 'investments/dashboard', 'investments/positions', 'investments/operations', 'budgets', 'accounts', 'categories'])(
     '%s es una ruta con carga perezosa',
     path => {
       const route = findRoute(path);

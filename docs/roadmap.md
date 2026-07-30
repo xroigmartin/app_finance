@@ -2,7 +2,7 @@
 
 > Recordatorio consolidado de mejoras futuras, para retomarlas sin tener que rehacer el análisis. **No es la fuente de verdad**: cada dominio mantiene su propio backlog en el PRD correspondiente (§10 "Backlog / mejoras futuras" y §11 "Decisiones pendientes / deuda técnica", ver `docs/README.md`); cuando se implemente o descarte un ítem, actualiza el PRD del dominio, no (solo) este documento. Este fichero se revisa/reordena de vez en cuando, pero puede quedarse desactualizado respecto al PRD sin que sea grave.
 >
-> Última revisión: 2026-07-24.
+> Última revisión: 2026-07-27.
 
 ## Inversiones (foco actual)
 
@@ -10,11 +10,11 @@ Documento detallado con dependencias y esfuerzo estimado: **`docs/investment/mej
 
 **P1 — sin dependencias, mayor impacto inmediato sobre lo ya construido**
 1. **API externa de cotizaciones** (adaptador real de `PriceProviderPort`, p. ej. Yahoo Finance, + botón de refresco). Desbloquea valoración diaria (hoy es "a fecha del último import"), TWR/XIRR reales en vez de aproximados y benchmarks (P3.1). Ojo con el caso ZEG: la LSE cotiza en peniques, el Flex lo da en libras.
-2. **Historial de imports** (persistir fecha/fichero/resumen ok-duplicadas-errores-warnings + vista de consulta). Barato y necesario antes de automatizar la descarga (P2.1): un import desatendido sin log es una caja negra.
+2. ~~Historial de imports~~ — ✅ implementado (RF-12, `docs/plan/historial-imports.md`, F3.5 de `docs/prd/inversiones.md`): persiste fecha/fichero/resumen ok-duplicadas-errores-warnings y expone una vista de consulta paginada.
 3. **Posiciones cerradas / P&L realizado por año**. Los datos ya existen en `PositionCalculator`; es solo capa de lectura + UI. Antesala del informe fiscal (P4.2).
 
 **P2 — automatización y robustez**
-4. Flex Web Service (descarga automática con token IBKR) — depende de 2 (historial de imports).
+4. Flex Web Service (descarga automática con token IBKR) — el historial de imports que lo precedía ya está listo.
 5. Más acciones corporativas (fusiones, spin-offs, cambio de ticker, dividendo en acciones) — hoy cualquier cosa que no sea split se rechaza como fila inválida; riesgo latente, no funcionalidad puntual.
 6. Análisis de costes (comisiones + FTT agregadas por año/instrumento) — dato ya disponible fila a fila.
 

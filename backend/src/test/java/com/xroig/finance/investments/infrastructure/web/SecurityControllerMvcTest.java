@@ -1,9 +1,12 @@
 package com.xroig.finance.investments.infrastructure.web;
 
+import com.xroig.finance.investments.application.PriceRefreshFailure;
+import com.xroig.finance.investments.application.PriceRefreshResult;
 import com.xroig.finance.investments.application.port.CreateSecurity;
 import com.xroig.finance.investments.application.port.CreateSecurity.CreateSecurityCommand;
 import com.xroig.finance.investments.application.port.DeleteSecurity;
 import com.xroig.finance.investments.application.port.FindSecurities;
+import com.xroig.finance.investments.application.port.RefreshPrices;
 import com.xroig.finance.investments.application.port.UpdateSecurity;
 import com.xroig.finance.investments.application.port.UpdateSecurity.UpdateSecurityCommand;
 import com.xroig.finance.investments.domain.Security;
@@ -42,6 +45,7 @@ class SecurityControllerMvcTest {
     @MockitoBean private CreateSecurity createSecurity;
     @MockitoBean private UpdateSecurity updateSecurity;
     @MockitoBean private DeleteSecurity deleteSecurity;
+    @MockitoBean private RefreshPrices refreshPrices;
 
     private static Security security(long id) {
         return Security.rehydrate(new SecurityId(id), "IE00BK5BQT80", "EUR",
@@ -139,5 +143,17 @@ class SecurityControllerMvcTest {
         assertThat(mvc.delete().uri("/api/investments/securities/3"))
                 .hasStatus(HttpStatus.CONFLICT)
                 .hasContentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    @Test
+    void refreshPrices_returns200WithSummary() {
+        when(refreshPrices.refresh()).thenReturn(new PriceRefreshResult(
+                12, List.of(new PriceRefreshFailure(9L, "ZEG", "Sin cotización disponible"))));
+
+        assertThat(mvc.post().uri("/api/investments/securities/prices/refresh"))
+                .hasStatusOk()
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .bodyJson().extractingPath("$.updated").isEqualTo(12);
+        verify(refreshPrices).refresh();
     }
 }

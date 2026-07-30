@@ -232,6 +232,40 @@ class PositionCalculatorTest {
     }
 
     @Test
+    void realizedByYearBucketsBySaleYear() {
+        PortfolioPositions result = calculate(
+                buyEur(D1, "10", "-1000", null),
+                sellEur(LocalDate.of(2025, 4, 1), "-4", "500", null),
+                sellEur(LocalDate.of(2026, 2, 1), "-3", "400", null));
+
+        Position position = position(result);
+        // 2025: neto 500 − coste 400 (100×4) = 100. 2026: neto 400 − coste 300 (100×3) = 100.
+        assertThat(position.realizedByYear())
+                .containsEntry(2025, eur("100"))
+                .containsEntry(2026, eur("100"));
+    }
+
+    @Test
+    void realizedByYearIsEmptyWhenNeverSold() {
+        PortfolioPositions result = calculate(buyEur(D1, "10", "-1000", null));
+
+        assertThat(position(result).realizedByYear()).isEmpty();
+    }
+
+    @Test
+    void realizedByYearSumsUpToTheRunningTotal() {
+        PortfolioPositions result = calculate(
+                buyEur(D1, "10", "-1000", null),
+                sellEur(LocalDate.of(2025, 4, 1), "-4", "500", null),
+                sellEur(LocalDate.of(2026, 2, 1), "-3", "400", null));
+
+        Position position = position(result);
+        CurrencyMoney sumOfYears = position.realizedByYear().values().stream()
+                .reduce(eur("0"), CurrencyMoney::add);
+        assertThat(sumOfYears).isEqualTo(position.realizedPnl());
+    }
+
+    @Test
     void averageCostIsUndefinedWithoutPositiveQuantity() {
         PortfolioPositions result = calculate(
                 buyEur(D1, "10", "-1000", null),
