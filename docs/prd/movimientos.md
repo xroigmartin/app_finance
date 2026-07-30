@@ -1,3 +1,9 @@
+---
+dominio: movimientos
+estado: implementado
+tags: [prd, dominio/movimientos]
+---
+
 # PRD — Movimientos
 
 | Campo | Valor |
@@ -9,6 +15,8 @@
 | Responsable | Equipo Mis Finanzas |
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento de los movimientos (modelo, API, reglas de negocio o UI). Ver `docs/README.md`.
+
+**Relacionado:** [[prd/categorias]], [[prd/importacion]] (crea movimientos en bloque), [[prd/dashboard]] (agrega movimientos)
 
 ---
 

@@ -1,3 +1,9 @@
+---
+dominio: categorias
+estado: implementado
+tags: [prd, dominio/categorias]
+---
+
 # PRD — Categorías y subcategorías
 
 | Campo | Valor |
@@ -9,6 +15,8 @@
 | Responsable | Equipo Mis Finanzas |
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento de las categorías (modelo, API, reglas de negocio o UI). Ver `docs/README.md`.
+
+**Relacionado:** [[prd/presupuestos]] (los presupuestos se asignan a categorías hoja), [[prd/reglas-categorizacion]] (asignan categoría automáticamente), [[prd/dashboard]] (agrega por categoría)
 
 ---
 

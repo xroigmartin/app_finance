@@ -1,3 +1,9 @@
+---
+dominio: dashboard
+estado: implementado
+tags: [prd, dominio/dashboard]
+---
+
 # PRD — Dashboard
 
 | Campo | Valor |
@@ -9,6 +15,8 @@
 | Responsable | Equipo Mis Finanzas |
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento del dashboard (agregaciones, endpoints o UI). Ver `docs/README.md`.
+
+**Relacionado:** [[prd/movimientos]], [[prd/transferencias]], [[prd/presupuestos]], [[prd/categorias]] — el dashboard no crea datos, solo los agrega
 
 ---
 

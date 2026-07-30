@@ -1,3 +1,9 @@
+---
+dominio: transferencias
+estado: implementado
+tags: [prd, dominio/transferencias]
+---
+
 # PRD — Transferencias
 
 | Campo | Valor |
@@ -9,6 +15,8 @@
 | Responsable | Equipo Mis Finanzas |
 
 > Mantenimiento obligatorio: este PRD debe actualizarse en el mismo cambio de código que modifique el comportamiento de las transferencias (modelo, API, reglas de negocio o UI). Ver `docs/README.md`.
+
+**Relacionado:** [[prd/cuentas]] (origen/destino), [[prd/importacion]] (crea transferencias en bloque)
 
 ---
 
