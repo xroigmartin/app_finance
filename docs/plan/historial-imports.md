@@ -2,6 +2,7 @@
 
 **Rama de desarrollo:** `inv-historial-imports` (worktree `app_finance-imports`).
 **Origen:** `docs/investment/mejoras-modulo-inversiones.md` §1.2 (P1.2). Precursor obligatorio de la 2.1 (Flex Web Service).
+**Estado:** ✅ **Implementado y validado.** Suite automatizada en verde (backend, Vitest, Playwright) y los 15 casos manuales de §8 ejecutados sin incidencias el 2026-07-30. Pendiente de merge a `main` (a la espera de aviso del usuario para cerrar el worktree).
 
 ## 1. Objetivo y alcance
 
@@ -188,6 +189,8 @@ Con este trabajo, un import disparado por un proceso desatendido (futuro schedul
 ## 8. Plan de pruebas de validación manual
 
 Complementa la suite automatizada (H-imp.1–H-imp.7, todos verdes: 758 tests backend, 365 Vitest, 28 Playwright). Pensado para ejecutarse a mano contra el stack real (`./app.sh start`), navegador en `http://localhost:4200`. Marca cada caso al ejecutarlo; si algo falla, anota el hallazgo antes de seguir.
+
+**✅ Validado el 2026-07-30**: los 15 casos (MT-1 a MT-15) ejecutados sin incidencias.
 
 **Nota sobre MT-1/MT-3 (aclaración surgida al ejecutarlas la primera vez):** el resumen que aparece **dentro del propio diálogo** de import (importadas/duplicadas/errores/warnings, con el detalle de errores en línea) es comportamiento **previo** a este RF-11, no la pestaña Importaciones. Para ver la fila persistida hay que cerrar el diálogo (o pulsar el nuevo enlace de MT-15) e ir a Operaciones → Importaciones.
 
