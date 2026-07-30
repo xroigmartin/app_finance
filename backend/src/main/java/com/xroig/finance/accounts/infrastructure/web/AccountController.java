@@ -8,6 +8,10 @@ import com.xroig.finance.accounts.application.port.UpdateAccount;
 import com.xroig.finance.accounts.application.port.UpdateAccount.UpdateAccountCommand;
 import com.xroig.finance.accounts.domain.Account;
 import com.xroig.finance.shared.domain.Money;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,6 +34,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/accounts")
+@Tag(name = "Cuentas", description = "Alta, edición, baja y consulta de cuentas. El saldo se calcula (saldo inicial + movimientos), nunca se almacena.")
 public class AccountController {
 
     private final FindAccounts findAccounts;
@@ -45,11 +50,16 @@ public class AccountController {
         this.deleteAccount = deleteAccount;
     }
 
+    @Operation(summary = "Listar cuentas", description = "Devuelve todas las cuentas con su saldo calculado.")
+    @ApiResponse(responseCode = "200", description = "Listado de cuentas")
     @GetMapping
     public List<AccountResponse> findAll() {
         return findAccounts.all().stream().map(AccountResponse::from).toList();
     }
 
+    @Operation(summary = "Crear cuenta")
+    @ApiResponse(responseCode = "201", description = "Cuenta creada")
+    @ApiResponse(responseCode = "400", description = "Datos inválidos (nombre/tipo en blanco, saldo inicial nulo)", content = @Content)
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public AccountResponse create(@Valid @RequestBody AccountRequest request) {
@@ -58,6 +68,9 @@ public class AccountController {
         return AccountResponse.from(created);
     }
 
+    @Operation(summary = "Actualizar cuenta")
+    @ApiResponse(responseCode = "200", description = "Cuenta actualizada")
+    @ApiResponse(responseCode = "404", description = "Cuenta no encontrada", content = @Content)
     @PutMapping("/{id}")
     public AccountResponse update(@PathVariable Long id, @Valid @RequestBody AccountRequest request) {
         Account updated = updateAccount.update(id, new UpdateAccountCommand(
@@ -65,6 +78,9 @@ public class AccountController {
         return AccountResponse.from(updated);
     }
 
+    @Operation(summary = "Eliminar cuenta", description = "Rechazada si la cuenta tiene movimientos o transferencias asociadas. Idempotente en lo demás: no falla si la cuenta no existía.")
+    @ApiResponse(responseCode = "204", description = "Cuenta eliminada (o inexistente)")
+    @ApiResponse(responseCode = "409", description = "La cuenta tiene movimientos o transferencias asociadas y no puede eliminarse", content = @Content)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {

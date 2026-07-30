@@ -8,6 +8,11 @@ import com.xroig.finance.transfers.application.port.CreateTransfer.TransferComma
 import com.xroig.finance.transfers.application.port.DeleteTransfer;
 import com.xroig.finance.transfers.application.port.FindTransfers;
 import com.xroig.finance.transfers.application.port.UpdateTransfer;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -33,6 +38,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/transfers")
+@Tag(name = "Transferencias", description = "Movimientos entre dos cuentas propias (excluidos de los agregados de ingresos/gastos), y su importación desde extractos.")
 public class TransferController {
 
     private final FindTransfers findTransfers;
@@ -51,11 +57,17 @@ public class TransferController {
         this.importTransfers = importTransfers;
     }
 
+    @Operation(summary = "Importar extracto bancario (transferencias)",
+            description = "Requiere columnas de origen/destino ('origen'/'desde'/'from' y 'destino'/'hasta'/'to'); si no las tiene, rechaza el fichero (probablemente es un extracto normal a importar desde Movimientos). Filas válidas se importan aunque otras fallen; los duplicados se omiten y se cuentan aparte.")
+    @ApiResponse(responseCode = "200", description = "Resultado: nº importadas, nº duplicadas y lista de errores por fila")
+    @ApiResponse(responseCode = "400", description = "Fichero ilegible, formato no soportado, o sin columnas de origen/destino", content = @Content)
     @PostMapping("/import")
-    public ImportResult importFile(@RequestParam("file") MultipartFile file) {
+    public ImportResult importFile(@Parameter(description = "Fichero .csv o .xls/.xlsx del banco") @RequestParam("file") MultipartFile file) {
         return importTransfers.importTransfers(file);
     }
 
+    @Operation(summary = "Buscar transferencias", description = "from/to por defecto cubren todo el rango de fechas posible.")
+    @ApiResponse(responseCode = "200", description = "Transferencias que cumplen el filtro")
     @GetMapping
     public List<TransferView> find(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -66,17 +78,26 @@ public class TransferController {
         return findTransfers.search(start, end, accountId);
     }
 
+    @Operation(summary = "Crear transferencia")
+    @ApiResponse(responseCode = "201", description = "Transferencia creada")
+    @ApiResponse(responseCode = "400", description = "Datos inválidos, cuenta origen/destino no válida, o mismo origen y destino", content = @Content)
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TransferView create(@Valid @RequestBody TransferRequest request) {
         return createTransfer.create(toCommand(request));
     }
 
+    @Operation(summary = "Actualizar transferencia")
+    @ApiResponse(responseCode = "200", description = "Transferencia actualizada")
+    @ApiResponse(responseCode = "400", description = "Datos inválidos, cuenta origen/destino no válida, o mismo origen y destino", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Transferencia no encontrada", content = @Content)
     @PutMapping("/{id}")
     public TransferView update(@PathVariable Long id, @Valid @RequestBody TransferRequest request) {
         return updateTransfer.update(id, toCommand(request));
     }
 
+    @Operation(summary = "Eliminar transferencia", description = "Idempotente: no falla si la transferencia no existía.")
+    @ApiResponse(responseCode = "204", description = "Transferencia eliminada (o inexistente)")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {

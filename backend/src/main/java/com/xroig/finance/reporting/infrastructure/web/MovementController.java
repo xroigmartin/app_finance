@@ -3,6 +3,9 @@ package com.xroig.finance.reporting.infrastructure.web;
 import com.xroig.finance.reporting.application.MovementView;
 import com.xroig.finance.reporting.application.port.FindMovements;
 import com.xroig.finance.shared.domain.Page;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +22,7 @@ import java.time.LocalDate;
  */
 @RestController
 @RequestMapping("/api/movements")
+@Tag(name = "Movimientos (feed combinado)", description = "Listado paginado que combina transacciones y transferencias, para la pantalla de Movimientos.")
 public class MovementController {
 
     private final FindMovements findMovements;
@@ -27,6 +31,9 @@ public class MovementController {
         this.findMovements = findMovements;
     }
 
+    @Operation(summary = "Buscar movimientos (transacciones + transferencias)",
+            description = "from/to por defecto cubren todo el rango de fechas posible. categoryId no filtra transferencias (no tienen categoría).")
+    @ApiResponse(responseCode = "200", description = "Página de movimientos que cumplen el filtro")
     @GetMapping
     public Page<MovementView> find(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
