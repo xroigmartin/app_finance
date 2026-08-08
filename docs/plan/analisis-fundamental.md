@@ -50,7 +50,7 @@ Dependencias hacia otros contextos, ambas de **solo lectura y a través de puert
 
 ### `fiscal_year`
 
-Una fila por (`company_id`, `year`), **única**. Modelo **ancho**: una columna por partida canónica en lugar de clave-valor. El motor de cálculo depende exactamente de este conjunto, así que añadir una partida implica cambiar fórmulas de todos modos — la migración no es coste extra y a cambio hay tipado, validación y consultas legibles.
+Una fila por (`company_id`, `year`), **única**. Modelo **ancho**: una columna por partida en lugar de clave-valor. Las columnas de abajo son la **proyección física de la taxonomía de §3.1**, no su definición: el dominio habla de partidas, el adaptador las traduce a columnas mediante una tabla de correspondencia con test de guarda. Se elige ancho frente a `jsonb` porque el conjunto de partidas de una compañía no financiera es cerrado y estable, y a cambio hay tipado exacto (`numeric`, no coma flotante), restricciones y consultas legibles; el día que el esquema deba ser heterogéneo por sector, cambia el adaptador y no el dominio.
 
 Todas las columnas de importe son `numeric(19,4)` y **nullable** salvo `sales`. Un nulo se agrega como 0, pero se distingue de un 0 explícito para los avisos de calidad del dato.
 
@@ -116,9 +116,52 @@ Historial de importaciones, un registro por intento (también los que no cambiar
 
 ## 3. Componentes de dominio
 
-**Value objects**: `Ticker`, `Isin`, `Scale`, `BusinessType`, `FiscalYearNumber`, `Amount` (con el convenio de signos de RN-4 y su validación por naturaleza de partida), `Percentage`, `Multiple`, `ScenarioKind`.
+### 3.1 Taxonomía de partidas
 
-**Agregados**: `Company` (identidad, umbrales override, precio), `FinancialStatement` (un ejercicio con sus partidas e invariantes), `Scenario` (+ `ScenarioYear`), `ValuationSnapshot`.
+**El dominio no conoce 35 campos: conoce una taxonomía.** Las columnas de `fiscal_year` son la proyección física de esa taxonomía, no su definición. Es la única decisión de diseño tomada pensando en que este proyecto es la antesala de un producto mayor: cuando haya que cubrir bancos, aseguradoras y REITs, cada tipo de negocio traerá su propio juego de partidas, y con esta separación eso no toca ni el agregado ni el resto del contexto.
+
+**`LineItem`** — cada partida canónica, con sus metadatos:
+
+| Atributo | Para qué sirve |
+|---|---|
+| `code` | Identificador estable (`SALES`, `EBIT`, `CAPEX`…). Nunca se renombra ni se reutiliza (ver versionado). |
+| `statement` | `INCOME_STATEMENT` / `BALANCE_SHEET` / `CASH_FLOW` / `MARKET`. Agrupa la plantilla y la pantalla de datos. |
+| `signRule` | `POSITIVE` / `NEGATIVE` / `ANY`. Es donde vive, declarativamente, la validación de RN-4 (convenio de signos). |
+| `required` | Solo `SALES` lo es hoy (§12 del PRD). |
+| `label` | Etiqueta en español para la plantilla y la interfaz. |
+| `synonyms` | Etiquetas de fuentes externas que mapean a esta partida. Alimenta el ACL de importación. |
+
+Muestra de la taxonomía:
+
+| Código | Estado | Signo | Etiqueta |
+|---|---|---|---|
+| `SALES` | Resultados | `POSITIVE`, obligatoria | Ventas |
+| `EBIT` | Resultados | `ANY` | Resultado operativo |
+| `DEPRECIATION_AMORTIZATION` | Resultados | `NEGATIVE` | Amortización |
+| `DILUTED_SHARES` | Resultados | `POSITIVE` | Acciones diluidas |
+| `EQUITY` | Balance | `ANY` | Fondos propios |
+| `LONG_TERM_DEBT` | Balance | `POSITIVE` | Deuda a largo plazo |
+| `CAPEX` | Flujos | `NEGATIVE` | Inversión en inmovilizado |
+| `BUYBACKS` | Flujos | `NEGATIVE` | Recompra de acciones |
+| `MARKET_CAP` | Mercado | `POSITIVE` | Capitalización bursátil |
+
+**`StatementTaxonomy`** — el conjunto de partidas aplicable a un `BusinessType`. En v1 solo existe la de `NON_FINANCIAL`; añadir `FINANCIAL` o `REIT` (RN-19) es declarar otra taxonomía, no rehacer el modelo. Los cálculos sí seguirán siendo específicos por tipo de negocio — el ROIC de un banco no existe —, así que a cada taxonomía le corresponderá su propio juego de servicios de dominio.
+
+**Una sola fuente para cuatro consumidores.** Hoy la validación de signos, la plantilla en blanco, el mapeo del importador y las etiquetas de la interfaz serían cuatro listas paralelas que se desincronizan a la primera. Con la taxonomía las cuatro se derivan del mismo sitio y no pueden divergir.
+
+**Versionado.** Los códigos son estables: **nunca se renombran ni se reutilizan**, solo se marcan como obsoletos. El motivo es concreto: las instantáneas congelan su contenido como documento con los códigos dentro (RN-18), así que renombrar `SALES` rompería la lectura de una instantánea de hace dos años. La taxonomía lleva número de versión y cada instantánea registra bajo cuál se tomó.
+
+**`FinancialStatement`** deja de ser 35 campos con nombre y pasa a contener un `Map<LineItem, Amount>`, validado contra la taxonomía del tipo de negocio de la compañía. Para que los cálculos no se llenen de accesos por clave, el agregado expone accesores con nombre (`sales()`, `ebit()`, `capex()`…) que delegan en el mapa: el **contenedor** es genérico, el **código de cálculo** sigue siendo legible y tipado.
+
+**Proyección a columnas.** El mapper de persistencia traduce `Map<LineItem, Amount>` ↔ columnas mediante una única tabla de correspondencia código → columna, acompañada de un **test de guarda** que verifica que toda partida de la taxonomía tiene exactamente una columna y toda columna tiene exactamente una partida. Sin ese test, un modelo ancho de 35 columnas es un sitio fácil donde perder un dato en silencio.
+
+**Lo que compra de cara al producto definitivo**: si allí hace falta esquema heterogéneo por sector, el adaptador pasa de columnas a documento indexado por código y **el dominio no se entera**. La decisión de almacenamiento deja de ser estructural y se convierte en lo que debe ser: un detalle del adaptador.
+
+### 3.2 Resto del dominio
+
+**Value objects**: `Ticker`, `Isin`, `Scale`, `BusinessType`, `FiscalYearNumber`, `LineItem` + `StatementTaxonomy` (§3.1), `Amount` (convenio de signos de RN-4, validado contra el `signRule` de su partida), `Percentage`, `Multiple`, `ScenarioKind`.
+
+**Agregados**: `Company` (identidad, umbrales override, precio), `FinancialStatement` (un ejercicio como conjunto de partidas de su taxonomía, §3.1), `Scenario` (+ `ScenarioYear`), `ValuationSnapshot`.
 
 **Servicios de dominio** (puros, sin Spring, la mayor parte del valor del módulo y donde se concentra el TDD):
 
@@ -147,9 +190,9 @@ Debe absorber, como aquellos:
 - CSV y Excel (`.xls`/`.xlsx`), reutilizando Apache POI y commons-csv ya presentes.
 - Cabeceras insensibles a mayúsculas y acentos, con preámbulos antes de la fila de cabecera.
 - Separadores `,` y `;`; importes `1.234,56` y `1234.56`. **Comprobación explícita de separador decimal**: es el fallo más frecuente al pegar datos de una fuente extranjera (§12 del PRD).
-- Años en columnas, partidas en filas, con etiquetas de la fuente externa mapeadas a las partidas canónicas mediante una tabla de sinónimos.
+- Años en columnas, partidas en filas, con las etiquetas de la fuente externa resueltas contra los `synonyms` de la taxonomía (§3.1).
 
-La **plantilla en blanco** (RF-2) se genera desde la misma tabla canónica que consume el parser, para que no puedan divergir.
+La **plantilla en blanco** (RF-2) se genera recorriendo la misma taxonomía, agrupando por `statement` y usando `label` como encabezado de fila. Plantilla, parser, validación de signos y etiquetas de la interfaz salen todos de la misma fuente y no pueden divergir.
 
 **Cálculo del diff** (RF-4): antes de escribir, el caso de uso compara el ejercicio entrante con el persistido partida a partida y produce la lista de cambios que se guarda en `financials_import.changes` y se devuelve en la respuesta.
 
@@ -201,11 +244,12 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): ciclos red-green-refactor,
 |---|---|---|
 | H1.1 | Value objects del contexto, incluido `Amount` con validación de signo por naturaleza de partida (RN-4) | Unitarios de dominio |
 | H1.2 | Agregado `Company` (identidad, umbrales override, tipo de negocio) | Unitarios de dominio |
-| H1.3 | Agregado `FinancialStatement`: partidas, invariantes de signo, ventas obligatorias | Unitarios de dominio |
+| H1.3 | **Taxonomía de partidas** (§3.1): `LineItem` con sus metadatos y `StatementTaxonomy` de `NON_FINANCIAL` | Unitarios de dominio (completitud de la taxonomía, unicidad de códigos) |
+| H1.3b | Agregado `FinancialStatement` sobre la taxonomía: partidas, validación de signo contra `signRule`, ventas obligatorias, accesores con nombre | Unitarios de dominio |
 | H1.4 | Puertos de salida + `CompanyService` (CRUD, guarda de borrado RN-21) | Aplicación con puertos mockeados |
-| H1.5 | Migración `V9__fundamentals.sql` + entidades/mappers/adaptadores JPA | `@DataJpaTest` (Testcontainers) |
+| H1.5 | Migración `V9__fundamentals.sql` + entidades/mappers/adaptadores JPA, con la tabla de correspondencia partida ↔ columna | `@DataJpaTest` (Testcontainers) + **test de guarda** de la correspondencia en ambos sentidos |
 | H1.6 | Web: `CompanyController` + DTOs; el contexto entra en ArchUnit | `@WebMvcTest` + `ArchitectureTest` |
-| H1.7 | Tabla canónica de partidas, generación de la plantilla en blanco y `FinancialsFileParser` (ACL) | Unitarios del parser con fixtures reales |
+| H1.7 | Generación de la plantilla en blanco desde la taxonomía y `FinancialsFileParser` (ACL) resolviendo etiquetas por `synonyms` | Unitarios del parser con fixtures reales |
 | H1.8 | Caso de uso `ImportFinancials` con cálculo de diff y persistencia del historial; endpoint multipart | Aplicación mockeada + `@WebMvcTest` |
 
 ### F2 — Motor de diagnóstico
@@ -269,7 +313,8 @@ Desarrollo con **TDD obligatorio** (ver `CLAUDE.md`): ciclos red-green-refactor,
 |---|---|---|
 | Formato de la fuente externa | El ACL se escribirá contra el volcado de la fuente que el usuario use hoy; ese formato puede cambiar sin aviso | Mitigado por la plantilla canónica, que es la frontera estable: un cambio de la fuente solo afecta al parser |
 | Proveedor de precios no oficial | Se hereda el endpoint de Yahoo Finance de `investments`, sin SLA | Ninguna acción propia: el aislamiento por puerto permite sustituirlo, y el override manual de precio es la mitigación desde el primer día |
-| Modelo ancho de `fiscal_year` | ~35 columnas; cada partida nueva es una migración | Asumido conscientemente: el motor de cálculo depende de un conjunto cerrado de partidas y añadir una implica cambiar fórmulas de todos modos |
+| Modelo ancho de `fiscal_year` | ~35 columnas; cada partida nueva es una migración | Asumido conscientemente: el conjunto de partidas de una compañía no financiera es cerrado, y añadir una implica cambiar fórmulas de todos modos. El coste de revertir la decisión está acotado por la taxonomía (§3.1): pasar a documento es cambiar el mapper |
+| Esquema heterogéneo por sector | Bancos, aseguradoras y REITs no comparten partidas con las compañías industriales (RN-19). Es el problema real del producto definitivo, y es de **esquema**, no de volumen — lo relacional aguanta de sobra el tamaño del universo cotizado | Preparado, no resuelto: la taxonomía por `BusinessType` (§3.1) es el punto de extensión. Cada tipo de negocio traerá su taxonomía y su juego de servicios de cálculo |
 | Divisa de cotización distinta de la de reporte | Caso de peniques/libras ya resuelto en `investments` | Se reutiliza la normalización existente; cualquier otra divisa no equivalente se descarta y se pide precio manual (RN-5) |
 
 ---
