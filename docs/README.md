@@ -23,7 +23,7 @@ Antes de explorar el código de un dominio, **lee primero su PRD**: es la fuente
 | Importación de extractos | [[prd/importacion\|prd/importacion.md]] | `imports/` | `components/import-dialog.ts` (usado desde `pages/transactions/`, `pages/transfers/`) | ✅ Implementado |
 | Reglas de categorización | [[prd/reglas-categorizacion\|prd/reglas-categorizacion.md]] | `categorization/` | `pages/categories/` | ✅ Implementado |
 | Inversiones | [[prd/inversiones\|prd/inversiones.md]] | `investments/` | `pages/investments-dashboard/`, `pages/investments-operations/`, `pages/investments-positions/`, `components/flex-import-dialog.ts`, `components/investment-toolbar.ts`, `components/investment-transaction-dialog.ts` | ✅ Implementado (F1–F3: import Flex, posiciones/valoración multidivisa, rentas, alta manual y rentabilidad TWR/XIRR con UI; F4 automatización en backlog) |
-| Análisis fundamental | [[prd/analisis-fundamental\|prd/analisis-fundamental.md]] | `fundamentals/` | `pages/analysis-watchlist/`, `pages/analysis-company/` | 📐 Diseño — PRD acordado, sin implementar |
+| Análisis fundamental | [[prd/analisis-fundamental\|prd/analisis-fundamental.md]] | `fundamentals/` | `pages/analysis-watchlist/`, `pages/analysis-company/` | 📐 Diseño — PRD acordado, sin implementar. **Piloto del nuevo formato de PRD** (solo funcional + glosario + diagramas; lo técnico en [[plan/analisis-fundamental]]) |
 | Observabilidad (logging) | [[prd/observabilidad\|prd/observabilidad.md]] | `shared/infrastructure/logging` (transversal, usado desde cualquier contexto) | — | 🚧 En curso — transversal, no es un dominio funcional |
 
 ## Roadmap
@@ -44,6 +44,7 @@ Documentos de seguimiento (no son fuente de verdad funcional — eso son los PRD
 | [[plan/posiciones-cerradas]] | Plan de implementación — posiciones cerradas / P&L realizado |
 | [[plan/precios]] | Plan de implementación — API externa de cotizaciones |
 | [[plan/recurrencias-presupuestos]] | Plan de implementación — recurrencias de presupuesto |
+| [[plan/analisis-fundamental]] | Diseño técnico — análisis fundamental (modelo físico, API y fases; el funcional está en [[prd/analisis-fundamental]]) |
 
 ## Sistema de diseño (frontend)
 
