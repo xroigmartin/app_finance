@@ -23,6 +23,7 @@ Antes de explorar el código de un dominio, **lee primero su PRD**: es la fuente
 | Importación de extractos | [[prd/importacion\|prd/importacion.md]] | `imports/` | `components/import-dialog.ts` (usado desde `pages/transactions/`, `pages/transfers/`) | ✅ Implementado |
 | Reglas de categorización | [[prd/reglas-categorizacion\|prd/reglas-categorizacion.md]] | `categorization/` | `pages/categories/` | ✅ Implementado |
 | Inversiones | [[prd/inversiones\|prd/inversiones.md]] | `investments/` | `pages/investments-dashboard/`, `pages/investments-operations/`, `pages/investments-positions/`, `components/flex-import-dialog.ts`, `components/investment-toolbar.ts`, `components/investment-transaction-dialog.ts` | ✅ Implementado (F1–F3: import Flex, posiciones/valoración multidivisa, rentas, alta manual y rentabilidad TWR/XIRR con UI; F4 automatización en backlog) |
+| Análisis fundamental | [[prd/analisis-fundamental\|prd/analisis-fundamental.md]] | `fundamentals/` | `pages/analysis-watchlist/`, `pages/analysis-company/` | 📐 Diseño — PRD acordado, sin implementar |
 | Observabilidad (logging) | [[prd/observabilidad\|prd/observabilidad.md]] | `shared/infrastructure/logging` (transversal, usado desde cualquier contexto) | — | 🚧 En curso — transversal, no es un dominio funcional |
 
 ## Roadmap

@@ -32,6 +32,12 @@ Documento detallado con dependencias y esfuerzo estimado: **`docs/investment/mej
 
 **Recomendación**: empezar por P1.1 (API de cotizaciones) — es la que más desbloquea a la vez sin depender de nada previo.
 
+## Análisis fundamental (nuevo dominio, en diseño)
+
+PRD acordado y sin implementar: [[prd/analisis-fundamental]]. Analiza compañías cotizadas (se tengan o no en cartera) y estima su valor intrínseco por múltiplos de salida sobre una proyección a 5 años, en tres escenarios, con margen de seguridad y precio máximo de compra. Implementación por fases F1→F7 en el §12 del PRD; el orden natural de arranque es F1 (compañías + plantilla canónica + import), que no depende de nada existente.
+
+Fuera de alcance en v1 y ya documentado como deuda técnica: compañías financieras y REITs (requieren otro modelo de valoración). En el backlog del PRD: DCF y DCF inverso, EPV/Graham, tabla de sensibilidad, carga automática desde SEC/API y comparativa entre compañías.
+
 ## Resto de dominios
 
 Listado condensado; el detalle vive en el §10 de cada PRD.
