@@ -7,6 +7,16 @@ Aplicación de gestión de finanzas personales con dashboard, movimientos, cuent
 
 ## Arranque
 
+### Todo en Docker (producción, p. ej. una Raspberry Pi, siempre activa)
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Construye las imágenes del backend y el frontend y levanta el stack completo: nginx sirve la app en <http://localhost> (puerto 80, configurable con `FINANCE_FRONTEND_PORT`) y hace proxy de `/api` al backend. Los tres contenedores llevan `restart: unless-stopped`, así que se reinician solos si caen y se levantan al arrancar la máquina (si el demonio Docker está habilitado). Detalles en [docs/despliegue-docker.md](docs/despliegue-docker.md).
+
+### Desarrollo (servicios en local)
+
 Base de datos (PostgreSQL 17 en Docker, puerto 5432):
 
 ```bash

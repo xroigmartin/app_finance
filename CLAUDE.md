@@ -52,6 +52,12 @@ cd frontend && npx ng serve           # UI on :4200, proxies /api to :8080 (prox
 
 Ports are overridable via `FINANCE_DB_PORT`/`FINANCE_BACKEND_PORT`/`FINANCE_FRONTEND_PORT` (read by `docker-compose.yml`, `application.properties` and `proxy.conf.js`), so a second full stack can run alongside the default one — e.g. one per git worktree when developing independent features in parallel. `app.sh` auto-loads a `.env` file in the project root if present (gitignored, one per worktree) instead of requiring the vars to be exported by hand; unset, everything defaults to the classic `:5432`/`:8080`/`:4200`.
 
+Production deployment (e.g. a Raspberry Pi, see `docs/despliegue-docker.md`) uses `docker-compose.prod.yml` instead of `./app.sh`/local `mvn`/`ng` processes: multi-stage images (`backend/Dockerfile`, `frontend/Dockerfile` + `frontend/nginx.conf`, nginx serving the Angular build and proxying `/api` to the backend, whose port is not published to the host) for db/backend/frontend, all with `restart: unless-stopped`. The backend healthcheck hits `/actuator/health` (actuator only exposes `health`).
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build   # build images + run db/backend/frontend; UI on :80
+```
+
 - Backend tests: `cd backend && mvn test` (single test: `mvn test -Dtest=ClassName#method`). The suite (domain unit tests, application-service tests with mocked ports, `@DataJpaTest` persistence-adapter tests on real PostgreSQL via Testcontainers, `@WebMvcTest` contract tests, and an ArchUnit boundary test) is the migration's safety net; keep it green and coverage ≥ 99 %.
 - Frontend requires **Node.js ≥ 24.15.0** (Angular 22's CLI hard-refuses to run on anything older, e.g. plain `24.0.x`); `nvm use 24.18.0` if the shell's default Node doesn't satisfy that.
 - Frontend unit tests: `cd frontend && npm test` (Vitest via the `@angular/build:unit-test` runner — still `[EXPERIMENTAL]` per Angular's own tooling, watch mode by default, `-- --watch=false` for a single run). Coverage gate is native (`coverageThresholds` in `angular.json`, not a custom script): 85 % statements/branches/functions/lines; keep it green — currently well above floor at 96/87/93/98 %.
