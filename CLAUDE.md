@@ -12,7 +12,14 @@ Personal finance app ("Mis Finanzas"): Spring Boot 4 (Java 25) backend + Angular
 
 **Rule: read the PRD before exploring the code.** `docs/README.md` has a domain table (PRD ↔ backend package ↔ frontend page). Before grepping/reading source to understand a domain's behavior, read its PRD first — it's the source of truth for business rules, so the code only needs to be explored to locate the exact implementation, not to re-derive rules already documented. `docs/` is also an Obsidian vault (`[[wikilink]]`s between related PRDs, frontmatter with `dominio`/`estado`/`tags`) for browsing the docs as a knowledge graph.
 
-Per-domain PRDs live in `docs/prd/` (index and template in `docs/README.md`), written in Spanish. A change "affects a domain" when it touches its data model, business rules, API endpoints, or UI. Concretely: when you finish a code change, identify which domain(s) under `docs/prd/` it touches, and edit the matching PRD(s) — bump "Última actualización", and adjust the relevant sections (model, rules, API, UI, validations). If no PRD exists for the affected domain, create one following the existing template.
+Per-domain docs live in `docs/`, written in Spanish, and are **split in two files** (full standard in `docs/README.md` → "Estructura de la documentación de un dominio"):
+
+- `docs/prd/<dominio>.md` — **functional only**: problem, use cases, goals/non-goals, glossary, conceptual model, functional requirements, business rules (formulas included — a financial formula is a business rule), user experience, validations, edge cases, backlog, decisions. Readable by someone who does not know the code. **Never** contains tables, column types, SQL, migrations, HTTP routes, package/class names or test frameworks. Litmus test: if a sentence stops being true when the module is rewritten in another language or another database, it is not functional.
+- `docs/plan/<dominio>.md` — **technical design**: bounded context and architecture, physical model, domain components, integrations, API, frontend, phased implementation plan (one milestone = one commit), technical debt.
+
+A change "affects a domain" when it touches its business rules, requirements, validations or UX (→ PRD), or its physical model, architecture, API or plan (→ design doc). A change may touch only one of the two. When you finish a code change, identify the affected domain(s), edit the matching file(s) and bump "Última actualización". If the domain has no documentation yet, create both files following the standard.
+
+Reference for the current format: `docs/prd/analisis-fundamental.md` + `docs/plan/analisis-fundamental.md`. PRDs written before this standard mix functional and technical content in one file; migrate one only when you have to touch it for another reason, never as a bulk pass. Diagrams use Mermaid (Obsidian renders it natively) only where they beat a paragraph.
 
 ## Development methodology — TDD (mandatory, backend and frontend)
 
